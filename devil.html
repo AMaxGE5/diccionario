@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>level devil</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Nav derecho -->
+  <nav class="nav-right">
+    <a href="index.html" class="chip">Inicio</a>
+    <a href="menu.html" class="chip">Menú</a>
+    <a href="lista.html" class="chip">Lista de deseos</a>
+    <a href="faq.html" class="chip">FAQ</a>
+  </nav>
+
+
+  <!-- Contenido centrado -->
+  <div class="center-wrap">
+    <div class="center-card">
+      <div>
+        <h2 class="title-glow">level devil <span class="badge">Nuevo</span></h2>
+        <p>Haz clic en el botón para jugar .</p>
+        <button class="btn-primary" onclick="abrirJuego()">▶ Jugar ahora</button>
+        <p class="note-muted">seguir las intrucciones del menu para este juego</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Botón engrane -->
+  <button id="gear" class="gear" aria-label="Notas">⚙️</button>
+
+  <!-- Notas desplegables -->
+  <section id="sheet" class="sheet" aria-hidden="true">
+    <div class="head">
+      <h3 class="m0">Notas de level devil</h3>
+      <button id="close-sheet" class="btn-ghost">Cerrar</button>
+    </div>
+    <div class="body">
+      <article class="card">
+        <h4 class="h4-tight">Info rápida</h4>
+        <p class="small">nose</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- Script solo para esta página -->
+  <script>
+    function abrirJuego() {
+      const win = window.open("about:blank", "_blank");
+      const iframe = win.document.createElement("iframe");
+      iframe.src = "https://kdata1.com/5000/2024/level2/";
+      iframe.style.border = "none";
+      iframe.style.width = "100%";
+      iframe.style.height = "100%";
+      win.document.body.style.margin = 0;
+      win.document.body.appendChild(iframe);
+    }
+
+    // Menú lateral
+    function toggleMenu() {
+      document.getElementById("sideMenu").classList.toggle("open");
+    }
+
+    // Sheet (notas)
+    const gear = document.getElementById("gear");
+    const sheet = document.getElementById("sheet");
+    const closeSheet = document.getElementById("close-sheet");
+
+    gear.addEventListener("click", () => sheet.classList.add("open"));
+    closeSheet.addEventListener("click", () => sheet.classList.remove("open"));
+  </script>
+</body>
+</html>

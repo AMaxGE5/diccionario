@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>diccionario de ingles</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Nav derecha -->
+  <nav class="nav-right">
+    <a href="index.html" class="chip">Inicio</a>
+    <a href="menu.html" class="chip" title="Ir al menú de juegos">Juegos</a>
+    <a href="lista.html" class="chip">Lista de deseos</a>
+
+  </nav>
+
+  <div class="container">
+    <section class="hero">
+      <h1>diccionario de ingles <span class="badge">versión 1.05</span></h1>
+      
+      <!-- Cómo usar -->
+       <div class="section card">
+        <h2 class="h2-tight">Cómo usar</h2>
+        <p>Para abrir los juegos de FNF y algunos otros es necesario seguir las instrucciones de este documento:</p>
+        <p class="small">
+          <a href="https://docs.google.com/document/d/1m4w-v6Mpfk6gK_gjDKntDBFuJbJ_ZaRP_ZR6bK7cyaI/edit?tab=t.0" target="_blank">Ver instrucciones</a>
+        </p>
+      </div>
+
+
+      <!-- Juegos disponibles -->
+      <div class="section card">
+        <h2 class="h2-tight">Juegos disponibles</h2>
+        <ul class="list">
+          <li>Friday Night Funkin - Corruption</li>
+          <li>Friday Night Funkin - Matt</li>
+          <li>Friday Night Funkin - Shaggy</li>
+          <li>Friday Night Funkin - Tabi</li>
+          <li>Friday Night Funkin - Peppa (Corrupted)</li>
+          <li>A.R.B.S</li>
+          <li>Deer Simulator</li>
+          <li>Level Devil</li>
+          <li>Angry Birds</li>
+          <li>Metal Slug 1</li>
+          <li>PvZ1</li>
+          <li>Crash Bandicoot (PS1)</li>
+        </ul>
+
+        <!-- Botón al menú -->
+
+      </div>
+
+      <!-- Instrucciones especiales -->
+      <div class="section card">
+        <h2 class="h2-tight">Instrucciones especiales</h2>
+        <p class="small">Iré agregando progresivamente más mods. Próximamente habrá zona de sugerencias y preguntas frecuentes.</p>
+        <p class="small">Usa esta página con permiso y de forma responsable.</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- Botón engrane y panel de notas -->
+  <button id="gear" class="gear" aria-label="notas">⚙️</button>
+  <section id="sheet" class="sheet" aria-hidden="true" role="dialog" aria-labelledby="sheet-title">
+    <div class="head">
+      <h3 id="sheet-title" class="m0">Notas de actualización</h3>
+      <button id="close-sheet" class="btn-ghost">cerrar</button>
+    </div>
+    <div class="body">
+      <article class="card mbs">
+        <h4 class="h4-tight">Cambios recientes</h4>
+        <ul class="list">
+          <li>Se eliminó <em>rainbow friends</em>; en un futuro podría volver.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h4 class="h4-tight">Próximas versiones</h4>
+        <p class="small">La actualización 1.15 está prevista para la próxima semana. </p>
+      </article>
+    </div>
+  </section>
+
+  <script src="script.js"></script>
+</body>
+</html>
