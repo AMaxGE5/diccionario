@@ -2,89 +2,24 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Crash Bandicoot - PS1</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Crash Bandicoot - PSX</title>
   <style>
-    /* Ajuste solo para este juego */
-    .game-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      width: 100%;
-      margin: 20px auto;
-    }
-
-    .game-container #game {
-      width: 800px;   /* ancho fijo */
-      height: 600px;  /* alto fijo */
-      border: 4px solid #222;
-      border-radius: 12px;
-      box-shadow: 0 0 25px rgba(0,0,0,0.5);
-      background: #000; /* fondo negro mientras carga */
-    }
+    body { background: #111; color: #0f0; text-align: center; }
+    #game { width: 800px; height: 600px; margin: 20px auto; border: 3px solid #0f0; }
   </style>
 </head>
 <body>
-  <!-- Nav derecho -->
-  <nav class="nav-right">
-    <a href="index.html" class="chip">Inicio</a>
-    <a href="menu.html" class="chip">Menú</a>
-    <a href="lista.html" class="chip">Lista de deseos</a>
-    <a href="faq.html" class="chip">FAQ</a>
-  </nav>
+  <h1>Crash Bandicoot (PSX)</h1>
+  <div id="game"></div>
 
-  <!-- Contenido centrado -->
-  <div class="center-wrap">
-    <div class="center-card">
-      <h2 class="title-glow">Crash Bandicoot <span class="badge">PS1</span></h2>
-
-      <!-- Aquí el juego bien centrado -->
-      <div class="game-container">
-        <div id="game"></div>
-      </div>
-
-      <p class="note-muted">Espera a que cargue el emulador. Puedes activar pantalla completa con el botón en la esquina inferior derecha del emulador.</p>
-    </div>
-  </div>
-
-  <!-- Botón engrane -->
-  <button id="gear" class="gear" aria-label="Notas">⚙️</button>
-
-  <!-- Notas desplegables -->
-  <section id="sheet" class="sheet" aria-hidden="true">
-    <div class="head">
-      <h3 class="m0">Notas de Crash Bandicoot</h3>
-      <button id="close-sheet" class="btn-ghost">Cerrar</button>
-    </div>
-    <div class="body">
-      <article class="card">
-        <h4 class="h4-tight">Info rápida</h4>
-        <p class="small">Crash Bandicoot versión de PlayStation 1. Se requiere BIOS para iniciar, ya está configurado.</p>
-      </article>
-    </div>
-  </section>
-
-  <!-- Configuración EmulatorJS -->
   <script>
+    // Configuración EmulatorJS
     EJS_player = "#game";
-    EJS_core = "psx"; // emulador de PlayStation 1
+    EJS_core = "psx";  // PlayStation 1
     EJS_gameName = "Crash Bandicoot";
-    EJS_color = "#FF4500"; // color temático
-    EJS_pathtodata = "https://cdn.emulatorjs.org/stable/data/";
-    EJS_gameUrl = "CrashBandicoot.bin"; // el ROM del juego
-    EJS_biosUrl = "scph1001.bin"; // BIOS de PS1 (ya en tu carpeta)
+    EJS_biosUrl = "scph1001.bin";       // BIOS en tu raíz
+    EJS_gameUrl = "CrashBandicoot.bin"; // Juego en tu raíz
   </script>
-  <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
-
-  <!-- Script solo para esta página -->
-  <script>
-    // Sheet (notas)
-    const gear = document.getElementById("gear");
-    const sheet = document.getElementById("sheet");
-    const closeSheet = document.getElementById("close-sheet");
-
-    gear.addEventListener("click", () => sheet.classList.add("open"));
-    closeSheet.addEventListener("click", () => sheet.classList.remove("open"));
-  </script>
+  <script src="https://cdn.emulatorjs.org/latest/emulator.min.js"></script>
 </body>
 </html>
