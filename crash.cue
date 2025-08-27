@@ -1,4 +1,4 @@
-FILE "Crash Bandicoot Collection.bin" BINARY
+FILE "crash.bin" BINARY
 REM SESSION 01
     TRACK 01 MODE2/2352
       INDEX 01 00:00:00
@@ -6,3 +6,4 @@ REM SESSION 01
 REM SESSION 02
     TRACK 02 MODE2/2352
       INDEX 01 62:07:66
+
