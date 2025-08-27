@@ -1,88 +1,163 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Crash Bandicoot - PS1</title>
+  <meta charset="utf-8" />
+  <title>Crash Bandicoot - PS1 (debug)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    body {
-      background-color: #121212;
-      color: #00ff99;
-      font-family: Arial, sans-serif;
-      text-align: center;
-    }
-    h1 {
-      margin-top: 20px;
-    }
+    :root { --accent: #00ff99; --bg: #121212; --muted: #9aa; }
+    body { background: var(--bg); color: var(--accent); font-family: Inter, Arial, sans-serif; margin: 0; }
+    header { text-align:center; padding: 18px 10px 6px; }
+    h1 { margin:0 0 8px; font-size: 26px; }
+    .center { width: 96%; max-width: 1100px; margin: 0 auto 40px; }
     #game {
-      width: 80%;
-      height: 600px;
-      margin: 30px auto;
-      border: 3px solid #00ff99;
+      width: 100%;
+      height: 640px;
+      border: 3px solid var(--accent);
       border-radius: 10px;
+      background: #000;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #999;
     }
+    #status { position: absolute; top: 12px; left: 12px; right: 12px; text-align:left; color: var(--muted); font-size: 14px; }
+    pre.info { background: #0b0b0b; color: #eee; padding: 10px; border-radius: 8px; margin: 12px; overflow:auto; font-size:13px; }
+    a.inline { color: var(--accent); text-decoration: none; border-bottom: 1px dashed rgba(0,255,153,.15); }
+    .error { color: tomato; }
+    footer { text-align:center; color: #7d9; font-size:13px; padding-bottom:20px; }
   </style>
 </head>
 <body>
-  <h1>Crash Bandicoot (PS1)</h1>
-  <div id="game"></div>
+  <header>
+    <h1>Crash Bandicoot (PS1)</h1>
+    <div style="color:var(--muted);">Comprobador automático + carga de EmulatorJS</div>
+  </header>
+
+  <main class="center">
+    <div id="game">
+      <div id="status">Iniciando comprobaciones...</div>
+    </div>
+
+    <div id="debug"></div>
+  </main>
+
+  <footer>
+    Si sale error de red: abre DevTools → pestaña <strong>Network</strong> y mira la URL del .bin/.bin BIOS.
+  </footer>
 
   <script>
-    // Configuración del emulador
-    EJS_player = "#game";
-    EJS_core = "psx";
-    EJS_gameName = "Crash Bandicoot";
-    EJS_color = "#00ff99";
-    EJS_pathtodata = "https://cdn.emulatorjs.org/stable/data/"; 
+  (function () {
+    // --- CONFIGURA AQUÍ los nombres exactos de tus archivos ---
+    const gameFile = "CrashBandicoot.bin";   // ajusta si lo renombraste
+    const biosFile = "scph1001.bin";         // ajusta si lo renombraste
+    // --------------------------------------------------------
 
-    // Ajusta la ruta según tu carpeta real
-    EJS_gameUrl = "<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <title>Crash Bandicoot - PS1</title>
-  <style>
-    body {
-      background-color: #121212;
-      color: #00ff99;
-      font-family: Arial, sans-serif;
-      text-align: center;
-    }
-    h1 {
-      margin-top: 20px;
-    }
-    #game {
-      width: 80%;
-      height: 600px;
-      margin: 30px auto;
-      border: 3px solid #00ff99;
-      border-radius: 10px;
-    }
-  </style>
-</head>
-<body>
-  <h1>Crash Bandicoot (PS1)</h1>
-  <div id="game"></div>
+    const loaderSrc = "https://cdn.emulatorjs.org/stable/data/loader.js";
+    const pathtodata = "https://cdn.emulatorjs.org/stable/data/";
 
-  <script>
-    // Configuración del emulador
-    EJS_player = "#game";
-    EJS_core = "psx";
-    EJS_gameName = "Crash Bandicoot";
-    EJS_color = "#00ff99";
-    EJS_pathtodata = "https://cdn.emulatorjs.org/stable/data/"; 
+    const statusEl = document.getElementById('status');
+    const debugEl = document.getElementById('debug');
+    const gameEl = document.getElementById('game');
 
-    // Ajusta la ruta según tu carpeta real
-    EJS_gameUrl = "CrashBandicoot.bin"; 
-    EJS_biosUrl = "scph1001.bin";       
+    function setStatus(txt, isError = false) {
+      statusEl.textContent = txt;
+      statusEl.classList.toggle('error', !!isError);
+      console.log('[EJS-Debug]', txt);
+    }
+
+    function showInfo(text) {
+      const pre = document.createElement('pre');
+      pre.className = 'info';
+      pre.textContent = text;
+      debugEl.appendChild(pre);
+    }
+
+    // Comprueba si estamos abriendo via file:// (no funcionará)
+    if (location.protocol === 'file:') {
+      setStatus('No cargado: estás abriendo el HTML desde file:// — usa un servidor local (Live Server / python -m http.server).', true);
+      showInfo('Sugerencia rápida:\n- En VSCode instala Live Server y "Open with Live Server".\n- O en la carpeta: python -m http.server 5500\nLuego accede a http://localhost:5500/');
+      return;
+    }
+
+    // construye URLs absolutas basadas en la ubicación del HTML
+    const base = new URL('.', location.href).href;
+    const gameUrl = new URL(gameFile, base).href;
+    const biosUrl = new URL(biosFile, base).href;
+
+    showInfo('Rutas construidas a comprobar:\n' + 'Juego => ' + gameUrl + '\nBIOS => ' + biosUrl + '\n\nComprobando accesibilidad vía HTTP...');
+
+    // intenta HEAD, si falla prueba GET con rango corto
+    async function urlExists(url) {
+      try {
+        let r = await fetch(url, { method: 'HEAD' });
+        if (r.ok) return true;
+      } catch (e) {
+        // HEAD puede estar bloqueado por algunos hosts; probamos a solicitar 1 byte
+      }
+      try {
+        let r2 = await fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' } });
+        return r2.ok;
+      } catch (e) {
+        console.error('fetch error for', url, e);
+        return false;
+      }
+    }
+
+    (async function checkAndLoad() {
+      setStatus('Comprobando archivo del juego...');
+      const gameOk = await urlExists(gameUrl);
+      setStatus('Comprobando BIOS...');
+      const biosOk = await urlExists(biosUrl);
+
+      if (!gameOk || !biosOk) {
+        setStatus('ERROR: Archivo no accesible. Revisa rutas/nombres y CORS.', true);
+        let msg = 'Comprobación fallida:\n';
+        msg += `- Juego accesible (${gameFile}): ${gameOk}\n`;
+        msg += `- BIOS accesible (${biosFile}): ${biosOk}\n\n`;
+        msg += 'Posibles causas:\n';
+        msg += '- El nombre no coincide exactamente (mayúsculas/minúsculas).\n';
+        msg += '- Los archivos no están en la misma carpeta que este HTML.\n';
+        msg += '- Estás abriendo via file:// en lugar de HTTP.\n';
+        msg += '- Si los sirves desde otro dominio (ej. raw.githubusercontent.com), la respuesta puede bloquearse por CORS.\n\n';
+        msg += 'URLs verificadas:\n' + 'Juego: ' + gameUrl + '\nBIOS: ' + biosUrl + '\n';
+        showInfo(msg);
+        // agrega enlaces de prueba para abrir en otra pestaña
+        const linkArea = document.createElement('div');
+        linkArea.style.margin = '10px';
+        linkArea.innerHTML = `<div style="color:var(--muted)">Prueba abrir estas URL en otra pestaña (deben descargar/mostrar un pequeño archivo):</div>
+          <div><a class="inline" target="_blank" href="${gameUrl}">Abrir juego</a>  —  <a class="inline" target="_blank" href="${biosUrl}">Abrir BIOS</a></div>`;
+        debugEl.appendChild(linkArea);
+        return;
+      }
+
+      // Todo OK: inyectamos variables y cargamos loader.js
+      setStatus('Archivos OK — cargando emulator loader...');
+      window.EJS_player = "#game";
+      window.EJS_core = "psx";
+      window.EJS_gameName = "Crash Bandicoot";
+      window.EJS_color = "#00ff99";
+      window.EJS_pathtodata = pathtodata;
+      // usar URLs absolutas evita problemas de resolución
+      window.EJS_gameUrl = gameUrl;
+      window.EJS_biosUrl = biosUrl;
+
+      // inyectar script del loader
+      const s = document.createElement('script');
+      s.src = loaderSrc;
+      s.onload = () => {
+        setStatus('loader.js cargado. Si aparece un menú dentro del contenedor, selecciona "Load Content" o espera unos segundos; luego el juego debería arrancar.');
+        console.log('[EJS-Debug] loader.js onload');
+      };
+      s.onerror = (e) => {
+        setStatus('ERROR cargando loader.js desde CDN.', true);
+        showInfo('Error cargando: ' + loaderSrc + '\nRevisa que tengas conexión y que no bloquee tu red el CDN.');
+        console.error(e);
+      };
+      document.body.appendChild(s);
+    })();
+  })();
   </script>
-
-  <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
-</body>
-</html>
-"; 
-    EJS_biosUrl = "scph1001.bin";       
-  </script>
-
-  <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
 </body>
 </html>
