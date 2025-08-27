@@ -28,18 +28,61 @@
 
   <script>
     // Configuración del emulador
-    EJS_player = "#game";   // div donde se carga el emulador
-    EJS_core = "psx";       // consola PS1
+    EJS_player = "#game";
+    EJS_core = "psx";
     EJS_gameName = "Crash Bandicoot";
     EJS_color = "#00ff99";
     EJS_pathtodata = "https://cdn.emulatorjs.org/stable/data/"; 
 
-    // Archivos locales
-    EJS_gameUrl = "CrashBandicoot.bin"; // tu juego
-    EJS_biosUrl = "scph1001.bin";       // BIOS PS1
+    // Ajusta la ruta según tu carpeta real
+    EJS_gameUrl = "<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Crash Bandicoot - PS1</title>
+  <style>
+    body {
+      background-color: #121212;
+      color: #00ff99;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+    h1 {
+      margin-top: 20px;
+    }
+    #game {
+      width: 80%;
+      height: 600px;
+      margin: 30px auto;
+      border: 3px solid #00ff99;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Crash Bandicoot (PS1)</h1>
+  <div id="game"></div>
+
+  <script>
+    // Configuración del emulador
+    EJS_player = "#game";
+    EJS_core = "psx";
+    EJS_gameName = "Crash Bandicoot";
+    EJS_color = "#00ff99";
+    EJS_pathtodata = "https://cdn.emulatorjs.org/stable/data/"; 
+
+    // Ajusta la ruta según tu carpeta real
+    EJS_gameUrl = "CrashBandicoot.bin"; 
+    EJS_biosUrl = "scph1001.bin";       
   </script>
 
-  <!-- Script de carga -->
+  <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
+</body>
+</html>
+"; 
+    EJS_biosUrl = "scph1001.bin";       
+  </script>
+
   <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
 </body>
 </html>
