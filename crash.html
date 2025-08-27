@@ -2,24 +2,40 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Crash Bandicoot - PSX</title>
+  <title>Crash Bandicoot - PS1</title>
   <style>
-    body { background: #111; color: #0f0; text-align: center; }
-    #game { width: 800px; height: 600px; margin: 20px auto; border: 3px solid #0f0; }
+    body {
+      background-color: #121212;
+      color: #00ff99;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+    h1 {
+      margin-top: 20px;
+    }
+    #game {
+      width: 80%;
+      height: 600px;
+      margin: 30px auto;
+      border: 3px solid #00ff99;
+      border-radius: 10px;
+    }
   </style>
 </head>
 <body>
-  <h1>Crash Bandicoot (PSX)</h1>
+  <h1>Crash Bandicoot (PS1)</h1>
   <div id="game"></div>
 
   <script>
-    // Configuración EmulatorJS
-    EJS_player = "#game";
-    EJS_core = "psx";  // PlayStation 1
-    EJS_gameName = "Crash Bandicoot";
-    EJS_biosUrl = "scph1001.bin";       // BIOS en tu raíz
-    EJS_gameUrl = "CrashBandicoot.bin"; // Juego en tu raíz
+    // Configuración del emulador
+    EJS_player = "#game";   // div donde se carga el emulador
+    EJS_core = "psx";       // consola PS1
+    EJS_gameUrl = "CrashBandicoot.bin"; // tu juego
+    EJS_biosUrl = "scph1001.bin";       // BIOS PS1
+    EJS_language = "es-ES";             // idioma opcional
   </script>
-  <script src="https://cdn.emulatorjs.org/latest/emulator.min.js"></script>
+
+  <!-- Script del emulador -->
+  <script src="https://cdn.emulatorjs.org/emulator.js"></script>
 </body>
 </html>
