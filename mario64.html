@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Super Mario 64 - N64</title>
+  <title>Super Mario Advance - GBA</title>
   <link rel="stylesheet" href="style.css">
   <style>
     /* Ajuste solo para este juego */
@@ -15,8 +15,8 @@
     }
 
     .game-container #game {
-      width: 800px;   /* ancho fijo */
-      height: 600px;  /* alto fijo */
+      width: 720px;   /* tamaño recomendado para GBA */
+      height: 480px;
       border: 4px solid #222;
       border-radius: 12px;
       box-shadow: 0 0 25px rgba(0,0,0,0.5);
@@ -36,14 +36,14 @@
   <!-- Contenido centrado -->
   <div class="center-wrap">
     <div class="center-card">
-      <h2 class="title-glow">Super Mario 64 <span class="badge">N64</span></h2>
+      <h2 class="title-glow">Super Mario Advance <span class="badge">GBA</span></h2>
 
       <!-- Aquí el juego bien centrado -->
       <div class="game-container">
         <div id="game"></div>
       </div>
 
-      <p class="note-muted">Si el emulador tarda en cargar, espera unos segundos y activa pantalla completa para mejor experiencia (F11).</p>
+      <p class="note-muted">Si tarda en cargar, espera unos segundos y activa pantalla completa para mejor experiencia (F11).</p>
     </div>
   </div>
 
@@ -53,13 +53,13 @@
   <!-- Notas desplegables -->
   <section id="sheet" class="sheet" aria-hidden="true">
     <div class="head">
-      <h3 class="m0">Notas de Super Mario 64</h3>
+      <h3 class="m0">Notas de Super Mario Advance</h3>
       <button id="close-sheet" class="btn-ghost">Cerrar</button>
     </div>
     <div class="body">
       <article class="card">
         <h4 class="h4-tight">Info rápida</h4>
-        <p class="small">Super Mario 64 fue el título de lanzamiento del Nintendo 64 y revolucionó los juegos de plataformas en 3D.</p>
+        <p class="small">Versión para GBA de Super Mario Bros. 2, con gráficos mejorados y extras.</p>
       </article>
     </div>
   </section>
@@ -67,12 +67,12 @@
   <!-- Configuración EmulatorJS -->
   <script>
     EJS_player = "#game";
-    EJS_core = "n64";
-    EJS_gameName = "Super Mario 64";
-    EJS_color = "#FF0000";
+    EJS_core = "gba";
+    EJS_gameName = "Super Mario Advance";
+    EJS_color = "#0064ff";
     EJS_pathtodata = "https://cdn.emulatorjs.org/stable/data/";
-    EJS_gameUrl = "mario64.z64"; // tu archivo en la misma carpeta
-    EJS_biosUrl = ""; // N64 no necesita BIOS
+    EJS_gameUrl = "SuperM.gba"; // tu ROM en la misma carpeta
+    EJS_biosUrl = ""; // GBA no necesita BIOS
   </script>
   <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
 
