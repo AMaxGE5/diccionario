@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>open front</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="nav-right">
+  <a href="index.html" class="chip">Inicio</a>
+  <a href="menu.html" class="chip">Menú</a>
+  <a href="lista.html" class="chip">Lista de deseos</a>
+  <a href="faq.html" class="chip">FAQ</a>
+</nav>
+
+<div class="center-wrap">
+  <div class="center-card">
+    <div>
+      <h2 class="title-glow">open front <span class="badge">estrategia</span></h2>
+      <p>Haz clic en el botón para jugar Open Front en una ventana segura.</p>
+
+      <button class="btn-primary" onclick="abrirJuego()">▶ Jugar ahora</button>
+
+      <p class="note-muted">Si tarda en cargar, espera unos segundos. Recomendado usar pantalla completa (F11).</p>
+    </div>
+  </div>
+</div>
+
+<button id="gear" class="gear">⚙️</button>
+
+<section id="sheet" class="sheet">
+  <div class="head">
+    <h3 class="m0">Notas de Open Front</h3>
+    <button id="close-sheet" class="btn-ghost">Cerrar</button>
+  </div>
+
+  <div class="body">
+    <article class="card">
+      <h4 class="h4-tight">Info rápida</h4>
+      <p class="small">Juego de estrategia donde conquistas territorios en tiempo real.</p>
+    </article>
+  </div>
+</section>
+
+<script>
+function abrirJuego() {
+  const win = window.open("about:blank", "_blank");
+  const iframe = win.document.createElement("iframe");
+
+  iframe.src = "https://openfront.app/";
+  iframe.style.border = "none";
+  iframe.style.width = "100%";
+  iframe.style.height = "100%";
+
+  win.document.body.style.margin = 0;
+  win.document.body.appendChild(iframe);
+}
+
+// Sheet notas
+const gear = document.getElementById("gear");
+const sheet = document.getElementById("sheet");
+const closeSheet = document.getElementById("close-sheet");
+
+gear.addEventListener("click", () => sheet.classList.add("open"));
+closeSheet.addEventListener("click", () => sheet.classList.remove("open"));
+</script>
+
+</body>
+</html>
