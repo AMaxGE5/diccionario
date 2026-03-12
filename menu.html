@@ -3,205 +3,185 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Menú de Juegos</title>
+  <title>Menú</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- Nav derecha -->
-  <nav class="nav-right">
-    <a href="index.html" class="chip">Inicio</a>
-    <a href="menu.html" class="chip active">Juegos</a>
-    <a href="lista.html" class="chip">Lista de deseos</a>
-    <a href="#" class="chip">FAQ</a>
-    <!-- Menú desplegable -->
-    <div class="dropdown">
-      <button class="chip">Secciones ▾</button>
-      <div class="dropdown-content">
-        <a href="#fnf">Friday Night Funkin’</a>
-        <a href="#otros">Otros Juegos</a>
-      </div>
+
+<nav class="nav-right">
+  <a href="index.html" class="chip">Inicio</a>
+  <a href="menu.html" class="chip active">Juegos</a>
+  <a href="lista.html" class="chip">Lista de deseos</a>
+  <a href="#" class="chip">FAQ</a>
+
+  <div class="dropdown">
+    <button class="chip">Secciones ▾</button>
+    <div class="dropdown-content">
+      <a href="#fnf">Friday Night Funkin’</a>
+      <a href="#otros">Otros Juegos</a>
     </div>
-  </nav>
+  </div>
+</nav>
 
-  <div class="container">
-    <section class="hero">
-      <h1>Menú de Juegos <span class="badge">FNFs y más</span></h1>
+<div class="container">
+<section class="hero">
 
-      <!-- Sección FNF -->
-      <div id="fnf" class="section card">
-        <h2 class="h2-tight">Friday Night Funkin’ Mods</h2>
-        <p class="small">Haz clic en una imagen para abrir el juego correspondiente.</p>
-        <div class="grid-games">
-          <!-- Existentes -->
-          <a href="pig.html" class="game-card">
-            <img src="img/pig.jpeg" alt="Piggy" />
-            <span>Piggy</span>
-          </a>
-          <a href="huggy.html" class="game-card">
-            <img src="img/huggy.jpeg" alt="Huggy Wuggy" />
-            <span>Huggy Wuggy</span>
-          </a>
-          <a href="m.html" class="game-card">
-            <img src="img/m.jpeg" alt="Miku" />
-            <span>Miku</span>
-          </a>
-          <a href="bandb.html" class="game-card">
-            <img src="img/bandb.jpeg" alt="Birds and Botany" />
-            <span>Birds & Botany</span>
-          </a>
-          <a href="pvz.html" class="game-card">
-            <img src="img/pvz.jpeg" alt="Replanted" />
-            <span>Replanted</span>
-          </a>
-          <a href="bob.html" class="game-card">
-            <img src="img/bob.jpeg" alt="Bob" />
-            <span>Bob</span>
-          </a>
-          <a href="bomb.html" class="game-card">
-            <img src="img/bomb.jpeg" alt="Whitty" />
-            <span>Whitty</span>
-          </a>
-          <a href="mariom.html" class="game-card">
-            <img src="img/mariom.jpeg" alt="Mario Madness" />
-            <span>Mario Madness</span>
-          </a>
+<h1>Menú de Juegos <span class="badge">FNFs y más</span></h1>
 
-          <!-- NUEVOS -->
-          <a href="agoti.html" class="game-card new">
-            <span class="label">Nuevo</span>
-            <img src="img/agoti.jpeg" alt="Agoti" />
-            <span>Agoti</span>
-          </a>
-          <a href="corruption.html" class="game-card new">
-            <span class="label">Nuevo</span>
-            <img src="img/corruption.jpeg" alt="Corruption" />
-            <span>Corruption</span>
-          </a>
-          <a href="dusttale.html" class="game-card new">
-            <span class="label">Recién agregado</span>
-            <img src="img/dusttale.jpeg" alt="Dusttale" />
-            <span>Dusttale</span>
-          </a>
-          <a href="isaac.html" class="game-card new">
-            <span class="label">Nuevo</span>
-            <img src="img/issac.jpeg" alt="Isaac" />
-            <span>Isaac</span>
-          </a>
-          <a href="mattwii.html" class="game-card new">
-            <span class="label">Nuevo</span>
-            <img src="img/matt.jpeg" alt="Matt" />
-            <span>Matt</span>
-          </a>
-          <a href="sky.html" class="game-card new">
-            <span class="label">Recién agregado</span>
-            <img src="img/sky.jpeg" alt="Sky" />
-            <span>Sky</span>
-          </a>
-          <a href="shaggy.html" class="game-card new">
-            <span class="label">Nuevo</span>
-            <img src="img/shaggy.jpeg" alt="Shaggy" />
-            <span>Shaggy</span>
-          </a>
-          <a href="tabi.html" class="game-card new">
-            <span class="label">Nuevo</span>
-            <img src="img/tabi.jpeg" alt="Tabi" />
-            <span>Tabi</span>
-          </a>
-          <a href="peppa.html" class="game-card new">
-            <span class="label">Nuevo</span>
-            <img src="img/peppa.jpeg" alt="peppa" />
-            <span>peppa(corrupted)</span>
-          </a>
-          <a href="tricky.html" class="game-card new">
-            <span class="label">Recién agregado</span>
-            <img src="img/tricky.jpeg" alt="Tricky" />
-            <span>Tricky</span>
-          </a>
-        </div>
-      </div>
+<div id="fnf" class="section card">
+<h2 class="h2-tight">Friday Night Funkin’ Mods</h2>
+<p class="small">Haz clic en una imagen para abrir el juego correspondiente.</p>
 
-      <!-- Sección Otros Juegos -->
-      <div id="otros" class="section card">
-        <h2 class="h2-tight">Otros Juegos</h2>
-        <p class="small">Próximamente añadiré más secciones con nuevos títulos.(no aseguro que se puedan abrir todos los juegos)</p>
-        <div class="grid-games">
-          <a href="arbs.html" class="game-card new">
-            <span class="label">Nuevo</span>
-            <img src="img/arbs.jpeg" alt="A.R.B.S" />
-            <span>A.R.B.S</span>
-          </a>
-          <a href="pokemon(pvz version).html" class="game-card new">
-            <span class="label">Nuevo</span>
-            <img src="img/pvz.jpeg" alt="pokemon(pvz version)" />
-            <span>pokemon(pvz version)</span>
-          </a>
-          <a href="deer.html" class="game-card new">
-            <span class="label">Nuevo</span>
-            <img src="img/deer.jpeg" alt="deer" />
-            <span>deer simulator</span>
-          </a>
-          <a href="devil.html" class="game-card new">
-            <span class="label">Nuevo</span>
-            <img src="img/devil.jpeg" alt="devil" />
-            <span>level devil</span>
-          </a>
-          <a href="birds.html" class="game-card new">
-            <span class="label">Nuevo</span>
-            <img src="img/birds.jpeg" alt="birds" />
-            <span>angry birds</span>
-          </a>
+<div class="grid-games">
 
-          <a href="pvz1.html" class="game-card new">
-            <span class="label">Nuevo</span>
-            <img src="img/pvz1.jpeg" alt="pvz1" />
-            <span>pvz1</span>
-          </a>
+<a href="pig.html" class="game-card">
+<img src="img/pig.jpeg"><span>Piggy</span>
+</a>
+
+<a href="huggy.html" class="game-card">
+<img src="img/huggy.jpeg"><span>Huggy Wuggy</span>
+</a>
+
+<a href="m.html" class="game-card">
+<img src="img/m.jpeg"><span>Miku</span>
+</a>
+
+<a href="bandb.html" class="game-card">
+<img src="img/bandb.jpeg"><span>Birds & Botany</span>
+</a>
+
+<a href="pvz.html" class="game-card">
+<img src="img/pvz.jpeg"><span>Replanted</span>
+</a>
+
+<a href="bob.html" class="game-card">
+<img src="img/bob.jpeg"><span>Bob</span>
+</a>
+
+<a href="bomb.html" class="game-card">
+<img src="img/bomb.jpeg"><span>Whitty</span>
+</a>
+
+<a href="mariom.html" class="game-card">
+<img src="img/mariom.jpeg"><span>Mario Madness</span>
+</a>
+
+<a href="agoti.html" class="game-card">
+<img src="img/agoti.jpeg"><span>Agoti</span>
+</a>
+
+<a href="corruption.html" class="game-card">
+<img src="img/corruption.jpeg"><span>Corruption</span>
+</a>
+
+<a href="dusttale.html" class="game-card">
+<img src="img/dusttale.jpeg"><span>Dusttale</span>
+</a>
+
+<a href="isaac.html" class="game-card">
+<img src="img/issac.jpeg"><span>Isaac</span>
+</a>
+
+<a href="mattwii.html" class="game-card">
+<img src="img/matt.jpeg"><span>Matt</span>
+</a>
+
+<a href="sky.html" class="game-card">
+<img src="img/sky.jpeg"><span>Sky</span>
+</a>
+
+<a href="shaggy.html" class="game-card">
+<img src="img/shaggy.jpeg"><span>Shaggy</span>
+</a>
+
+<a href="tabi.html" class="game-card">
+<img src="img/tabi.jpeg"><span>Tabi</span>
+</a>
+
+<a href="peppa.html" class="game-card">
+<img src="img/peppa.jpeg"><span>peppa(corrupted)</span>
+</a>
+
+<a href="tricky.html" class="game-card">
+<img src="img/tricky.jpeg"><span>Tricky</span>
+</a>
+
+</div>
+</div>
 
 
-          <a href="sonic.html" class="game-card new">
-            <span class="label">Nuevo</span>
-            <img src="img/sonic.jpeg" alt="sonic" />
-            <span>sonic</span>
-          </a>
-          <a href="tom.html" class="game-card new">
-            <span class="label">Nuevo</span>
-            <img src="img/tom.jpeg" alt="tom" />
-            <span>tom</span>
-          </a>
-          <a href="fnaf.html" class="game-card new">
-            <span class="label">Nuevo</span>
-            <img src="fnaf.jpeg" alt="fnaf" />
-            <span>fnaf</span>
-          </a>
-          <a href="zelda.html" class="game-card new">
-            <span class="label">Nuevo</span>
-            <img src="img/zelda.jpeg" alt="zelda" />
-            <span>zelda</span>
-          </a>
-          <a href="farmer.html" class="game-card new">
-            <span class="label">Nuevo</span>
-            <img src="img/farmer.jpeg" alt="farmer" />
-            <span>farmer battles</span>
-          </a>
-          <a href="fireboy1.html" class="game-card new">
-            <span class="label">Nuevo</span>
-            <img src="img/fireboy1.jpeg" alt="fireboy1" />
-            <span>fireboy and watergirl 1</span>
-          </a>
-          <a href="mario64.html" class="game-card new">
-            <span class="label">Nuevo</span>
-            <img src="img/mario.jpeg" alt="mario" />
-            <span>mario</span>
-          </a>
-          <a href="crash.html" class="game-card new">
-            <span class="label">Nuevo</span>
-            <img src="img/Crash Bandicoot.jpeg" alt="Crash Bandicoot" />
-            <span>crash bandicoot</span>
-          </a>
-          <a href="Kirby.html" class="game-card new">
-            <span class="label">Nuevo</span>
-            <img src="img/Kirby.jpeg" alt="Kirby" />
-            <span>Kirby</span>
+<div id="otros" class="section card">
+<h2 class="h2-tight">Otros Juegos</h2>
+
+<div class="grid-games">
+
+<a href="arbs.html" class="game-card">
+<img src="img/arbs.jpeg"><span>A.R.B.S</span>
+</a>
+
+<a href="pokemon(pvz version).html" class="game-card">
+<img src="img/pvz.jpeg"><span>pokemon(pvz version)</span>
+</a>
+
+<a href="deer.html" class="game-card">
+<img src="img/deer.jpeg"><span>deer simulator</span>
+</a>
+
+<a href="devil.html" class="game-card">
+<img src="img/devil.jpeg"><span>level devil</span>
+</a>
+
+<a href="birds.html" class="game-card">
+<img src="img/birds.jpeg"><span>angry birds</span>
+</a>
+
+<a href="pvz1.html" class="game-card">
+<img src="img/pvz1.jpeg"><span>pvz1</span>
+</a>
+
+<a href="sonic.html" class="game-card">
+<img src="img/sonic.jpeg"><span>sonic</span>
+</a>
+
+<a href="tom.html" class="game-card">
+<img src="img/tom.jpeg"><span>tom</span>
+</a>
+
+<a href="fnaf.html" class="game-card">
+<img src="fnaf.jpeg"><span>fnaf</span>
+</a>
+
+<a href="zelda.html" class="game-card">
+<img src="img/zelda.jpeg"><span>zelda</span>
+</a>
+
+<a href="farmer.html" class="game-card">
+<img src="img/farmer.jpeg"><span>farmer battles</span>
+</a>
+
+<a href="fireboy1.html" class="game-card">
+<img src="img/fireboy1.jpeg"><span>fireboy and watergirl 1</span>
+</a>
+
+<a href="mario64.html" class="game-card">
+<img src="img/mario.jpeg"><span>mario</span>
+</a>
+
+<a href="crash.html" class="game-card">
+<img src="img/Crash Bandicoot.jpeg"><span>crash bandicoot</span>
+</a>
+
+<a href="Kirby.html" class="game-card">
+<img src="img/Kirby.jpeg"><span>Kirby</span>
+</a>
+
+<!-- ESTE ES EL ÚNICO QUE SIGUE CON NEW -->
+
+<a href="guerra.html" class="game-card new">
+<span class="label">Nuevo</span>
+<img src="img/open.jpeg">
+<span>front</span>
+</a>
           </a>
         </div>
       </div>
@@ -226,6 +206,7 @@
   <script src="script.js"></script>
 </body>
 </html>
+
 
 
 
