@@ -2,32 +2,28 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PvZ: Supervivencia Veloz</title>
+    <title>PvZ: El Retorno de la Repetidora</title>
     <style>
-        body { background: #121212; color: white; font-family: 'Arial Black', sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; overflow: hidden; user-select: none; }
-        #ui-panel { width: 950px; height: 110px; background: #4d3a29; display: flex; align-items: center; padding: 0 20px; box-sizing: border-box; border-bottom: 5px solid #241a12; gap: 10px; }
-        #sun-counter { background: #ffd54f; color: #332; padding: 10px; border-radius: 10px; font-weight: bold; font-size: 24px; border: 4px solid #f57f17; min-width: 80px; text-align: center; }
-        
-        .seed-packets { display: flex; gap: 6px; }
-        .seed { width: 75px; height: 90px; background: #795548; border: 3px solid #3e2723; cursor: pointer; display: flex; flex-direction: column; align-items: center; position: relative; border-radius: 5px; overflow: hidden; }
-        .seed.selected { border-color: #fff; background: #a1887f; box-shadow: 0 0 15px #fff; }
+        body { background: #1a1a1a; color: white; font-family: 'Arial Black', sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; overflow: hidden; user-select: none; }
+        #ui-panel { width: 1000px; height: 110px; background: #4d3a29; display: flex; align-items: center; padding: 0 15px; box-sizing: border-box; border-bottom: 5px solid #241a12; gap: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        #sun-counter { background: #ffd54f; color: #332; padding: 8px; border-radius: 10px; font-weight: bold; font-size: 22px; border: 4px solid #f57f17; min-width: 85px; text-align: center; }
+        .seed-packets { display: flex; gap: 5px; }
+        .seed { width: 75px; height: 95px; background: #795548; border: 3px solid #3e2723; cursor: pointer; display: flex; flex-direction: column; align-items: center; position: relative; border-radius: 5px; overflow: hidden; }
+        .seed.selected { border-color: #fff; background: #a1887f; box-shadow: 0 0 15px #fff; transform: translateY(-3px); }
         .seed.disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
-        .seed .cooldown-overlay { position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; background: rgba(0,0,0,0.6); pointer-events: none; }
-        .seed span { font-size: 11px; z-index: 2; font-weight: bold; text-shadow: 1px 1px #000; }
-
-        .control-btn { padding: 10px; border-radius: 8px; cursor: pointer; border: 3px solid #37474f; font-size: 20px; transition: 0.2s; display: flex; align-items: center; justify-content: center; min-width: 50px; }
+        .seed.locked { background: #222; border-color: #000; cursor: not-allowed; }
+        .seed .cooldown-overlay { position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; background: rgba(0,0,0,0.75); pointer-events: none; }
+        .seed span { font-size: 11px; z-index: 2; font-weight: bold; text-shadow: 1px 1px #000; margin-top: 2px; }
+        .control-btn { padding: 10px; border-radius: 8px; cursor: pointer; border: 3px solid #37474f; font-size: 20px; display: flex; align-items: center; justify-content: center; min-width: 55px; }
         #shovel { background: #607d8b; }
         #shovel.selected { background: #cfd8dc; border-color: white; transform: scale(1.1); }
         #speed-btn { background: #ff5722; color: white; font-weight: bold; font-size: 16px; }
         #speed-btn.fast { background: #4caf50; box-shadow: 0 0 15px #4caf50; }
-
-        #game-container { position: relative; width: 900px; height: 600px; margin-top: 10px; border: 8px solid #3e2723; border-radius: 15px; }
+        #game-container { position: relative; width: 900px; height: 600px; margin-top: 15px; border: 8px solid #3e2723; border-radius: 15px; }
         canvas { display: block; background: #4caf50; }
-        
-        #wave-panel { position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.8); padding: 8px; border-radius: 8px; width: 180px; text-align: center; border: 2px solid #ffeb3b; }
-        #wave-bar { height: 10px; background: #4caf50; width: 0%; border-radius: 4px; transition: width 0.3s; margin-top: 4px; }
-        
-        #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+        #wave-panel { position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.85); padding: 10px; border-radius: 10px; width: 200px; text-align: center; border: 2px solid #ffeb3b; }
+        #wave-bar { height: 12px; background: #f44336; width: 0%; border-radius: 5px; transition: width 0.3s; margin-top: 6px; border: 1px solid #000; }
+        #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; }
     </style>
 </head>
 <body>
@@ -36,18 +32,18 @@
     <div id="sun-counter">☀️ 150</div>
     <div class="seed-packets" id="seeds"></div>
     <div id="shovel" class="control-btn" title="Pala">🧹</div>
-    <div id="speed-btn" class="control-btn">Vel. x1</div>
+    <div id="speed-btn" class="control-btn">x1</div>
 </div>
 
 <div id="game-container">
     <canvas id="gameCanvas" width="900" height="600"></canvas>
     <div id="wave-panel">
-        <div id="wave-text" style="font-size: 13px; color: #ffeb3b;">Oleada 1 / 10</div>
-        <div style="background: #222; border-radius: 4px; overflow: hidden;"><div id="wave-bar"></div></div>
+        <div id="wave-text" style="font-size: 14px; color: #ffeb3b; font-weight: bold;">OLEADA 1 / 10</div>
+        <div style="background: #222; border-radius: 6px; overflow: hidden;"><div id="wave-bar"></div></div>
     </div>
     <div id="overlay">
-        <h1 id="status-text" style="text-align: center;"></h1>
-        <button style="padding: 15px 30px; font-size: 20px; cursor: pointer; background: #4caf50; color: white; border: none; border-radius: 8px;" onclick="location.reload()">REINTENTAR</button>
+        <h1 id="status-text" style="font-size: 45px; color: #f44336; margin-bottom: 20px;"></h1>
+        <button style="padding: 15px 40px; font-size: 24px; cursor: pointer; background: #4caf50; color: white; border: none; border-radius: 10px; box-shadow: 0 5px 0 #2e7d32;" onclick="location.reload()">REINTENTAR</button>
     </div>
 </div>
 
@@ -56,16 +52,15 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const cellSize = 100;
 
-// Estados de juego
 let resources = 150;
 let frame = 0;
-let gameSpeed = 1; // 1 o 2
+let gameSpeed = 1;
 let wave = 1;
 let waveProgress = 0;
 const maxWaves = 10;
 let gameOver = false;
 let gameWon = false;
-let wave1Timer = 0; // Para el minuto de la oleada 1
+let wave1Timer = 0;
 
 let selectedPlant = null;
 let shovelActive = false;
@@ -76,15 +71,15 @@ const plants = [], zombies = [], projectiles = [], suns = [], mowers = [], explo
 const plantTypes = {
     'lanzaguisantes': { cost: 100, hp: 100, color: '#4caf50', cooldown: 300 },
     'girasol': { cost: 50, hp: 80, color: '#ffeb3b', cooldown: 300 },
-    'papapum': { cost: 25, hp: 100, color: '#795548', cooldown: 900 },
-    'nuez': { cost: 50, hp: 2000, color: '#a1887f', cooldown: 1000 },
-    'petacereza': { cost: 150, hp: 100, color: '#f44336', cooldown: 1800 },
-    'hielaguisantes': { cost: 175, hp: 100, color: '#4fc3f7', cooldown: 500 }
+    'nuez': { cost: 50, hp: 2000, color: '#a1887f', cooldown: 900 },
+    'repetidora': { cost: 250, hp: 100, color: '#1b5e20', cooldown: 400 }, 
+    'papapum': { cost: 25, hp: 100, color: '#795548', cooldown: 800 },
+    'hielaguisantes': { cost: 175, hp: 100, color: '#4fc3f7', cooldown: 500 },
+    'petacereza': { cost: 150, hp: 100, color: '#f44336', cooldown: 1800 }
 };
 
-const cooldowns = { 'lanzaguisantes': 0, 'girasol': 0, 'papapum': 0, 'nuez': 0, 'petacereza': 0, 'hielaguisantes': 0 };
+const cooldowns = { 'lanzaguisantes': 0, 'girasol': 0, 'nuez': 0, 'repetidora': 0, 'papapum': 0, 'hielaguisantes': 0, 'petacereza': 0 };
 
-// --- DIBUJO ---
 function drawStrokeCircle(c, x, y, r) {
     c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill(); c.stroke();
 }
@@ -95,23 +90,31 @@ function drawPlant(c, type, x, y, size, angle = 0, scale = 1, ready = true) {
     c.rotate(angle);
     c.scale(scale, scale);
     c.strokeStyle = '#000'; c.lineWidth = 3;
-    if (type === 'lanzaguisantes' || type === 'hielaguisantes') {
+
+    if (type === 'lanzaguisantes' || type === 'hielaguisantes' || type === 'repetidora') {
         c.fillStyle = '#2e7d32'; c.fillRect(-4, 0, 8, 35); c.strokeRect(-4, 0, 8, 35);
         c.fillStyle = plantTypes[type].color;
-        drawStrokeCircle(c, 2, -18, 22); drawStrokeCircle(c, 24, -18, 12);
-        c.fillStyle = '#000'; drawStrokeCircle(c, 8, -24, 3.5);
+        
+        if (type === 'repetidora') { // Diseño exclusivo con dos hojas traseras
+            c.beginPath(); c.ellipse(-20, -10, 10, 15, -0.5, 0, Math.PI*2); c.fill(); c.stroke();
+            c.beginPath(); c.ellipse(-15, -25, 12, 18, -0.8, 0, Math.PI*2); c.fill(); c.stroke();
+        }
+
+        drawStrokeCircle(c, 2, -18, 22); 
+        drawStrokeCircle(c, 24, -18, 12); // Cañón
+        c.fillStyle = '#000'; drawStrokeCircle(c, 8, -24, 4); // Ojo
     } else if (type === 'girasol') {
         c.fillStyle = '#2e7d32'; c.fillRect(-3, 0, 6, 35); c.strokeRect(-3, 0, 6, 35);
         c.fillStyle = '#fbc02d';
         for(let i=0; i<8; i++){ c.rotate(Math.PI/4); c.beginPath(); c.ellipse(0, -20, 8, 15, 0, 0, Math.PI*2); c.fill(); c.stroke(); }
-        c.fillStyle = '#5d4037'; drawStrokeCircle(c, 0, 0, 15);
+        c.fillStyle = '#5d4037'; drawStrokeCircle(c, 0, 0, 16);
     } else if (type === 'nuez') {
         c.fillStyle = '#8d6e63'; c.beginPath(); c.ellipse(0, 5, 32, 42, 0, 0, Math.PI*2); c.fill(); c.stroke();
-        c.fillStyle = '#000'; drawStrokeCircle(c, -12, -10, 3); drawStrokeCircle(c, 12, -10, 3);
+        c.fillStyle = '#000'; drawStrokeCircle(c, -12, -10, 3.5); drawStrokeCircle(c, 12, -10, 3.5);
     } else if (type === 'papapum') {
         if (!ready) { c.fillStyle = '#4e342e'; drawStrokeCircle(c, 0, 35, 12); }
-        else { c.fillStyle = '#8d6e63'; c.beginPath(); c.ellipse(0, 25, 25, 20, 0, 0, Math.PI*2); c.fill(); c.stroke();
-               c.fillStyle = (frame % 10 < 5) ? '#ff1744' : '#000'; drawStrokeCircle(c, 0, 0, 6); }
+        else { c.fillStyle = '#8d6e63'; c.beginPath(); c.ellipse(0, 25, 26, 20, 0, 0, Math.PI*2); c.fill(); c.stroke();
+               c.fillStyle = (frame % 20 < 10) ? '#ff1744' : '#000'; drawStrokeCircle(c, 0, 0, 6); }
     } else if (type === 'petacereza') {
         c.fillStyle = '#d32f2f'; drawStrokeCircle(c, -20, 15, 24); drawStrokeCircle(c, 20, 15, 24);
         c.strokeStyle = '#2e7d32'; c.lineWidth = 5; c.beginPath(); c.moveTo(-15, -5); c.quadraticCurveTo(0, -30, 15, -5); c.stroke();
@@ -125,20 +128,13 @@ function drawZombie(z) {
     ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
     const bounce = Math.abs(Math.sin(frame * 0.15)) * 5;
     ctx.translate(0, -bounce);
-    ctx.fillStyle = (z.type === 'bandera') ? '#1a237e' : '#5d4037';
+    ctx.fillStyle = z.type === 'bandera' ? '#1a237e' : '#5d4037';
     ctx.fillRect(-22, -20, 44, 50); ctx.strokeRect(-22, -20, 44, 50);
     ctx.fillStyle = z.freeze > 0 ? '#4fc3f7' : '#7cb342';
     drawStrokeCircle(ctx, 0, -35, 22);
-    if (z.type === 'cono' && z.hp > 100) { ctx.fillStyle = '#ff6d00'; ctx.beginPath(); ctx.moveTo(-20, -45); ctx.lineTo(0, -90); ctx.lineTo(20, -45); ctx.fill(); ctx.stroke(); }
-    else if (z.type === 'cubo' && z.hp > 100) { ctx.fillStyle = '#b0bec5'; ctx.fillRect(-24, -70, 48, 35); ctx.strokeRect(-24, -70, 48, 35); }
-    else if (z.type === 'bandera') { ctx.strokeStyle = '#d32f2f'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(25, 0); ctx.lineTo(25, -80); ctx.stroke(); ctx.fillStyle = '#d32f2f'; ctx.fillRect(25, -80, 30, 20); }
+    if (z.type === 'cono' && z.hp > 120) { ctx.fillStyle = '#ff6d00'; ctx.beginPath(); ctx.moveTo(-20, -45); ctx.lineTo(0, -95); ctx.lineTo(20, -45); ctx.fill(); ctx.stroke(); }
+    else if (z.type === 'cubo' && z.hp > 120) { ctx.fillStyle = '#b0bec5'; ctx.fillRect(-24, -75, 48, 35); ctx.strokeRect(-24, -75, 48, 35); }
     ctx.restore();
-}
-
-// --- LÓGICA ---
-function init() {
-    for (let i = 0; i < 6; i++) mowers.push({x: 10, y: i * cellSize, active: false});
-    updateUI();
 }
 
 function updateUI() {
@@ -146,22 +142,24 @@ function updateUI() {
     container.innerHTML = '';
     Object.keys(plantTypes).forEach(key => {
         const p = plantTypes[key];
+        const isLocked = key === 'repetidora' && wave < 4;
         const div = document.createElement('div');
-        div.className = `seed ${resources < p.cost || cooldowns[key] > 0 ? 'disabled' : ''} ${selectedPlant === key ? 'selected' : ''}`;
-        div.innerHTML = `<canvas id="c-${key}" width="55" height="60"></canvas><span>${p.cost}</span><div class="cooldown-overlay" style="height: ${(cooldowns[key]/p.cooldown)*100}%"></div>`;
-        div.onclick = (e) => { e.stopPropagation(); if (resources >= p.cost && cooldowns[key] <= 0) { selectedPlant = key; shovelActive = false; updateUI(); } };
+        div.className = `seed ${isLocked ? 'locked' : (resources < p.cost || cooldowns[key] > 0 ? 'disabled' : '')} ${selectedPlant === key ? 'selected' : ''}`;
+        if (isLocked) {
+            div.innerHTML = `<span style="margin-top:25px; font-size:22px;">🔒</span><span style="font-size:9px">OLA 4</span>`;
+        } else {
+            div.innerHTML = `<canvas id="c-${key}" width="65" height="65"></canvas><span>${p.cost}</span><div class="cooldown-overlay" style="height: ${(cooldowns[key]/p.cooldown)*100}%"></div>`;
+        }
+        div.onclick = (e) => { e.stopPropagation(); if (!isLocked && resources >= p.cost && cooldowns[key] <= 0) { selectedPlant = key; shovelActive = false; updateUI(); } };
         container.appendChild(div);
-        const ictx = document.getElementById(`c-${key}`).getContext('2d');
-        drawPlant(ictx, key, 0, 0, 55, 0, 0.7);
+        if (!isLocked) { const ictx = document.getElementById(`c-${key}`).getContext('2d'); drawPlant(ictx, key, 0, 0, 65, 0, 0.7); }
     });
     document.getElementById('shovel').className = `control-btn ${shovelActive ? 'selected' : ''}`;
     document.getElementById('sun-counter').innerText = `☀️ ${resources}`;
     document.getElementById('wave-bar').style.width = waveProgress + '%';
-    document.getElementById('wave-text').innerText = `Oleada ${wave} / ${maxWaves}`;
-    
-    const speedBtn = document.getElementById('speed-btn');
-    speedBtn.innerText = `Vel. x${gameSpeed}`;
-    speedBtn.className = `control-btn ${gameSpeed > 1 ? 'fast' : ''}`;
+    document.getElementById('wave-text').innerText = `OLEADA ${wave} / 10`;
+    document.getElementById('speed-btn').innerText = `x${gameSpeed}`;
+    document.getElementById('speed-btn').className = `control-btn ${gameSpeed > 1 ? 'fast' : ''}`;
 }
 
 document.getElementById('speed-btn').onclick = () => { gameSpeed = (gameSpeed === 1) ? 2 : 1; updateUI(); };
@@ -174,79 +172,113 @@ canvas.addEventListener('mousedown', () => {
     if (shovelActive) { const idx = plants.findIndex(p => p.x === gx && p.y === gy); if (idx !== -1) { plants.splice(idx, 1); shovelActive = false; updateUI(); } return; }
     if (selectedPlant && gx < 900 && !plants.some(p => p.x === gx && p.y === gy)) {
         if (selectedPlant === 'petacereza') { explosions.push({x: gx+50, y: gy+50, r: 160, t: 15}); zombies.forEach(z => { if (Math.abs(z.x - gx) < 180 && Math.abs(z.y - gy) < 180) z.hp = 0; }); }
-        else { plants.push({ x: gx, y: gy, type: selectedPlant, hp: plantTypes[selectedPlant].hp, t: 0, ready: (selectedPlant !== 'papapum') }); }
+        else { plants.push({ x: gx, y: gy, type: selectedPlant, hp: plantTypes[selectedPlant].hp, t: 0, ready: (selectedPlant !== 'papapum'), ráfaga: 0 }); }
         resources -= plantTypes[selectedPlant].cost; cooldowns[selectedPlant] = plantTypes[selectedPlant].cooldown; selectedPlant = null; updateUI();
     }
 });
 
-function spawnZombie(count = 1) {
+function spawnZombie(count) {
     for (let i = 0; i < count; i++) {
         const r = Math.random();
-        let type = 'basico', hp = 100 + (wave * 20), speed = 0.35;
-        if (wave >= 4 && r > 0.8) { type = 'cubo'; hp += 500; }
-        else if (wave >= 2 && r > 0.6) { type = 'cono'; hp += 180; }
-        else if (wave >= 3 && r < 0.1) { type = 'bandera'; speed = 0.55; hp += 50; }
-        zombies.push({x: 900 + (i * 50), y: Math.floor(Math.random()*6)*cellSize, hp: hp, type: type, speed: speed, freeze: 0});
+        let type = 'basico', hp = 100 + (wave * 35), speed = 0.35;
+        if (wave >= 5 && r > 0.65) { type = 'cubo'; hp += 700; }
+        else if (wave >= 2 && r > 0.45) { type = 'cono'; hp += 250; }
+        zombies.push({x: 900 + (i * 45), y: Math.floor(Math.random()*6)*cellSize, hp: hp, type: type, speed: speed, freeze: 0});
     }
 }
 
 function loop() {
-    // Ejecutar lógica según la velocidad (gameSpeed)
     for (let s = 0; s < gameSpeed; s++) {
         frame++;
         if (wave === 1) wave1Timer++;
 
-        // Manejo de Cooldowns
         Object.keys(cooldowns).forEach(k => { if (cooldowns[k] > 0) cooldowns[k]--; });
 
-        // Aparición de Zombies
-        let baseRate = Math.max(70, 850 - (wave * 75));
-        // Si ha pasado 1 minuto (aprox 3600 frames) en la ola 1, aumentar dificultad
-        if (wave === 1 && wave1Timer > 3600) baseRate /= 2.5;
+        // LOGICA DE HORDAS INCREMENTALES
+        let baseRate = Math.max(50, 950 - (wave * 90));
+        if (wave === 1 && wave1Timer > 3600) baseRate /= 4; 
 
         if (frame % Math.floor(baseRate) === 0 && wave <= maxWaves) {
-            let group = 1;
-            if (wave >= 3 && Math.random() > 0.6) group = 2;
-            if (wave >= 7 && Math.random() > 0.4) group = 3;
-            if (wave === 10) group = 4;
-            spawnZombie(group);
-            waveProgress += 3.5;
-            if (waveProgress >= 100) { if (wave < maxWaves) { wave++; waveProgress = 0; } else { waveProgress = 100; } updateUI(); }
+            let count = wave; // Ola 2 -> 2 zombies
+            if (wave >= 3) count = Math.floor(wave * 1.8); // Ola 3 -> 5 zombies
+            if (wave >= 6) count = Math.floor(wave * 2.5); // Ola 6 -> 15 zombies
+            if (wave === 10) count = 35; // Final boss horda
+            
+            spawnZombie(count);
+            waveProgress += 4;
+            if (waveProgress >= 100) { if (wave < maxWaves) { wave++; waveProgress = 0; if(wave === 4) updateUI(); } else { waveProgress = 100; } updateUI(); }
         }
 
-        // Soles naturales
-        if (frame % 300 === 0) suns.push({x: Math.random()*800+50, y: 0, targetY: Math.random()*400+100, t: 500});
+        if (frame % 350 === 0) suns.push({x: Math.random()*800+50, y: 0, targetY: Math.random()*400+100, t: 500});
 
-        // Entidades
-        mowers.forEach((m, i) => { if (m.active) { m.x += 10; zombies.forEach(z => { if(z.y === m.y && z.x < m.x + 40) z.hp = 0; }); if (m.x > 900) mowers.splice(i, 1); } else if (zombies.some(z => z.y === m.y && z.x < 50)) m.active = true; });
-        plants.forEach((p, i) => { p.t++; if (p.type === 'papapum' && !p.ready && p.t > 400) p.ready = true; if (p.type === 'girasol' && p.t % 600 === 0) suns.push({x: p.x+20, y: p.y+20, targetY: p.y+20, t: 500}); if ((p.type === 'lanzaguisantes' || p.type === 'hielaguisantes') && p.t % 100 === 0) { if (zombies.some(z => z.y === p.y && z.x > p.x)) projectiles.push({x: p.x+80, y: p.y+35, ice: p.type === 'hielaguisantes'}); } if (p.hp <= 0) plants.splice(i, 1); });
-        zombies.forEach((z, i) => { let eat = false; plants.forEach(p => { if (p.y === z.y && z.x < p.x + 50 && z.x > p.x) { eat = true; p.hp -= 0.8; if (p.type === 'papapum' && p.ready) { z.hp = 0; p.hp = 0; explosions.push({x:p.x+50,y:p.y+50,r:100,t:10}); } } }); if (!eat) z.x -= (z.freeze > 0 ? z.speed * 0.5 : z.speed); if (z.freeze > 0) z.freeze--; if (z.x < -50) gameOver = true; if (z.hp <= 0) zombies.splice(i, 1); });
-        projectiles.forEach((pr, i) => { pr.x += 8; zombies.forEach(z => { if (pr.x > z.x + 20 && pr.x < z.x+80 && pr.y > z.y && pr.y < z.y+100) { z.hp -= 20; if(pr.ice) z.freeze = 180; projectiles.splice(i, 1); } }); if (pr.x > 900) projectiles.splice(i, 1); });
+        plants.forEach((p, i) => {
+            p.t++;
+            if (p.type === 'papapum' && !p.ready && p.t > 400) p.ready = true;
+            if (p.type === 'girasol' && p.t % 600 === 0) suns.push({x: p.x+20, y: p.y+20, targetY: p.y+20, t: 500});
+            
+            // Disparo normal
+            if ((p.type === 'lanzaguisantes' || p.type === 'hielaguisantes' || p.type === 'repetidora') && p.t % 100 === 0) {
+                if (zombies.some(z => z.y === p.y && z.x > p.x)) {
+                    projectiles.push({x: p.x+80, y: p.y+35, ice: p.type === 'hielaguisantes'});
+                    if (p.type === 'repetidora') p.ráfaga = 15; // Ráfaga de 1/4 segundo
+                }
+            }
+            // Mecánica de ráfaga (Segundo guisante)
+            if (p.ráfaga > 0) { p.ráfaga--; if (p.ráfaga === 0) projectiles.push({x: p.x+80, y: p.y+35, ice: false}); }
+            
+            if (p.hp <= 0) plants.splice(i, 1);
+        });
+
+        zombies.forEach((z, i) => {
+            let eat = false;
+            plants.forEach(p => { if (p.y === z.y && z.x < p.x + 50 && z.x > p.x) { eat = true; p.hp -= 1.0; if (p.type === 'papapum' && p.ready) { z.hp = 0; p.hp = 0; explosions.push({x:p.x+50,y:p.y+50,r:115,t:12}); } } });
+            if (!eat) z.x -= (z.freeze > 0 ? z.speed * 0.5 : z.speed);
+            if (z.freeze > 0) z.freeze--;
+            if (z.x < -60) gameOver = true;
+            if (z.hp <= 0) zombies.splice(i, 1);
+        });
+
+        projectiles.forEach((pr, i) => {
+            pr.x += 8;
+            zombies.forEach(z => { if (pr.x > z.x + 20 && pr.x < z.x+80 && pr.y > z.y && pr.y < z.y+100) { z.hp -= 20; if(pr.ice) z.freeze = 200; projectiles.splice(i, 1); } });
+            if (pr.x > 920) projectiles.splice(i, 1);
+        });
+
+        mowers.forEach((m, i) => { if (m.active) { m.x += 12; zombies.forEach(z => { if(z.y === m.y && z.x < m.x + 40) z.hp = 0; }); if (m.x > 900) mowers.splice(i, 1); } else if (zombies.some(z => z.y === m.y && z.x < 50)) m.active = true; });
         suns.forEach((s, i) => { if (s.y < s.targetY) s.y += 2.5; s.t--; if (s.t <= 0) suns.splice(i, 1); });
         explosions.forEach((ex, i) => { ex.t--; if(ex.t <= 0) explosions.splice(i, 1); });
-
         if (wave === maxWaves && waveProgress === 100 && zombies.length === 0) gameWon = true;
     }
 
-    // RENDERIZADO (Solo una vez por frame del navegador)
     ctx.clearRect(0,0,900,600);
     for(let i=0; i<9; i++) { for(let j=0; j<6; j++) { ctx.fillStyle = (i+j)%2==0 ? '#4caf50' : '#43a047'; ctx.fillRect(i*100, j*100, 100, 100); } }
-    if (selectedPlant || shovelActive) { ctx.globalAlpha = 0.4; const gx = Math.floor(mouse.x/100)*100, gy = Math.floor(mouse.y/100)*100; if (shovelActive) { ctx.fillStyle = "white"; ctx.fillRect(gx, gy, 100, 100); } else drawPlant(ctx, selectedPlant, gx, gy, 100); ctx.globalAlpha = 1.0; }
-    mowers.forEach(m => { ctx.fillStyle = '#c62828'; ctx.fillRect(m.x, m.y+35, 55, 35); });
+    
+    if (selectedPlant || shovelActive) { 
+        ctx.globalAlpha = 0.4; 
+        const gx = Math.floor(mouse.x/100)*100, gy = Math.floor(mouse.y/100)*100; 
+        if (shovelActive) { ctx.fillStyle = "white"; ctx.fillRect(gx, gy, 100, 100); } 
+        else drawPlant(ctx, selectedPlant, gx, gy, 100); 
+        ctx.globalAlpha = 1.0; 
+    }
+    
+    mowers.forEach(m => { ctx.fillStyle = '#c62828'; ctx.fillRect(m.x, m.y+35, 55, 35); ctx.fillStyle = '#000'; ctx.fillRect(m.x+10, m.y+65, 10, 10); ctx.fillRect(m.x+35, m.y+65, 10, 10); });
     plants.forEach(p => drawPlant(ctx, p.type, p.x, p.y, 100, Math.sin(frame*0.05)*0.04, 1, p.ready));
     zombies.forEach(z => drawZombie(z));
     projectiles.forEach(pr => { ctx.fillStyle = pr.ice ? '#4fc3f7' : '#76ff03'; drawStrokeCircle(ctx, pr.x, pr.y, 10); });
     suns.forEach(s => { ctx.fillStyle = '#fff176'; ctx.strokeStyle = '#f57f17'; drawStrokeCircle(ctx, s.x, s.y, 20); });
     explosions.forEach(ex => { ctx.fillStyle = 'rgba(255, 100, 0, 0.7)'; drawStrokeCircle(ctx, ex.x, ex.y, ex.r); });
 
-    if (gameOver) { document.getElementById('status-text').innerText = "¡CEREBRO COMIDO!"; document.getElementById('overlay').style.display = 'flex'; return; }
-    if (gameWon) { document.getElementById('status-text').innerText = "¡VICTORIA!"; document.getElementById('status-text').style.color = "#4caf50"; document.getElementById('overlay').style.display = 'flex'; return; }
+    if (gameOver) { document.getElementById('status-text').innerText = "¡ZOMBIES EN TU CASA!\nCEREBROS COMIDOS"; document.getElementById('overlay').style.display = 'flex'; return; }
+    if (gameWon) { document.getElementById('status-text').innerText = "¡VICTORIA!\nHAS DEFENDIDO EL JARDÍN"; document.getElementById('status-text').style.color = "#4caf50"; document.getElementById('overlay').style.display = 'flex'; return; }
     
-    if (frame % 10 === 0) updateUI();
+    if (frame % 20 === 0) updateUI();
     requestAnimationFrame(loop);
 }
 
-init(); loop();
+// Iniciar Cortacéspedes
+for (let i = 0; i < 6; i++) mowers.push({x: 10, y: i * cellSize, active: false});
+updateUI(); 
+loop();
 </script>
 </body>
 </html>
