@@ -1420,7 +1420,7 @@ function drawBossBody(){
 
 // ===== COLLISION =====
 function rectsOvlp(ax,ay,aw,ah,bx,by,bw,bh){return ax<bx+bw&&ax+aw>bx&&ay<by+bh&&ay+ah>by;}
-function checkCollisions(){
+function checkCollisionsInk(){
   let canHitBoss = bossExitDir===0 && !bossEntering;
   for(let i=bullets.length-1;i>=0;i--){
     let b=bullets[i];
@@ -2426,8 +2426,8 @@ function drawHUDTemp(){
   ctx.restore();
 }
 
+// ===== COLLISION DISPATCHER =====
 // Patch checkCollisions to also hit tBoss
-const _checkCollisions_orig = checkCollisions;
 function checkCollisions(){
   if(selectedBoss==='tempestina'){
     // bullets vs tBoss
@@ -2486,7 +2486,7 @@ function checkCollisions(){
     }
     checkMinionHits();
   } else {
-    _checkCollisions_orig();
+    checkCollisionsInk();
   }
 }
 // ══ END TEMPESTINA ══
