@@ -2,9 +2,9 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PvZ: El Retorno de la Repetidora</title>
+    <title>PvZ: Edición Definitiva</title>
     <style>
-        body { background: #1a1a1a; color: white; font-family: 'Arial Black', sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; overflow: hidden; user-select: none; }
+        body { background: #121212; color: white; font-family: 'Arial Black', sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; overflow: hidden; user-select: none; }
         #ui-panel { width: 1000px; height: 110px; background: #4d3a29; display: flex; align-items: center; padding: 0 15px; box-sizing: border-box; border-bottom: 5px solid #241a12; gap: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
         #sun-counter { background: #ffd54f; color: #332; padding: 8px; border-radius: 10px; font-weight: bold; font-size: 22px; border: 4px solid #f57f17; min-width: 85px; text-align: center; }
         .seed-packets { display: flex; gap: 5px; }
@@ -43,7 +43,7 @@
     </div>
     <div id="overlay">
         <h1 id="status-text" style="font-size: 45px; color: #f44336; margin-bottom: 20px;"></h1>
-        <button style="padding: 15px 40px; font-size: 24px; cursor: pointer; background: #4caf50; color: white; border: none; border-radius: 10px; box-shadow: 0 5px 0 #2e7d32;" onclick="location.reload()">REINTENTAR</button>
+        <button style="padding: 15px 40px; font-size: 24px; cursor: pointer; background: #4caf50; color: white; border: none; border-radius: 10px;" onclick="location.reload()">REINTENTAR</button>
     </div>
 </div>
 
@@ -60,7 +60,6 @@ let waveProgress = 0;
 const maxWaves = 10;
 let gameOver = false;
 let gameWon = false;
-let wave1Timer = 0;
 
 let selectedPlant = null;
 let shovelActive = false;
@@ -72,7 +71,7 @@ const plantTypes = {
     'lanzaguisantes': { cost: 100, hp: 100, color: '#4caf50', cooldown: 300 },
     'girasol': { cost: 50, hp: 80, color: '#ffeb3b', cooldown: 300 },
     'nuez': { cost: 50, hp: 2000, color: '#a1887f', cooldown: 900 },
-    'repetidora': { cost: 250, hp: 100, color: '#1b5e20', cooldown: 400 }, 
+    'repetidora': { cost: 250, hp: 100, color: '#1b5e20', cooldown: 400 },
     'papapum': { cost: 25, hp: 100, color: '#795548', cooldown: 800 },
     'hielaguisantes': { cost: 175, hp: 100, color: '#4fc3f7', cooldown: 500 },
     'petacereza': { cost: 150, hp: 100, color: '#f44336', cooldown: 1800 }
@@ -94,15 +93,13 @@ function drawPlant(c, type, x, y, size, angle = 0, scale = 1, ready = true) {
     if (type === 'lanzaguisantes' || type === 'hielaguisantes' || type === 'repetidora') {
         c.fillStyle = '#2e7d32'; c.fillRect(-4, 0, 8, 35); c.strokeRect(-4, 0, 8, 35);
         c.fillStyle = plantTypes[type].color;
-        
-        if (type === 'repetidora') { // Diseño exclusivo con dos hojas traseras
+        if (type === 'repetidora') {
             c.beginPath(); c.ellipse(-20, -10, 10, 15, -0.5, 0, Math.PI*2); c.fill(); c.stroke();
             c.beginPath(); c.ellipse(-15, -25, 12, 18, -0.8, 0, Math.PI*2); c.fill(); c.stroke();
         }
-
         drawStrokeCircle(c, 2, -18, 22); 
-        drawStrokeCircle(c, 24, -18, 12); // Cañón
-        c.fillStyle = '#000'; drawStrokeCircle(c, 8, -24, 4); // Ojo
+        drawStrokeCircle(c, 24, -18, 12); 
+        c.fillStyle = '#000'; drawStrokeCircle(c, 8, -24, 4); 
     } else if (type === 'girasol') {
         c.fillStyle = '#2e7d32'; c.fillRect(-3, 0, 6, 35); c.strokeRect(-3, 0, 6, 35);
         c.fillStyle = '#fbc02d';
@@ -159,15 +156,18 @@ function updateUI() {
     document.getElementById('wave-bar').style.width = waveProgress + '%';
     document.getElementById('wave-text').innerText = `OLEADA ${wave} / 10`;
     document.getElementById('speed-btn').innerText = `x${gameSpeed}`;
-    document.getElementById('speed-btn').className = `control-btn ${gameSpeed > 1 ? 'fast' : ''}`;
 }
 
 document.getElementById('speed-btn').onclick = () => { gameSpeed = (gameSpeed === 1) ? 2 : 1; updateUI(); };
 document.getElementById('shovel').onclick = () => { shovelActive = !shovelActive; selectedPlant = null; updateUI(); };
 
-canvas.addEventListener('mousemove', e => { const rect = canvas.getBoundingClientRect(); mouse.x = e.clientX - rect.left; mouse.y = e.clientY - rect.top; });
+canvas.addEventListener('mousemove', e => { 
+    const rect = canvas.getBoundingClientRect(); 
+    mouse.x = e.clientX - rect.left; 
+    mouse.y = e.clientY - rect.top; 
+});
+
 canvas.addEventListener('mousedown', () => {
-    for (let i = suns.length - 1; i >= 0; i--) { if (Math.hypot(mouse.x - suns[i].x, mouse.y - suns[i].y) < 45) { resources += 25; suns.splice(i, 1); updateUI(); return; } }
     const gx = Math.floor(mouse.x/100)*100, gy = Math.floor(mouse.y/100)*100;
     if (shovelActive) { const idx = plants.findIndex(p => p.x === gx && p.y === gy); if (idx !== -1) { plants.splice(idx, 1); shovelActive = false; updateUI(); } return; }
     if (selectedPlant && gx < 900 && !plants.some(p => p.x === gx && p.y === gy)) {
@@ -180,9 +180,9 @@ canvas.addEventListener('mousedown', () => {
 function spawnZombie(count) {
     for (let i = 0; i < count; i++) {
         const r = Math.random();
-        let type = 'basico', hp = 100 + (wave * 35), speed = 0.35;
-        if (wave >= 5 && r > 0.65) { type = 'cubo'; hp += 700; }
-        else if (wave >= 2 && r > 0.45) { type = 'cono'; hp += 250; }
+        let type = 'basico', hp = 100 + (wave * 45), speed = 0.35;
+        if (wave >= 5 && r > 0.6) { type = 'cubo'; hp += 800; }
+        else if (wave >= 2 && r > 0.4) { type = 'cono'; hp += 300; }
         zombies.push({x: 900 + (i * 45), y: Math.floor(Math.random()*6)*cellSize, hp: hp, type: type, speed: speed, freeze: 0});
     }
 }
@@ -190,22 +190,26 @@ function spawnZombie(count) {
 function loop() {
     for (let s = 0; s < gameSpeed; s++) {
         frame++;
-        if (wave === 1) wave1Timer++;
+
+        // RECOLECCIÓN POR PASAR EL MOUSE (Sin clic)
+        for (let i = suns.length - 1; i >= 0; i--) {
+            if (Math.hypot(mouse.x - suns[i].x, mouse.y - suns[i].y) < 50) {
+                resources += 25; suns.splice(i, 1); updateUI();
+            }
+        }
 
         Object.keys(cooldowns).forEach(k => { if (cooldowns[k] > 0) cooldowns[k]--; });
 
-        // LOGICA DE HORDAS INCREMENTALES
+        // SISTEMA DE OLEADAS CRECIENTES
         let baseRate = Math.max(50, 950 - (wave * 90));
-        if (wave === 1 && wave1Timer > 3600) baseRate /= 4; 
-
         if (frame % Math.floor(baseRate) === 0 && wave <= maxWaves) {
-            let count = wave; // Ola 2 -> 2 zombies
-            if (wave >= 3) count = Math.floor(wave * 1.8); // Ola 3 -> 5 zombies
-            if (wave >= 6) count = Math.floor(wave * 2.5); // Ola 6 -> 15 zombies
-            if (wave === 10) count = 35; // Final boss horda
+            let count = wave; 
+            if (wave >= 3) count = Math.floor(wave * 2.2); 
+            if (wave >= 7) count = Math.floor(wave * 3.5); 
+            if (wave === 10) count = 45; 
             
             spawnZombie(count);
-            waveProgress += 4;
+            waveProgress += 5;
             if (waveProgress >= 100) { if (wave < maxWaves) { wave++; waveProgress = 0; if(wave === 4) updateUI(); } else { waveProgress = 100; } updateUI(); }
         }
 
@@ -215,17 +219,13 @@ function loop() {
             p.t++;
             if (p.type === 'papapum' && !p.ready && p.t > 400) p.ready = true;
             if (p.type === 'girasol' && p.t % 600 === 0) suns.push({x: p.x+20, y: p.y+20, targetY: p.y+20, t: 500});
-            
-            // Disparo normal
             if ((p.type === 'lanzaguisantes' || p.type === 'hielaguisantes' || p.type === 'repetidora') && p.t % 100 === 0) {
                 if (zombies.some(z => z.y === p.y && z.x > p.x)) {
                     projectiles.push({x: p.x+80, y: p.y+35, ice: p.type === 'hielaguisantes'});
-                    if (p.type === 'repetidora') p.ráfaga = 15; // Ráfaga de 1/4 segundo
+                    if (p.type === 'repetidora') p.ráfaga = 15; 
                 }
             }
-            // Mecánica de ráfaga (Segundo guisante)
             if (p.ráfaga > 0) { p.ráfaga--; if (p.ráfaga === 0) projectiles.push({x: p.x+80, y: p.y+35, ice: false}); }
-            
             if (p.hp <= 0) plants.splice(i, 1);
         });
 
@@ -252,30 +252,20 @@ function loop() {
 
     ctx.clearRect(0,0,900,600);
     for(let i=0; i<9; i++) { for(let j=0; j<6; j++) { ctx.fillStyle = (i+j)%2==0 ? '#4caf50' : '#43a047'; ctx.fillRect(i*100, j*100, 100, 100); } }
-    
-    if (selectedPlant || shovelActive) { 
-        ctx.globalAlpha = 0.4; 
-        const gx = Math.floor(mouse.x/100)*100, gy = Math.floor(mouse.y/100)*100; 
-        if (shovelActive) { ctx.fillStyle = "white"; ctx.fillRect(gx, gy, 100, 100); } 
-        else drawPlant(ctx, selectedPlant, gx, gy, 100); 
-        ctx.globalAlpha = 1.0; 
-    }
-    
-    mowers.forEach(m => { ctx.fillStyle = '#c62828'; ctx.fillRect(m.x, m.y+35, 55, 35); ctx.fillStyle = '#000'; ctx.fillRect(m.x+10, m.y+65, 10, 10); ctx.fillRect(m.x+35, m.y+65, 10, 10); });
+    mowers.forEach(m => { ctx.fillStyle = '#c62828'; ctx.fillRect(m.x, m.y+35, 55, 35); });
     plants.forEach(p => drawPlant(ctx, p.type, p.x, p.y, 100, Math.sin(frame*0.05)*0.04, 1, p.ready));
     zombies.forEach(z => drawZombie(z));
     projectiles.forEach(pr => { ctx.fillStyle = pr.ice ? '#4fc3f7' : '#76ff03'; drawStrokeCircle(ctx, pr.x, pr.y, 10); });
     suns.forEach(s => { ctx.fillStyle = '#fff176'; ctx.strokeStyle = '#f57f17'; drawStrokeCircle(ctx, s.x, s.y, 20); });
     explosions.forEach(ex => { ctx.fillStyle = 'rgba(255, 100, 0, 0.7)'; drawStrokeCircle(ctx, ex.x, ex.y, ex.r); });
 
-    if (gameOver) { document.getElementById('status-text').innerText = "¡ZOMBIES EN TU CASA!\nCEREBROS COMIDOS"; document.getElementById('overlay').style.display = 'flex'; return; }
-    if (gameWon) { document.getElementById('status-text').innerText = "¡VICTORIA!\nHAS DEFENDIDO EL JARDÍN"; document.getElementById('status-text').style.color = "#4caf50"; document.getElementById('overlay').style.display = 'flex'; return; }
+    if (gameOver) { document.getElementById('status-text').innerText = "¡ZOMBIES EN TU CASA!"; document.getElementById('overlay').style.display = 'flex'; return; }
+    if (gameWon) { document.getElementById('status-text').innerText = "¡JARDÍN LIBRE DE ZOMBIES!"; document.getElementById('status-text').style.color = "#4caf50"; document.getElementById('overlay').style.display = 'flex'; return; }
     
     if (frame % 20 === 0) updateUI();
     requestAnimationFrame(loop);
 }
 
-// Iniciar Cortacéspedes
 for (let i = 0; i < 6; i++) mowers.push({x: 10, y: i * cellSize, active: false});
 updateUI(); 
 loop();
