@@ -1022,9 +1022,21 @@ function updateBoss(){
       bp.grav=0; // no gravity after redirect — pure straight line
       spawnParts(bp.x,bp.y,'#40c0ff',5,3,15);
     }
+    // Wall bouncing projectiles (ringExpand, inkBeam)
+    if(bp.wallBounce){
+      // Left/right walls
+      if(bp.x-bp.r<=0){bp.x=bp.r;bp.vx=Math.abs(bp.vx);bp.wallBounces=(bp.wallBounces||0)+1;spawnParts(bp.x,bp.y,bp.col,3,2,10);}
+      else if(bp.x+bp.r>=W){bp.x=W-bp.r;bp.vx=-Math.abs(bp.vx);bp.wallBounces=(bp.wallBounces||0)+1;spawnParts(bp.x,bp.y,bp.col,3,2,10);}
+      // Ceiling
+      if(bp.y-bp.r<=0){bp.y=bp.r;bp.vy=Math.abs(bp.vy);bp.wallBounces=(bp.wallBounces||0)+1;spawnParts(bp.x,bp.y,bp.col,3,2,10);}
+      // Floor
+      if(bp.y+bp.r>=FLOOR){bp.y=FLOOR-bp.r;bp.vy=-Math.abs(bp.vy);bp.wallBounces=(bp.wallBounces||0)+1;spawnParts(bp.x,bp.y,bp.col,3,2,10);}
+      // Die after 3 bounces
+      if(bp.wallBounces>=3)bp.dead=true;
+    }
     // Kill regular projectiles that hit the floor (they shouldn't phase through)
     // floorSlide projectiles travel along the floor and die off-screen
-    if(!bp.onHitGround&&!bp.shrapnel&&!bp.bounce&&!bp.floorSlide&&bp.vy>0&&bp.y>=FLOOR-bp.r)bp.dead=true;
+    if(!bp.onHitGround&&!bp.shrapnel&&!bp.bounce&&!bp.floorSlide&&!bp.wallBounce&&bp.vy>0&&bp.y>=FLOOR-bp.r)bp.dead=true;
     // Gravity bomb explodes on hitting floor
     if(bp.onHitGround&&!bp.exploded&&bp.y>=FLOOR-bp.r){
       bp.exploded=true;bp.dead=true;
@@ -1115,13 +1127,13 @@ function doBossAtk(p){
     for(let i=0;i<cnt;i++){setTimeout(()=>{if(gameState!=='playing')return;bossProjectiles.push({x:80+Math.random()*(W-160),y:-15,vx:(Math.random()-0.5)*1.5,vy:spd+Math.random()*1.5,r:12,col:'#ff4080',grav:0.03});},i*200);}
   } else if(p==='ringExpand'){
     let rings=D(2,2);
-    for(let ring=0;ring<rings;ring++){setTimeout(()=>{if(gameState!=='playing')return;let bc2=getBossC();let cnt=D(12,14);for(let i=0;i<cnt;i++){let ang=(i/cnt)*Math.PI*2+ring*0.25;let spd=(2.0+ring*0.5)*hs;bossProjectiles.push({x:bc2.x,y:bc2.y,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,r:10,col:['#40ffff','#ff40ff'][ring]});}},ring*1000);}
+    for(let ring=0;ring<rings;ring++){setTimeout(()=>{if(gameState!=='playing')return;let bc2=getBossC();let cnt=D(12,14);for(let i=0;i<cnt;i++){let ang=(i/cnt)*Math.PI*2+ring*0.25;let spd=(2.0+ring*0.5)*hs;bossProjectiles.push({x:bc2.x,y:bc2.y,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,r:10,col:['#40ffff','#ff40ff'][ring],wallBounce:true,wallBounces:0});}},ring*1000);}
   } else if(p==='crossfire'){
     let streams=[{x:0,y:H/2,vx:4.5*hs,vy:0,col:'#ff8040'},{x:W,y:H/2,vx:-4.5*hs,vy:0,col:'#ff8040'},{x:W/2,y:0,vx:0,vy:4.5*hs,col:'#ff6020'},{x:W/2,y:FLOOR,vx:0,vy:-4.5*hs,col:'#ff6020'}];
     for(let s=0;s<streams.length;s++){setTimeout(()=>{if(gameState!=='playing')return;let pp=streams[s];for(let j=-1;j<=1;j++){bossProjectiles.push({x:pp.x,y:pp.y,vx:pp.vx+(j*(pp.vy?0.8:0)),vy:pp.vy+(j*(pp.vx?0.8:0)),r:11,col:pp.col});}},s*400);}
   } else if(p==='inkBeam'){
     let cnt=D(10,13),spd=4.5*hs;
-    for(let i=0;i<cnt;i++){setTimeout(()=>{if(gameState!=='playing')return;let ang=Math.PI+i*(Math.PI/(cnt+1));bossProjectiles.push({x:cx,y:cy,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,r:10,col:'#80ff40'});},i*80);}
+    for(let i=0;i<cnt;i++){setTimeout(()=>{if(gameState!=='playing')return;let ang=Math.PI+i*(Math.PI/(cnt+1));bossProjectiles.push({x:cx,y:cy,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,r:10,col:'#80ff40',wallBounce:true,wallBounces:0});},i*80);}
   } else if(p==='gravityBombs'){
     let cnt=D(4,5);
     for(let i=0;i<cnt;i++){setTimeout(()=>{if(gameState!=='playing')return;let bx2=100+Math.random()*(W-200);bossProjectiles.push({x:bx2,y:-10,vx:(Math.random()-0.5)*1.5,vy:0.8,r:14,col:'#f07020',grav:0.18,onHitGround:true,exploded:false});},i*600);}
