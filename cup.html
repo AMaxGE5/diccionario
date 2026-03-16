@@ -782,15 +782,44 @@ const music={
 };
 Object.values(music).forEach(a=>{a.loop=true;a.volume=0.65;});
 let currentMusic=null;
+let pendingMusicPhase=null; // queued when autoplay blocked
+
 function playMusic(phase){
   let boss=selectedBoss==='tempestina'?'tempestina':'inkboss';
-  let track=music[`${boss}_f${phase}`];
-  if(!track||currentMusic===track)return;
+  let key=`${boss}_f${phase}`;
+  let track=music[key];
+  if(!track)return;
+  if(currentMusic===track){
+    // already playing this track — make sure it's actually running
+    if(currentMusic.paused)currentMusic.play().catch(()=>{pendingMusicPhase=phase;});
+    return;
+  }
   if(currentMusic){currentMusic.pause();currentMusic.currentTime=0;}
   currentMusic=track;
-  currentMusic.play().catch(()=>{});
+  currentMusic.currentTime=0;
+  currentMusic.play().catch(e=>{
+    // Autoplay blocked — store phase so we can retry on next interaction
+    pendingMusicPhase=phase;
+  });
 }
-function stopMusic(){if(currentMusic){currentMusic.pause();currentMusic.currentTime=0;currentMusic=null;}}
+
+function stopMusic(){
+  if(currentMusic){currentMusic.pause();currentMusic.currentTime=0;currentMusic=null;}
+  pendingMusicPhase=null;
+}
+
+// Retry pending music on ANY user interaction (click or key)
+function _retryMusic(){
+  if(pendingMusicPhase!==null&&gameState==='playing'){
+    let p=pendingMusicPhase;pendingMusicPhase=null;
+    // Force re-trigger even if same track
+    if(currentMusic){currentMusic.pause();currentMusic.currentTime=0;}
+    currentMusic=null;
+    playMusic(p);
+  }
+}
+document.addEventListener('keydown',_retryMusic,{passive:true});
+document.addEventListener('click',_retryMusic,{passive:true});
 
 let audioCtx=null;
 function getAudioCtx(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
