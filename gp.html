@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PvZ: Edición Definitiva</title>
+    <title>PvZ: Extreme Speed & Vaulting Edition</title>
     <style>
         body { background: #121212; color: white; font-family: 'Arial Black', sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; overflow: hidden; user-select: none; }
         #ui-panel { width: 1000px; height: 110px; background: #4d3a29; display: flex; align-items: center; padding: 0 15px; box-sizing: border-box; border-bottom: 5px solid #241a12; gap: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
@@ -14,15 +14,14 @@
         .seed.locked { background: #222; border-color: #000; cursor: not-allowed; }
         .seed .cooldown-overlay { position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; background: rgba(0,0,0,0.75); pointer-events: none; }
         .seed span { font-size: 11px; z-index: 2; font-weight: bold; text-shadow: 1px 1px #000; margin-top: 2px; }
-        .control-btn { padding: 10px; border-radius: 8px; cursor: pointer; border: 3px solid #37474f; font-size: 20px; display: flex; align-items: center; justify-content: center; min-width: 55px; }
+        .control-btn { padding: 10px; border-radius: 8px; cursor: pointer; border: 3px solid #37474f; font-size: 20px; display: flex; align-items: center; justify-content: center; min-width: 55px; transition: transform 0.1s; }
         #shovel { background: #607d8b; }
         #shovel.selected { background: #cfd8dc; border-color: white; transform: scale(1.1); }
-        #speed-btn { background: #ff5722; color: white; font-weight: bold; font-size: 16px; }
-        #speed-btn.fast { background: #4caf50; box-shadow: 0 0 15px #4caf50; }
+        #speed-btn { background: #ff5722; color: white; font-weight: bold; font-size: 18px; min-width: 65px; }
+        #speed-btn.active { background: #4caf50; box-shadow: 0 0 10px #4caf50; }
         #game-container { position: relative; width: 900px; height: 600px; margin-top: 15px; border: 8px solid #3e2723; border-radius: 15px; }
         canvas { display: block; background: #4caf50; }
-        #wave-panel { position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.85); padding: 10px; border-radius: 10px; width: 200px; text-align: center; border: 2px solid #ffeb3b; }
-        #wave-bar { height: 12px; background: #f44336; width: 0%; border-radius: 5px; transition: width 0.3s; margin-top: 6px; border: 1px solid #000; }
+        #announcement { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); color: #ffeb3b; font-size: 40px; text-shadow: 4px 4px #000; display: none; pointer-events: none; z-index: 50; text-align: center; width: 100%; }
         #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; }
     </style>
 </head>
@@ -37,9 +36,10 @@
 
 <div id="game-container">
     <canvas id="gameCanvas" width="900" height="600"></canvas>
-    <div id="wave-panel">
+    <div id="announcement">¡UNA GRAN HORDA SE APROXIMA!</div>
+    <div id="wave-panel" style="position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.85); padding: 10px; border-radius: 10px; width: 200px; text-align: center; border: 2px solid #ffeb3b;">
         <div id="wave-text" style="font-size: 14px; color: #ffeb3b; font-weight: bold;">OLEADA 1 / 10</div>
-        <div style="background: #222; border-radius: 6px; overflow: hidden;"><div id="wave-bar"></div></div>
+        <div style="background: #222; border-radius: 6px; overflow: hidden;"><div id="wave-bar" style="height: 12px; background: #f44336; width: 0%; border-radius: 5px; transition: width 0.3s;"></div></div>
     </div>
     <div id="overlay">
         <h1 id="status-text" style="font-size: 45px; color: #f44336; margin-bottom: 20px;"></h1>
@@ -122,15 +122,42 @@ function drawPlant(c, type, x, y, size, angle = 0, scale = 1, ready = true) {
 function drawZombie(z) {
     ctx.save();
     ctx.translate(z.x + 50, z.y + 50);
+    const walkCycle = Math.sin(frame * 0.15);
+    const headBob = Math.abs(Math.cos(frame * 0.15)) * 4;
+    ctx.rotate(walkCycle * 0.05);
     ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
-    const bounce = Math.abs(Math.sin(frame * 0.15)) * 5;
-    ctx.translate(0, -bounce);
-    ctx.fillStyle = z.type === 'bandera' ? '#1a237e' : '#5d4037';
-    ctx.fillRect(-22, -20, 44, 50); ctx.strokeRect(-22, -20, 44, 50);
+
+    // Brazos estirados
     ctx.fillStyle = z.freeze > 0 ? '#4fc3f7' : '#7cb342';
-    drawStrokeCircle(ctx, 0, -35, 22);
-    if (z.type === 'cono' && z.hp > 120) { ctx.fillStyle = '#ff6d00'; ctx.beginPath(); ctx.moveTo(-20, -45); ctx.lineTo(0, -95); ctx.lineTo(20, -45); ctx.fill(); ctx.stroke(); }
-    else if (z.type === 'cubo' && z.hp > 120) { ctx.fillStyle = '#b0bec5'; ctx.fillRect(-24, -75, 48, 35); ctx.strokeRect(-24, -75, 48, 35); }
+    ctx.fillRect(walkCycle * 3 - 35, -5, 30, 8); ctx.strokeRect(walkCycle * 3 - 35, -5, 30, 8);
+
+    // Cuerpo
+    ctx.fillStyle = (z.type === 'bandera' || z.type === 'pertiga') ? '#1a237e' : '#5d4037';
+    if (z.type === 'pertiga') ctx.fillStyle = '#c62828';
+    ctx.fillRect(-20, -15, 40, 50); ctx.strokeRect(-20, -15, 40, 50);
+
+    // Cabeza balanceante
+    ctx.save();
+    ctx.translate(0, -32 - headBob);
+    ctx.fillStyle = z.freeze > 0 ? '#4fc3f7' : '#7cb342';
+    drawStrokeCircle(ctx, 0, 0, 22);
+    ctx.fillStyle = '#fff'; drawStrokeCircle(ctx, 8, -6, 6);
+    ctx.fillStyle = '#000'; drawStrokeCircle(ctx, 10, -6, 2.5);
+    ctx.restore();
+
+    if (z.type === 'bandera') {
+        ctx.strokeStyle = '#795548'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(15, 10); ctx.lineTo(15, -60); ctx.stroke();
+        ctx.fillStyle = '#f44336'; ctx.fillRect(15, -60, 30, 20); ctx.strokeRect(15, -60, 30, 20);
+    }
+    
+    if (z.type === 'pertiga' && !z.jumped) {
+        ctx.strokeStyle = '#8d6e63'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(-15, 20); ctx.lineTo(60, -40); ctx.stroke();
+    }
+
+    if (z.type === 'cono' && z.hp > 120) { ctx.fillStyle = '#ff6d00'; ctx.beginPath(); ctx.moveTo(-20, -42); ctx.lineTo(0, -90); ctx.lineTo(20, -42); ctx.fill(); ctx.stroke(); }
+    else if (z.type === 'cubo' && z.hp > 120) { ctx.fillStyle = '#b0bec5'; ctx.fillRect(-24, -70, 48, 32); ctx.strokeRect(-24, -70, 48, 32); }
     ctx.restore();
 }
 
@@ -142,34 +169,31 @@ function updateUI() {
         const isLocked = key === 'repetidora' && wave < 4;
         const div = document.createElement('div');
         div.className = `seed ${isLocked ? 'locked' : (resources < p.cost || cooldowns[key] > 0 ? 'disabled' : '')} ${selectedPlant === key ? 'selected' : ''}`;
-        if (isLocked) {
-            div.innerHTML = `<span style="margin-top:25px; font-size:22px;">🔒</span><span style="font-size:9px">OLA 4</span>`;
-        } else {
-            div.innerHTML = `<canvas id="c-${key}" width="65" height="65"></canvas><span>${p.cost}</span><div class="cooldown-overlay" style="height: ${(cooldowns[key]/p.cooldown)*100}%"></div>`;
-        }
-        div.onclick = (e) => { e.stopPropagation(); if (!isLocked && resources >= p.cost && cooldowns[key] <= 0) { selectedPlant = key; shovelActive = false; updateUI(); } };
+        div.innerHTML = isLocked ? `<span style="margin-top:25px; font-size:20px;">🔒</span><span>OLA 4</span>` : 
+            `<canvas id="c-${key}" width="65" height="65"></canvas><span>${p.cost}</span><div class="cooldown-overlay" style="height: ${(cooldowns[key]/p.cooldown)*100}%"></div>`;
+        div.onclick = () => { if (!isLocked && resources >= p.cost && cooldowns[key] <= 0) { selectedPlant = key; shovelActive = false; updateUI(); } };
         container.appendChild(div);
         if (!isLocked) { const ictx = document.getElementById(`c-${key}`).getContext('2d'); drawPlant(ictx, key, 0, 0, 65, 0, 0.7); }
     });
-    document.getElementById('shovel').className = `control-btn ${shovelActive ? 'selected' : ''}`;
     document.getElementById('sun-counter').innerText = `☀️ ${resources}`;
     document.getElementById('wave-bar').style.width = waveProgress + '%';
     document.getElementById('wave-text').innerText = `OLEADA ${wave} / 10`;
-    document.getElementById('speed-btn').innerText = `x${gameSpeed}`;
+    const sBtn = document.getElementById('speed-btn');
+    sBtn.innerText = `x${gameSpeed}`;
+    sBtn.className = `control-btn ${gameSpeed > 1 ? 'active' : ''}`;
 }
 
-document.getElementById('speed-btn').onclick = () => { gameSpeed = (gameSpeed === 1) ? 2 : 1; updateUI(); };
+document.getElementById('speed-btn').onclick = () => { gameSpeed = (gameSpeed % 5) + 1; updateUI(); };
 document.getElementById('shovel').onclick = () => { shovelActive = !shovelActive; selectedPlant = null; updateUI(); };
 
 canvas.addEventListener('mousemove', e => { 
     const rect = canvas.getBoundingClientRect(); 
-    mouse.x = e.clientX - rect.left; 
-    mouse.y = e.clientY - rect.top; 
+    mouse.x = e.clientX - rect.left; mouse.y = e.clientY - rect.top; 
 });
 
 canvas.addEventListener('mousedown', () => {
     const gx = Math.floor(mouse.x/100)*100, gy = Math.floor(mouse.y/100)*100;
-    if (shovelActive) { const idx = plants.findIndex(p => p.x === gx && p.y === gy); if (idx !== -1) { plants.splice(idx, 1); shovelActive = false; updateUI(); } return; }
+    if (shovelActive) { const idx = plants.findIndex(p => p.x === gx && p.y === gy); if (idx !== -1) plants.splice(idx, 1); shovelActive = false; updateUI(); return; }
     if (selectedPlant && gx < 900 && !plants.some(p => p.x === gx && p.y === gy)) {
         if (selectedPlant === 'petacereza') { explosions.push({x: gx+50, y: gy+50, r: 160, t: 15}); zombies.forEach(z => { if (Math.abs(z.x - gx) < 180 && Math.abs(z.y - gy) < 180) z.hp = 0; }); }
         else { plants.push({ x: gx, y: gy, type: selectedPlant, hp: plantTypes[selectedPlant].hp, t: 0, ready: (selectedPlant !== 'papapum'), ráfaga: 0 }); }
@@ -177,90 +201,95 @@ canvas.addEventListener('mousedown', () => {
     }
 });
 
-function spawnZombie(count) {
+function spawnZombie(count, forceHorde = false) {
+    if (forceHorde) {
+        zombies.push({x: 950, y: Math.floor(Math.random()*6)*cellSize, hp: 200, type: 'bandera', speed: 0.5, freeze: 0});
+        document.getElementById('announcement').style.display = 'block';
+        setTimeout(() => document.getElementById('announcement').style.display = 'none', 3000);
+    }
     for (let i = 0; i < count; i++) {
         const r = Math.random();
-        let type = 'basico', hp = 100 + (wave * 45), speed = 0.35;
-        if (wave >= 5 && r > 0.6) { type = 'cubo'; hp += 800; }
-        else if (wave >= 2 && r > 0.4) { type = 'cono'; hp += 300; }
-        zombies.push({x: 900 + (i * 45), y: Math.floor(Math.random()*6)*cellSize, hp: hp, type: type, speed: speed, freeze: 0});
+        let type = 'basico', hp = 100 + (wave * 55), speed = 0.35;
+        if (wave >= 3 && waveProgress > 50 && r > 0.7) { type = 'pertiga'; speed = 0.85; }
+        else if (wave >= 5 && r > 0.5) { type = 'cubo'; hp += 900; }
+        else if (wave >= 2 && r > 0.3) { type = 'cono'; hp += 400; }
+        zombies.push({x: 1000 + (i * 45), y: Math.floor(Math.random()*6)*cellSize, hp: hp, type: type, speed: speed, freeze: 0, jumped: false});
     }
 }
 
 function loop() {
     for (let s = 0; s < gameSpeed; s++) {
         frame++;
-
-        // RECOLECCIÓN POR PASAR EL MOUSE (Sin clic)
-        for (let i = suns.length - 1; i >= 0; i--) {
-            if (Math.hypot(mouse.x - suns[i].x, mouse.y - suns[i].y) < 50) {
-                resources += 25; suns.splice(i, 1); updateUI();
-            }
+        for (let i = suns.length - 1; i >= 0; i--) { 
+            if (Math.hypot(mouse.x - suns[i].x, mouse.y - suns[i].y) < 65) { resources += 25; suns.splice(i, 1); updateUI(); } 
         }
-
         Object.keys(cooldowns).forEach(k => { if (cooldowns[k] > 0) cooldowns[k]--; });
 
-        // SISTEMA DE OLEADAS CRECIENTES
-        let baseRate = Math.max(50, 950 - (wave * 90));
+        let baseRate = Math.max(50, 950 - (wave * 105));
         if (frame % Math.floor(baseRate) === 0 && wave <= maxWaves) {
-            let count = wave; 
-            if (wave >= 3) count = Math.floor(wave * 2.2); 
-            if (wave >= 7) count = Math.floor(wave * 3.5); 
-            if (wave === 10) count = 45; 
-            
-            spawnZombie(count);
+            let isHorde = (waveProgress % 25 === 0 && wave >= 3);
+            spawnZombie(wave >= 8 ? wave * 4.5 : wave * 2, isHorde);
             waveProgress += 5;
-            if (waveProgress >= 100) { if (wave < maxWaves) { wave++; waveProgress = 0; if(wave === 4) updateUI(); } else { waveProgress = 100; } updateUI(); }
+            if (waveProgress >= 100) { if (wave < maxWaves) { wave++; waveProgress = 0; updateUI(); } else { waveProgress = 100; } }
         }
 
         if (frame % 350 === 0) suns.push({x: Math.random()*800+50, y: 0, targetY: Math.random()*400+100, t: 500});
 
-        plants.forEach((p, i) => {
+        plants.forEach(p => {
             p.t++;
-            if (p.type === 'papapum' && !p.ready && p.t > 400) p.ready = true;
             if (p.type === 'girasol' && p.t % 600 === 0) suns.push({x: p.x+20, y: p.y+20, targetY: p.y+20, t: 500});
-            if ((p.type === 'lanzaguisantes' || p.type === 'hielaguisantes' || p.type === 'repetidora') && p.t % 100 === 0) {
+            if (['lanzaguisantes', 'hielaguisantes', 'repetidora'].includes(p.type) && p.t % 100 === 0) {
                 if (zombies.some(z => z.y === p.y && z.x > p.x)) {
                     projectiles.push({x: p.x+80, y: p.y+35, ice: p.type === 'hielaguisantes'});
-                    if (p.type === 'repetidora') p.ráfaga = 15; 
+                    if (p.type === 'repetidora') p.ráfaga = 15;
                 }
             }
             if (p.ráfaga > 0) { p.ráfaga--; if (p.ráfaga === 0) projectiles.push({x: p.x+80, y: p.y+35, ice: false}); }
-            if (p.hp <= 0) plants.splice(i, 1);
+            if (p.type === 'papapum' && !p.ready && p.t > 400) p.ready = true;
         });
 
         zombies.forEach((z, i) => {
-            let eat = false;
-            plants.forEach(p => { if (p.y === z.y && z.x < p.x + 50 && z.x > p.x) { eat = true; p.hp -= 1.0; if (p.type === 'papapum' && p.ready) { z.hp = 0; p.hp = 0; explosions.push({x:p.x+50,y:p.y+50,r:115,t:12}); } } });
-            if (!eat) z.x -= (z.freeze > 0 ? z.speed * 0.5 : z.speed);
-            if (z.freeze > 0) z.freeze--;
+            let eating = false;
+            plants.forEach(p => {
+                // HITBOX ENSANCHADA: Detecta desde adelante hasta mitad del cuerpo (x-25)
+                if (z.y === p.y && z.x < p.x + 65 && z.x > p.x - 25) {
+                    if (z.type === 'pertiga' && !z.jumped) {
+                        z.x -= 130; z.jumped = true; z.speed = 0.35;
+                    } else {
+                        eating = true; p.hp -= 1.2;
+                        if (p.type === 'papapum' && p.ready) { z.hp = 0; p.hp = 0; explosions.push({x:p.x+50,y:p.y+50,r:115,t:12}); }
+                    }
+                }
+            });
+            if (!eating) z.x -= (z.freeze > 0 ? z.speed * 0.5 : z.speed);
             if (z.x < -60) gameOver = true;
             if (z.hp <= 0) zombies.splice(i, 1);
         });
 
         projectiles.forEach((pr, i) => {
             pr.x += 8;
-            zombies.forEach(z => { if (pr.x > z.x + 20 && pr.x < z.x+80 && pr.y > z.y && pr.y < z.y+100) { z.hp -= 20; if(pr.ice) z.freeze = 200; projectiles.splice(i, 1); } });
+            zombies.forEach(z => { if (pr.x > z.x + 10 && pr.x < z.x+70 && pr.y > z.y && pr.y < z.y+100) { z.hp -= 20; if(pr.ice) z.freeze = 200; projectiles.splice(i, 1); } });
             if (pr.x > 920) projectiles.splice(i, 1);
         });
 
-        mowers.forEach((m, i) => { if (m.active) { m.x += 12; zombies.forEach(z => { if(z.y === m.y && z.x < m.x + 40) z.hp = 0; }); if (m.x > 900) mowers.splice(i, 1); } else if (zombies.some(z => z.y === m.y && z.x < 50)) m.active = true; });
+        mowers.forEach(m => { if (m.active) { m.x += 12; zombies.forEach(z => { if(z.y === m.y && z.x < m.x + 40) z.hp = 0; }); } else if (zombies.some(z => z.y === m.y && z.x < 50)) m.active = true; });
         suns.forEach((s, i) => { if (s.y < s.targetY) s.y += 2.5; s.t--; if (s.t <= 0) suns.splice(i, 1); });
         explosions.forEach((ex, i) => { ex.t--; if(ex.t <= 0) explosions.splice(i, 1); });
+        plants.forEach((p, i) => { if (p.hp <= 0) plants.splice(i, 1); });
         if (wave === maxWaves && waveProgress === 100 && zombies.length === 0) gameWon = true;
     }
 
     ctx.clearRect(0,0,900,600);
     for(let i=0; i<9; i++) { for(let j=0; j<6; j++) { ctx.fillStyle = (i+j)%2==0 ? '#4caf50' : '#43a047'; ctx.fillRect(i*100, j*100, 100, 100); } }
-    mowers.forEach(m => { ctx.fillStyle = '#c62828'; ctx.fillRect(m.x, m.y+35, 55, 35); });
+    mowers.forEach(m => { ctx.fillStyle = '#c62828'; ctx.fillRect(m.x, m.y+35, 55, 35); ctx.fillStyle="#000"; ctx.fillRect(m.x+5, m.y+65, 10, 10); ctx.fillRect(m.x+35, m.y+65, 10, 10); });
     plants.forEach(p => drawPlant(ctx, p.type, p.x, p.y, 100, Math.sin(frame*0.05)*0.04, 1, p.ready));
     zombies.forEach(z => drawZombie(z));
     projectiles.forEach(pr => { ctx.fillStyle = pr.ice ? '#4fc3f7' : '#76ff03'; drawStrokeCircle(ctx, pr.x, pr.y, 10); });
     suns.forEach(s => { ctx.fillStyle = '#fff176'; ctx.strokeStyle = '#f57f17'; drawStrokeCircle(ctx, s.x, s.y, 20); });
     explosions.forEach(ex => { ctx.fillStyle = 'rgba(255, 100, 0, 0.7)'; drawStrokeCircle(ctx, ex.x, ex.y, ex.r); });
 
-    if (gameOver) { document.getElementById('status-text').innerText = "¡ZOMBIES EN TU CASA!"; document.getElementById('overlay').style.display = 'flex'; return; }
-    if (gameWon) { document.getElementById('status-text').innerText = "¡JARDÍN LIBRE DE ZOMBIES!"; document.getElementById('status-text').style.color = "#4caf50"; document.getElementById('overlay').style.display = 'flex'; return; }
+    if (gameOver) { document.getElementById('status-text').innerText = "¡SE COMIERON TUS CEREBROS!"; document.getElementById('overlay').style.display = 'flex'; return; }
+    if (gameWon) { document.getElementById('status-text').innerText = "¡HAS GANADO!"; document.getElementById('overlay').style.display = 'flex'; return; }
     
     if (frame % 20 === 0) updateUI();
     requestAnimationFrame(loop);
