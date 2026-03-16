@@ -150,7 +150,7 @@ canvas { display:block;image-rendering:pixelated;cursor:crosshair; }
       <div id="menuTitle">INKWELL<br>INFERNO</div>
       <div id="menuSub">A Rubber-Hose Adventure</div>
       <div class="decorLine"></div>
-      <button id="playBtn" onclick="showScreen('bossSelectScreen')" style="margin-bottom:16px;">▶ SELECCIONAR JEFE</button>
+      <button id="playBtn" onclick="startOverworld()" style="margin-bottom:16px;">▶ EXPLORAR LA ISLA</button>
       <div id="menuControls">
         ← A / D → · Mover &nbsp;&nbsp; W / ↑ · Saltar &nbsp;&nbsp; <strong style="color:#a0f080">S / ↓ · Agacharse</strong><br>
         SPACE · Disparar &nbsp;&nbsp; <strong style="color:#40e8ff">SHIFT · Dash (INMUNE)</strong><br>
@@ -215,8 +215,10 @@ canvas { display:block;image-rendering:pixelated;cursor:crosshair; }
       <div class="endTitle">¡GANASTE!</div>
       <div class="endSub">¡EL INKBOSS FUE DESTRUIDO!</div>
       <div class="decorLine"></div>
+      <div id="winStars" style="font-size:28px;margin:6px 0;letter-spacing:10px;"></div>
       <button class="retryBtn" onclick="startGame()">JUGAR DE NUEVO</button>
-      <button class="retryBtn" style="background:#555;font-size:14px;padding:8px 24px;" onclick="showScreen('menuScreen')">MENÚ PRINCIPAL</button>
+      <button class="retryBtn" style="background:#1a5a2a;font-size:15px;padding:9px 28px;" onclick="startOverworld()">🗺️ VOLVER A LA ISLA</button>
+      <button class="retryBtn" style="background:#555;font-size:13px;padding:7px 22px;" onclick="showScreen('menuScreen')">MENÚ PRINCIPAL</button>
     </div>
 
     <div id="phaseAnnounce"></div>
@@ -235,6 +237,14 @@ let mouseOnCanvas=false;
 // ---- Input ----
 document.addEventListener('keydown',e=>{
   keys[e.code]=true;e.preventDefault();
+  // Overworld: E key to interact
+  if(e.code==='KeyE'&&gameState==='overworld'){owHandleE();}
+  // Overworld: ESC closes menu or goes back to main menu
+  if(e.code==='Escape'&&gameState==='overworld'){
+    if(owInteract&&owInteract.menu){owInteract.menu=false;}
+    else{gameState='menu';showScreen('menuScreen');}
+    return;
+  }
   // Toggle pause with Escape or P
   if((e.code==='Escape'||e.code==='KeyP')&&gameState==='playing'){
     gameState='paused';
@@ -1638,6 +1648,7 @@ function checkCollisionsInk(){
         if(boss.hp<=0){
           bossDefeated=true;bossExitDir=0;pendingPhase=0;
           stopMusic(); playSFX('win');
+          markVictory('inkboss',difficulty);
           spawnParts(boss.x+boss.w/2,boss.y+boss.h/2,'#f5d020',30,8,60);
           spawnParts(boss.x+boss.w/2,boss.y+boss.h/2,'#fff',20,6,50);
           triggerShake(12,35);
@@ -2843,7 +2854,7 @@ function checkCollisions(){
         if(tInvT<=0){
           tBoss.hp--;tInvT=10;playSFX('bossHit');
           spawnParts(tBoss.x+tBoss.w/2,tBoss.y+tBoss.h/2+tBoss.bobOff,'#40c0ff',5,5,18);triggerShake(3,4);
-          if(tBoss.hp<=0){tDefeated=true;stopMusic();playSFX('win');spawnParts(tBoss.x+tBoss.w/2,tBoss.y+tBoss.h/2,'#f5d020',30,8,60);triggerShake(12,35);setTimeout(()=>{document.getElementById('winScreen').querySelector('.endSub').textContent='¡TEMPESTINA FUE DERROTADA!';showScreen('winScreen');gameState='end';},2200);}
+          if(tBoss.hp<=0){tDefeated=true;stopMusic();markVictory('tempestina',difficulty);playSFX('win');spawnParts(tBoss.x+tBoss.w/2,tBoss.y+tBoss.h/2,'#f5d020',30,8,60);triggerShake(12,35);setTimeout(()=>{showScreen('winScreen');gameState='end';},2200);}
         }
         continue;
       }
@@ -2907,6 +2918,20 @@ function showScreen(id){
   document.getElementById('pauseMenuBtn').style.display='none';
   if(id==='menuScreen') cursorDot.style.display='none';
   if(id==='gameOver') populateDeathStats();
+  if(id==='winScreen'){
+    // Update subtitle
+    let sub=document.getElementById('winScreen').querySelector('.endSub');
+    if(sub) sub.textContent=selectedBoss==='tempestina'?'¡TEMPESTINA FUE DERROTADA!':'¡EL INKBOSS FUE DESTRUIDO!';
+    // Show earned stars
+    let starsEl=document.getElementById('winStars');
+    if(starsEl){
+      let stN=hasCleared(selectedBoss,'normal'),stH=hasCleared(selectedBoss,'hard');
+      let s='';
+      s+=`<span title="Normal" style="opacity:${stN?1:0.2}">⭐</span>`;
+      s+=`<span title="Difícil" style="opacity:${stH?1:0.2}">💀⭐</span>`;
+      starsEl.innerHTML=s;
+    }
+  }
 }
 function goToMenu(){
   stopMusic();
@@ -2925,10 +2950,375 @@ function startGame(){
   statShots=0;statKills=0;statStartFrame=0;shieldT=0;
 }
 
+
+// ╔══════════════════════════════════════════════════╗
+// ║              SISTEMA DE GUARDADO                ║
+// ╚══════════════════════════════════════════════════╝
+const SAVE_KEY='inkwell_inferno_save_v1';
+// progress = { inkboss:{normal:bool,hard:bool}, tempestina:{normal:bool,hard:bool} }
+let saveData={inkboss:{normal:false,hard:false},tempestina:{normal:false,hard:false}};
+
+function loadSave(){
+  try{
+    let raw=localStorage.getItem(SAVE_KEY);
+    if(raw){let d=JSON.parse(raw);saveData=d;}
+  }catch(e){}
+}
+function writeSave(){
+  try{localStorage.setItem(SAVE_KEY,JSON.stringify(saveData));}catch(e){}
+}
+function markVictory(bossId,diff){
+  if(!saveData[bossId])saveData[bossId]={normal:false,hard:false};
+  saveData[bossId][diff]=true;
+  writeSave();
+}
+function hasCleared(bossId,diff){
+  return !!(saveData[bossId]&&saveData[bossId][diff]);
+}
+loadSave(); // run immediately on script start
+// ══ END SAVE SYSTEM ══
+
+
+const OW_ISLAND_CX=500, OW_ISLAND_CY=290, OW_ISLAND_RX=325, OW_ISLAND_RY=195;
+const OW_BOSSES=[
+  {id:'inkboss',    x:228,y:265, label:'INKBOSS',    battleName:'¡EL CABALLERO DE TINTA!',    col:'#0a0830', acol:'#c8a028', icon:'🎩', phases:'3 FASES'},
+  {id:'tempestina', x:772,y:265, label:'TEMPESTINA', battleName:'¡FURIA DE LA TORMENTA!', col:'#081828', acol:'#60d8ff', icon:'⚡', phases:'3 FASES'},
+];
+const OW_TREES=[
+  {x:370,y:155},{x:458,y:138},{x:542,y:138},{x:630,y:155},
+  {x:318,y:195},{x:682,y:195},{x:290,y:345},{x:710,y:345},
+  {x:358,y:408},{x:500,y:448},{x:642,y:408},{x:440,y:145},{x:560,y:145},
+];
+let owPlayer={x:500,y:418,facing:1,walkT:0,bobT:0};
+let owInteract=null;  // {bossId, menu, diff}
+let owMenuDiff='normal';
+
+function isOnIsland(x,y){
+  let dx=(x-OW_ISLAND_CX)/(OW_ISLAND_RX-28);
+  let dy=(y-OW_ISLAND_CY)/(OW_ISLAND_RY-22);
+  return dx*dx+dy*dy<=1;
+}
+function startOverworld(){
+  showScreen(null);
+  gameState='overworld';
+  owPlayer={x:500,y:418,facing:1,walkT:0,bobT:0};
+  owInteract=null; owMenuDiff='normal';
+}
+function owHandleE(){
+  if(!owInteract)return;
+  if(owInteract.menu){return;}
+  owInteract.menu=true;
+}
+function owStartBattle(){
+  if(!owInteract)return;
+  selectedBoss=owInteract.bossId;
+  difficulty=owMenuDiff;
+  // Sync diff UI
+  document.getElementById('diffNormal').classList.toggle('selected',owMenuDiff==='normal');
+  document.getElementById('diffHard').classList.toggle('selected',owMenuDiff==='hard');
+  startGame();
+}
+
+function updateOverworld(){
+  if(owInteract&&owInteract.menu)return;
+  let spd=3;
+  let nx=owPlayer.x, ny=owPlayer.y;
+  let moving=false;
+  if(keys['KeyA']||keys['ArrowLeft']) {nx-=spd;owPlayer.facing=-1;moving=true;}
+  if(keys['KeyD']||keys['ArrowRight']){nx+=spd;owPlayer.facing=1; moving=true;}
+  if(keys['KeyW']||keys['ArrowUp'])   {ny-=spd;moving=true;}
+  if(keys['KeyS']||keys['ArrowDown']) {ny+=spd;moving=true;}
+  if(isOnIsland(nx,owPlayer.y))owPlayer.x=nx;
+  if(isOnIsland(owPlayer.x,ny))owPlayer.y=ny;
+  if(moving)owPlayer.walkT++;
+  owPlayer.bobT+=0.07;
+
+  // Proximity check
+  owInteract=null;
+  for(let b of OW_BOSSES){
+    let dx=owPlayer.x-b.x, dy=owPlayer.y-b.y;
+    if(Math.sqrt(dx*dx+dy*dy)<72){owInteract={bossId:b.id,menu:false};break;}
+  }
+}
+
+function drawOverworld(){
+  // ─── WATER ───
+  let waterGrad=ctx.createLinearGradient(0,0,0,H);
+  waterGrad.addColorStop(0,'#0e2d5a');waterGrad.addColorStop(1,'#1a4a8a');
+  ctx.fillStyle=waterGrad;ctx.fillRect(0,0,W,H);
+  // Animated wave rings
+  ctx.save();
+  for(let i=0;i<28;i++){
+    let wx=(i*137+frameCount*0.6)%W, wy=(i*83+frameCount*0.3)%H;
+    let alpha=0.12+0.08*Math.abs(Math.sin(frameCount*0.04+i));
+    ctx.strokeStyle=`rgba(80,150,220,${alpha})`;ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.arc(wx,wy,18+Math.sin(frameCount*0.06+i)*5,0,Math.PI);ctx.stroke();
+  }
+  // Foam dots near island edge
+  for(let a=0;a<32;a++){
+    let ang=a/32*Math.PI*2;
+    let foam=OW_ISLAND_CX+Math.cos(ang)*(OW_ISLAND_RX+18+Math.sin(frameCount*0.05+a)*6);
+    let foamy=OW_ISLAND_CY+Math.sin(ang)*(OW_ISLAND_RY+14+Math.sin(frameCount*0.07+a)*4);
+    let fa=0.2+0.3*Math.abs(Math.sin(frameCount*0.08+a));
+    ctx.fillStyle=`rgba(180,210,255,${fa})`;
+    ctx.beginPath();ctx.arc(foam,foamy,3+Math.sin(frameCount*0.1+a),0,Math.PI*2);ctx.fill();
+  }
+  ctx.restore();
+
+  // ─── SAND BORDER ───
+  ctx.fillStyle='#d4a85a';ctx.strokeStyle='#b8902a';ctx.lineWidth=3;
+  ctx.beginPath();ctx.ellipse(OW_ISLAND_CX,OW_ISLAND_CY,OW_ISLAND_RX+18,OW_ISLAND_RY+14,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+
+  // ─── GRASS ───
+  let gGrad=ctx.createRadialGradient(OW_ISLAND_CX,OW_ISLAND_CY-40,10,OW_ISLAND_CX,OW_ISLAND_CY,OW_ISLAND_RX);
+  gGrad.addColorStop(0,'#5faa2e');gGrad.addColorStop(0.55,'#4d9222');gGrad.addColorStop(1,'#3a7515');
+  ctx.fillStyle=gGrad;
+  ctx.beginPath();ctx.ellipse(OW_ISLAND_CX,OW_ISLAND_CY,OW_ISLAND_RX,OW_ISLAND_RY,0,0,Math.PI*2);ctx.fill();
+
+  // Grass texture tufts
+  ctx.fillStyle='rgba(60,100,20,0.18)';
+  for(let g=0;g<60;g++){
+    let gx=OW_ISLAND_CX+Math.cos(g*2.4)*(g%5)*55, gy=OW_ISLAND_CY+Math.sin(g*1.7)*(g%4)*44;
+    if(isOnIsland(gx,gy)){ctx.beginPath();ctx.arc(gx,gy,4+g%4,0,Math.PI*2);ctx.fill();}
+  }
+
+  // ─── DIRT PATH ───
+  ctx.save();
+  ctx.strokeStyle='#7a5828';ctx.lineWidth=26;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(228,265);ctx.bezierCurveTo(340,355,660,355,772,265);ctx.stroke();
+  ctx.strokeStyle='#9a7240';ctx.lineWidth=18;
+  ctx.beginPath();ctx.moveTo(228,265);ctx.bezierCurveTo(340,355,660,355,772,265);ctx.stroke();
+  // Pebbles on path
+  ctx.fillStyle='#b89060';
+  for(let p=0;p<16;p++){
+    let t=p/15;
+    let px=228+t*(772-228), py=265+Math.sin(t*Math.PI)*90;
+    ctx.beginPath();ctx.arc(px+(p%3-1)*5,py+3+(p%2)*2,2+p%2,0,Math.PI*2);ctx.fill();
+  }
+  ctx.restore();
+
+  // ─── DECORATIVE FLOWERS ───
+  let flowers=[{x:420,y:310},{x:500,y:385},{x:580,y:310},{x:460,y:355},{x:540,y:355}];
+  for(let fl of flowers){
+    ctx.fillStyle='#f5d020';ctx.beginPath();ctx.arc(fl.x,fl.y,4,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#ff6080';
+    for(let p=0;p<5;p++){let pa=p/5*Math.PI*2;ctx.beginPath();ctx.arc(fl.x+Math.cos(pa)*6,fl.y+Math.sin(pa)*6,3,0,Math.PI*2);ctx.fill();}
+  }
+
+  // ─── TREES ───
+  for(let t of OW_TREES)drawOwTree(t.x,t.y);
+
+  // ─── BOSS NODES ───
+  for(let b of OW_BOSSES)drawOwBossNode(b);
+
+  // ─── PLAYER ───
+  drawOwPlayer();
+
+  // ─── E PROMPT ───
+  if(owInteract&&!owInteract.menu){
+    let boss=OW_BOSSES.find(b=>b.id===owInteract.bossId);
+    let pulse=0.65+0.35*Math.abs(Math.sin(frameCount*0.12));
+    ctx.save();ctx.globalAlpha=pulse;
+    ctx.fillStyle='rgba(0,0,0,0.75)';ctx.strokeStyle=boss.acol;ctx.lineWidth=2.5;
+    let tx=boss.x, ty=boss.y-98;
+    ctx.beginPath();ctx.roundRect(tx-64,ty-16,128,28,6);ctx.fill();ctx.stroke();
+    ctx.fillStyle=boss.acol;ctx.font='bold 14px Impact,sans-serif';ctx.textAlign='center';
+    ctx.fillText('[ E ]  ¡DESAFIAR!',tx,ty+6);
+    ctx.restore();
+  }
+
+  // ─── BATTLE MENU ───
+  if(owInteract&&owInteract.menu)drawOwMenu();
+
+  // ─── FOOTER BAR ───
+  ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(0,H-26,W,26);
+  ctx.fillStyle='#a09050';ctx.font='bold 10px Impact';ctx.textAlign='center';
+  ctx.fillText('W A S D · Mover   |   E · Interactuar   |   ESC · Menú principal',W/2,H-9);
+}
+
+function drawOwTree(x,y){
+  ctx.save();
+  // Shadow
+  ctx.fillStyle='rgba(0,0,0,0.18)';ctx.beginPath();ctx.ellipse(x+3,y+6,14,7,0,0,Math.PI*2);ctx.fill();
+  // Trunk (top-down)
+  ctx.fillStyle='#6b4226';ctx.strokeStyle='#000';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.roundRect(x-4,y-2,8,14,2);ctx.fill();ctx.stroke();
+  // Canopy layers
+  ctx.fillStyle='#287018';ctx.strokeStyle='#000';ctx.lineWidth=2;
+  ctx.beginPath();ctx.arc(x,y-6,17,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#35901f';
+  ctx.beginPath();ctx.arc(x-2,y-9,12,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#44b028';
+  ctx.beginPath();ctx.arc(x+1,y-10,7,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+
+function drawOwBossNode(b){
+  let x=b.x,y=b.y;
+  let pulse=0.55+0.45*Math.abs(Math.sin(frameCount*0.07+(b.id==='tempestina'?1:0)));
+  ctx.save();
+  // Ground shadow
+  ctx.fillStyle='rgba(0,0,0,0.28)';ctx.beginPath();ctx.ellipse(x+4,y+46,36,11,0,0,Math.PI*2);ctx.fill();
+  // Outer glow ring
+  ctx.shadowColor=b.acol;ctx.shadowBlur=22*pulse;
+  ctx.strokeStyle=b.acol;ctx.lineWidth=4;
+  ctx.beginPath();ctx.ellipse(x,y,38+pulse*5,46+pulse*5,0,0,Math.PI*2);ctx.stroke();
+  ctx.shadowBlur=0;
+  // Portal body
+  ctx.fillStyle=b.col;ctx.strokeStyle='#000';ctx.lineWidth=3;
+  ctx.beginPath();ctx.ellipse(x,y,34,42,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+  // Inner gradient
+  let ig=ctx.createRadialGradient(x,y-5,3,x,y,30);
+  ig.addColorStop(0,b.acol+'55');ig.addColorStop(1,'transparent');
+  ctx.fillStyle=ig;ctx.beginPath();ctx.ellipse(x,y,30,38,0,0,Math.PI*2);ctx.fill();
+  // Spinning ring
+  ctx.save();ctx.translate(x,y);ctx.rotate(frameCount*0.05*(b.id==='tempestina'?1:-1));
+  ctx.strokeStyle=b.acol+'bb';ctx.lineWidth=2.5;ctx.setLineDash([8,5]);
+  ctx.beginPath();ctx.arc(0,0,22,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+  ctx.restore();
+  // Boss icon
+  ctx.font='bold 24px Arial';ctx.textAlign='center';ctx.fillText(b.icon,x,y+9);
+  // Nameplate
+  ctx.fillStyle='rgba(0,0,0,0.8)';ctx.strokeStyle=b.acol;ctx.lineWidth=2;
+  ctx.beginPath();ctx.roundRect(x-54,y+50,108,26,5);ctx.fill();ctx.stroke();
+  ctx.fillStyle=b.acol;ctx.font='bold 12px Impact';ctx.fillText(b.label,x,y+67);
+  // Completion stars
+  let stN=hasCleared(b.id,'normal'),stH=hasCleared(b.id,'hard');
+  if(stN||stH){
+    ctx.fillStyle='rgba(0,0,0,0.75)';ctx.strokeStyle='#c8a028';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.roundRect(x-44,y+80,88,22,5);ctx.fill();ctx.stroke();
+    // Normal star
+    ctx.font='13px Arial';ctx.textAlign='center';
+    ctx.globalAlpha=stN?1:0.18;ctx.fillText('⭐',x-20,y+96);
+    ctx.globalAlpha=1;
+    ctx.fillStyle=stN?'#40e040':'#444';ctx.font='bold 8px Impact';ctx.fillText('NORMAL',x-20,y+97);
+    // Hard star
+    ctx.globalAlpha=stH?1:0.18;ctx.font='13px Arial';ctx.fillStyle='#fff';ctx.fillText('⭐',x+20,y+96);
+    ctx.globalAlpha=1;
+    ctx.fillStyle=stH?'#e84020':'#444';ctx.font='bold 8px Impact';ctx.fillText('DIFÍCIL',x+20,y+97);
+  }
+  ctx.restore();
+}
+
+function drawOwPlayer(){
+  let{x,y,walkT,bobT,facing}=owPlayer;
+  let bob=Math.sin(bobT)*1.8;
+  ctx.save();ctx.translate(x,y+bob);
+  // Shadow
+  ctx.fillStyle='rgba(0,0,0,0.28)';ctx.beginPath();ctx.ellipse(0,9,11,5,0,0,Math.PI*2);ctx.fill();
+  // Legs (top-down, small)
+  let ls=Math.sin(walkT*0.28)*5;
+  ctx.fillStyle='#1a1a1a';
+  ctx.beginPath();ctx.ellipse(-5,5+ls,4,3,0.2,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(5,5-ls,4,3,-0.2,0,Math.PI*2);ctx.fill();
+  // Body / coat
+  ctx.fillStyle='#c02010';ctx.strokeStyle='#000';ctx.lineWidth=2;
+  ctx.beginPath();ctx.ellipse(0,2,10,8,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+  // Arms (top-down, swing)
+  let as2=Math.sin(walkT*0.28)*6;
+  ctx.fillStyle='#a01808';ctx.strokeStyle='#000';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.ellipse(-12*facing,as2,4,3,0.4,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.beginPath();ctx.ellipse(12*facing,-as2,4,3,-0.4,0,Math.PI*2);ctx.fill();ctx.stroke();
+  // Head
+  ctx.fillStyle='#f8c840';ctx.strokeStyle='#000';ctx.lineWidth=2.5;
+  ctx.beginPath();ctx.arc(0,-2,11,0,Math.PI*2);ctx.fill();ctx.stroke();
+  // Hat brim
+  ctx.fillStyle='#111';ctx.strokeStyle='#000';ctx.lineWidth=2;
+  ctx.beginPath();ctx.ellipse(0,-2,14,10,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+  // Hat crown
+  ctx.fillStyle='#0a0a0a';ctx.beginPath();ctx.arc(0,-2,7,0,Math.PI*2);ctx.fill();
+  // Hat band
+  ctx.strokeStyle='#d02818';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(0,-2,10,0,Math.PI*2);ctx.stroke();
+  ctx.restore();
+}
+
+function drawOwMenu(){
+  let boss=OW_BOSSES.find(b=>b.id===owInteract.bossId);
+  let mx=W/2,my=H/2,bw=380,bh=268;
+  let bx=mx-bw/2,by=my-bh/2;
+  // Backdrop
+  ctx.save();
+  ctx.fillStyle='rgba(0,0,0,0.65)';ctx.fillRect(0,0,W,H);
+  // Box
+  ctx.fillStyle='#08050c';ctx.strokeStyle=boss.acol;ctx.lineWidth=4;
+  ctx.beginPath();ctx.roundRect(bx,by,bw,bh,10);ctx.fill();ctx.stroke();
+  ctx.strokeStyle=boss.col;ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.roundRect(bx+6,by+6,bw-12,bh-12,7);ctx.stroke();
+  // Icon
+  ctx.font='26px Arial';ctx.textAlign='center';ctx.fillText(boss.icon,mx,by+44);
+  // Battle name
+  ctx.fillStyle=boss.acol;ctx.font='bold italic 19px Impact,sans-serif';
+  ctx.fillText(boss.battleName,mx,by+74);
+  // Subtitle
+  ctx.fillStyle='#666';ctx.font='bold 10px Impact';
+  ctx.fillText(`${boss.label}  ·  ${boss.phases}`,mx,by+91);
+  // Divider
+  ctx.strokeStyle=boss.acol+'44';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(bx+20,by+102);ctx.lineTo(bx+bw-20,by+102);ctx.stroke();
+  // Difficulty title
+  ctx.fillStyle='#e8c070';ctx.font='bold 12px Impact';ctx.fillText('SELECCIONA DIFICULTAD',mx,by+122);
+  // Diff buttons
+  const diffs=[{id:'normal',label:'😊  NORMAL',col:'#20c020'},{id:'hard',label:'💀  DIFÍCIL',col:'#e84020'}];
+  for(let i=0;i<diffs.length;i++){
+    let d=diffs[i];
+    let dbx=mx-155+i*170,dby=by+132,dbw=140,dbh=36;
+    let sel=owMenuDiff===d.id;
+    let cleared=hasCleared(owInteract.bossId,d.id);
+    ctx.fillStyle=sel?d.col+'30':(cleared?'rgba(30,40,20,0.5)':'rgba(0,0,0,0.4)');
+    ctx.strokeStyle=sel?d.col:(cleared?'#c8a028':'#444');ctx.lineWidth=sel?3:(cleared?2:1.5);
+    ctx.beginPath();ctx.roundRect(dbx,dby,dbw,dbh,7);ctx.fill();ctx.stroke();
+    ctx.fillStyle=sel?d.col:(cleared?'#e8c040':'#777');ctx.font=`bold ${sel?14:12}px Impact`;
+    ctx.fillText(d.label,dbx+dbw/2,dby+15);
+    // Star if cleared
+    if(cleared){
+      ctx.font='12px Arial';ctx.textAlign='center';
+      ctx.fillText('⭐  COMPLETADO',dbx+dbw/2,dby+30);
+    }
+  }
+  // START button
+  let sbx=mx-85,sby=by+186,sbw=170,sbh=46;
+  let sp=0.82+0.18*Math.abs(Math.sin(frameCount*0.12));
+  ctx.fillStyle=`rgba(190,25,10,${sp})`;ctx.strokeStyle='#c8a028';ctx.lineWidth=3;
+  ctx.beginPath();ctx.roundRect(sbx,sby,sbw,sbh,9);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#fff';ctx.font='bold 21px Impact';
+  ctx.fillText('▶  ¡COMBATIR!',mx,sby+30);
+  // ESC hint
+  ctx.fillStyle='#444';ctx.font='10px Impact';
+  ctx.fillText('ESC · Cancelar',mx,by+bh-10);
+  ctx.restore();
+  // Store hit areas for click detection
+  owInteract._diffs=diffs.map((d,i)=>({id:d.id,x:mx-155+i*170,y:by+132,w:140,h:36}));
+  owInteract._start={x:sbx,y:sby,w:sbw,h:sbh};
+}
+
+// Canvas click handler for overworld menu
+canvas.addEventListener('click',e=>{
+  if(gameState!=='overworld'||!owInteract||!owInteract.menu)return;
+  let rect=canvas.getBoundingClientRect();
+  let cx=(e.clientX-rect.left)*(W/rect.width);
+  let cy=(e.clientY-rect.top)*(H/rect.height);
+  // Diff buttons
+  if(owInteract._diffs){
+    for(let d of owInteract._diffs){
+      if(cx>=d.x&&cx<=d.x+d.w&&cy>=d.y&&cy<=d.y+d.h){owMenuDiff=d.id;return;}
+    }
+  }
+  // Start button
+  if(owInteract._start){
+    let s=owInteract._start;
+    if(cx>=s.x&&cx<=s.x+s.w&&cy>=s.y&&cy<=s.y+s.h){owStartBattle();return;}
+  }
+});
+
+// ══ END OVERWORLD ══
+
 // ===== MAIN LOOP =====
 function gameLoop(){
   ctx.clearRect(0,0,W,H);ctx.save();applyShake();
-  if(gameState==='playing'||gameState==='end'||gameState==='paused'){
+  if(gameState==='overworld'){
+    updateOverworld();
+    drawOverworld();
+  } else if(gameState==='playing'||gameState==='end'||gameState==='paused'){
     if(selectedBoss==='tempestina'){
       drawBackgroundTemp();drawParts();drawTempestina();drawMinions();drawBullets();drawPlayer();drawHUDTemp();drawPost();
       if(gameState==='playing'){updatePlayer();updateTempestina();updateMinions();updateParts();checkCollisions();}
