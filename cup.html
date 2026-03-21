@@ -176,7 +176,8 @@ canvas { display:block;image-rendering:pixelated;cursor:crosshair; }
     <div id="mpLobbyScreen" style="position:absolute;top:0;left:0;width:100%;height:100%;display:none;flex-direction:column;align-items:center;justify-content:center;background:#030812;z-index:10;pointer-events:all;">
       <div style="font-size:28px;font-weight:900;color:#40c8ff;letter-spacing:5px;font-family:Impact,sans-serif;text-shadow:3px 3px 0 #000;margin-bottom:4px;">🌐 MULTIJUGADOR</div>
       <div style="color:#406080;font-size:10px;letter-spacing:4px;margin-bottom:18px;">SALAS ONLINE · MÁX 4 JUGADORES POR SALA</div>
-      <div id="mpRoomList" style="display:flex;flex-direction:column;gap:10px;width:420px;margin-bottom:18px;pointer-events:all;"></div>
+      <div id="mpRoomList" style="display:flex;flex-direction:column;gap:10px;width:420px;margin-bottom:12px;pointer-events:all;"></div>
+      <button onclick="probeAllRooms();renderMPRooms();" style="background:#0a1a30;color:#40c8ff;border:1.5px solid #304060;padding:5px 18px;font-family:Impact;font-size:11px;cursor:pointer;letter-spacing:2px;margin-bottom:6px;pointer-events:all;">🔄  ACTUALIZAR LISTA</button>
       <div id="mpStatus" style="color:#607090;font-size:11px;font-family:Impact,sans-serif;min-height:20px;letter-spacing:2px;margin-bottom:10px;"></div>
       <div id="mpWaiting" style="display:none;flex-direction:column;align-items:center;gap:8px;">
         <div style="color:#40e080;font-size:14px;font-family:Impact,sans-serif;letter-spacing:2px;" id="mpWaitText">ESPERANDO JUGADORES...</div>
@@ -261,7 +262,7 @@ document.addEventListener('keydown',e=>{
   if(!e.ctrlKey&&!e.metaKey&&GAME_KEYS.has(e.code))e.preventDefault();
   keys[e.code]=true;
   // P2 JOIN: ↑ + → + Enter (playing OR overworld)
-  if(e.code==='Enter'&&keys['ArrowUp']&&keys['ArrowRight']&&(gameState==='playing'||gameState==='overworld')&&!p2Active){
+  if(e.code==='Enter'&&keys['ArrowUp']&&keys['ArrowRight']&&(gameState==='playing'||gameState==='overworld')&&!p2Active&&!mpMode){
     if(gameState==='overworld') spawnP2OverWorld();
     else spawnP2();
     return;
@@ -745,24 +746,6 @@ function drawOwWeaponMenu(){
 let owWpnClicks=null;
 
 // Handle weapon menu clicks
-canvas.addEventListener('click',e=>{
-  if(gameState==='overworld'&&owWeaponMenu&&owWpnClicks){
-    let rect=canvas.getBoundingClientRect();
-    let cx=(e.clientX-rect.left)*(W/rect.width);
-    let cy=(e.clientY-rect.top)*(H/rect.height);
-    for(let btn of owWpnClicks){
-      if(cx>=btn.x&&cx<=btn.x+btn.w&&cy>=btn.y&&cy<=btn.y+btn.h){
-        let slots=btn.isP2?p2Slots:p1Slots;
-        let other=1-btn.slot;
-        // Don't allow same weapon in both slots
-        if(slots[other]===btn.weaponId)return;
-        if(btn.isP2) p2Slots[btn.slot]=btn.weaponId;
-        else p1Slots[btn.slot]=btn.weaponId;
-        return;
-      }
-    }
-  }
-});
 
 // ===== PLAYER =====
 let player={},bullets=[],dashCD=0,shootCD=0,invTimer=0,jumpHeld=false;
@@ -821,7 +804,7 @@ function updatePlayerObj(p,cfg,ownDashCD,ownShootCD,ownInvTimer,ownShieldT,ownJu
   ownJumpHeld=!!(wj);
 
   // SHOOT — uses active weapon; autoShoot fires for both when 2P local
-  let wantShoot=keys[cfg.shoot]||(autoShoot&&p2Active);
+  let wantShoot=keys[cfg.shoot]||(autoShoot&&p2Active&&!mpMode);
   if(wantShoot&&ownShootCD<=0&&!p.dashing&&!((p===player?p1SpecialAnim:p2SpecialAnim))){
     ownShootCD=shootWeapon(p,p===player2);
   }
@@ -4713,6 +4696,12 @@ function isOnIsland(x,y){
 function startOverworld(){
   showScreen(null);
   gameState='overworld';
+  // Reset vote UI so result card is cleared and new votes can be made
+  if(mpMode){
+    _mpTallying=false;
+    mpVote={active:false,votes:{},timer:0,result:null};
+    mpVoteUI={active:false,votes:{},timer:0,myVote:null,myDiff:null,result:null,counts:null};
+  }
   owPlayer={x:500,y:418,facing:1,walkT:0,bobT:0};
   owPlayer2={x:owPlayer.x+20,y:owPlayer.y+8,facing:-1,walkT:0,bobT:1.5};
   owInteract=null; owMenuDiff='normal'; owPauseMenu=false;
@@ -4728,6 +4717,7 @@ function owHandleE(){
 }
 function owStartBattle(){
   if(!owInteract)return;
+  if(mpMode)return; // In MP, use vote system instead
   selectedBoss=owInteract.bossId;
   difficulty=owMenuDiff;
   let n=document.getElementById('diffNormal'),h=document.getElementById('diffHard');
@@ -4751,6 +4741,7 @@ function updateOverworld(){
   if(isOnIsland(owPlayer.x,ny))owPlayer.y=ny;
   if(moving)owPlayer.walkT++;
   owPlayer.bobT+=0.07;
+  if(mpMode){mpOwBroadcastPos();updateMPVote();}
 
   // P2 movement on island — uses P2CFG keys, can't interact
   if(p2Active){
@@ -4980,11 +4971,35 @@ function drawOwCharacter(x,y,walkT,bobT,facing,skinId,isP2){
   ctx.restore();
 }
 function drawOwPlayer(){
-  drawOwCharacter(owPlayer.x,owPlayer.y,owPlayer.walkT,owPlayer.bobT,owPlayer.facing,p1SkinId,false);
-  // P2 moves independently on island with their own position
+  if(mpMode){
+    // Draw self
+    let selfLabel='J'+(mpMyIndex+1);
+    drawOwCharacterLabeled(owPlayer.x,owPlayer.y,owPlayer.walkT,owPlayer.bobT,owPlayer.facing,p1SkinId,selfLabel,true);
+    // Draw all remote players
+    for(let [idStr,pos] of Object.entries(mpOwPositions)){
+      let id=parseInt(idStr);
+      if(id===mpMyIndex)continue;
+      let label='J'+(id+1);
+      let sk=ALL_SKINS[pos.sk||id]||ALL_SKINS[id%ALL_SKINS.length];
+      drawOwCharacterLabeled(pos.x,pos.y,pos.w||0,pos.b||0,pos.f||1,pos.sk||id,label,false);
+    }
+    return;
+  }
+  // Local 1P / local co-op
+  drawOwCharacterLabeled(owPlayer.x,owPlayer.y,owPlayer.walkT,owPlayer.bobT,owPlayer.facing,p1SkinId,'',false);
   if(p2Active){
     let p2sk=getP2SkinId();
-    drawOwCharacter(owPlayer2.x,owPlayer2.y,owPlayer2.walkT,owPlayer2.bobT,owPlayer2.facing,p2sk,true);
+    drawOwCharacterLabeled(owPlayer2.x,owPlayer2.y,owPlayer2.walkT,owPlayer2.bobT,owPlayer2.facing,p2sk,'J2',true);
+  }
+}
+
+function drawOwCharacterLabeled(x,y,walkT,bobT,facing,skinId,label,highlight){
+  drawOwCharacter(x,y,walkT,bobT,facing,skinId,label==='J2'||label.startsWith('J')&&label!=='J1');
+  if(label){
+    let sk=ALL_SKINS[skinId]||SKINS[skinId]||SKINS[0];
+    let col=highlight?'#fff':(sk?sk.hatBand:'#f5d020');
+    ctx.fillStyle=col;ctx.font='bold 9px Impact';ctx.textAlign='center';
+    ctx.fillText(label,x,y-20);
   }
 }
 
@@ -5107,33 +5122,75 @@ canvas.addEventListener('click',e=>{
   let rect=canvas.getBoundingClientRect();
   let cx=(e.clientX-rect.left)*(W/rect.width);
   let cy=(e.clientY-rect.top)*(H/rect.height);
+  if(gameState!=='overworld')return;
 
-  // MP host "Vote" button on island
-  if(gameState==='overworld'&&mpMode&&mpIsHost&&!mpVoteUI.active&&!mpVoteUI.result){
-    let vbx=W/2-80,vby=H-52;
-    if(cx>=vbx&&cx<=vbx+160&&cy>=vby&&cy<=vby+30){
-      mpStartVote();mpVoteUI.active=true;mpVoteUI.timer=MP_VOTE_TIME;mpVoteUI.votes={};mpVoteUI.myVote=null;mpVoteUI.myDiff='normal';
-      mpBroadcast({type:'voteStart',bosses:['inkboss','tempestina','kronos'],voterId:0,boss:selectedBoss,diff:difficulty});
-      return;
-    }
-  }
-
-  if(gameState==='overworld'&&owPauseMenu&&owPauseMenu_btns.length){
-    for(let btn of owPauseMenu_btns){
+  // ── Weapon menu ──
+  if(owWeaponMenu&&owWpnClicks){
+    for(let btn of owWpnClicks){
       if(cx>=btn.x&&cx<=btn.x+btn.w&&cy>=btn.y&&cy<=btn.y+btn.h){
-        owPauseMenu=false;
-        if(btn.action==='close'){}
-        else if(btn.action==='weapons'){owWeaponMenu=true;}
-        else if(btn.action==='menu'){gameState='menu';showScreen('menuScreen');}
-        else if(btn.action==='kickp2'){kickP2();}
-        else if(btn.action==='autoshoot'){autoShoot=!autoShoot;}
-        else if(btn.action==='leave'){mpLeaveRoom();}
+        let slots=btn.isP2?p2Slots:p1Slots;
+        if(slots[1-btn.slot]===btn.weaponId)return;
+        if(btn.isP2)p2Slots[btn.slot]=btn.weaponId;
+        else p1Slots[btn.slot]=btn.weaponId;
         return;
       }
     }
     return;
   }
-  if(gameState!=='overworld'||!owInteract||!owInteract.menu)return;
+
+  // ── Vote UI clicks (boss + diff buttons) ──
+  if(mpMode&&mpVoteUI.active&&!_mpTallying){
+    let mx=W/2,bw=420,bh=230,bx=mx-bw/2,by=H/2-bh/2-30;
+    const BOSS_OPTS=[{id:'inkboss'},{id:'tempestina'},{id:'kronos'}];
+    for(let i=0;i<BOSS_OPTS.length;i++){
+      let bx2=bx+16+i*136,by2=by+50;
+      if(cx>=bx2&&cx<=bx2+128&&cy>=by2&&cy<=by2+32){
+        mpVoteUI.myVote=BOSS_OPTS[i].id;
+        mpSendVoteSelection(); // update vote but DON'T tally yet
+        return;
+      }
+    }
+    const DIFF_OPTS=[{id:'normal'},{id:'hard'}];
+    for(let i=0;i<DIFF_OPTS.length;i++){
+      let bx3=bx+60+i*150,by3=by+104;
+      if(cx>=bx3&&cx<=bx3+140&&cy>=by3&&cy<=by3+28){
+        mpVoteUI.myDiff=DIFF_OPTS[i].id;
+        mpSendVoteSelection(); // update vote but DON'T tally yet
+        return;
+      }
+    }
+    return; // block other clicks while vote is open
+  }
+
+  // ── MP host "Vote" button ──
+  if(mpMode&&mpIsHost&&!mpVoteUI.active&&!mpVoteUI.result){
+    let vbx=W/2-80,vby=H-52;
+    if(cx>=vbx&&cx<=vbx+160&&cy>=vby&&cy<=vby+30){
+      mpVoteUI={active:true,timer:MP_VOTE_TIME,votes:{},myVote:null,myDiff:null,result:null,counts:null};
+      mpVote={active:true,votes:{},timer:MP_VOTE_TIME,result:null};
+      mpBroadcast({type:'voteStart',voterId:0,boss:selectedBoss,diff:difficulty});
+      return;
+    }
+  }
+
+  // ── Pause menu ──
+  if(owPauseMenu&&owPauseMenu_btns.length){
+    for(let btn of owPauseMenu_btns){
+      if(cx>=btn.x&&cx<=btn.x+btn.w&&cy>=btn.y&&cy<=btn.y+btn.h){
+        owPauseMenu=false;
+        if(btn.action==='weapons')owWeaponMenu=true;
+        else if(btn.action==='menu'){gameState='menu';showScreen('menuScreen');}
+        else if(btn.action==='kickp2')kickP2();
+        else if(btn.action==='autoshoot')autoShoot=!autoShoot;
+        else if(btn.action==='leave')mpLeaveRoom();
+        return;
+      }
+    }
+    return;
+  }
+
+  // ── Battle menu (boss portal) ──
+  if(!owInteract||!owInteract.menu)return;
   if(owInteract._diffs){
     for(let d of owInteract._diffs){
       if(cx>=d.x&&cx<=d.x+d.w&&cy>=d.y&&cy<=d.y+d.h){owMenuDiff=d.id;return;}
@@ -5289,7 +5346,10 @@ let mpPlayers=[null,null,null,null]; // player objects in MP mode
 
 // ── Client-side: received state from host ──
 let mpRemoteState=null;
-let mpMyKeys={};         // local keys for sending to host
+let mpMyKeys={};
+// ── Loading screen ──
+let mpLoadingScreen=null; // {timer, readySet, total} — null when not loading
+let mpReadySet=new Set();  // which playerIds have sent 'ready'         // local keys for sending to host
 
 // Helper: get damage multiplier based on player count
 function mpDmgMult(){
@@ -5304,8 +5364,16 @@ function openMPLobby(){
   mpLobbyOpen=true;
   showScreen('mpLobbyScreen');
   renderMPRooms();
-  // Probe all rooms for current status
   probeAllRooms();
+  // Auto-refresh every 6 seconds while lobby is open
+  if(window._mpRefreshInterval)clearInterval(window._mpRefreshInterval);
+  window._mpRefreshInterval=setInterval(()=>{
+    if(mpLobbyOpen&&document.getElementById('mpRoomList')?.style.display!=='none'){
+      probeAllRooms();
+    } else {
+      clearInterval(window._mpRefreshInterval);
+    }
+  },6000);
 }
 
 function renderMPRooms(){
@@ -5350,9 +5418,9 @@ function probeRoom(i){
   probe.on('open',()=>{
     let conn=probe.connect(roomPeerId,{reliable:true});
     let timer=setTimeout(()=>{
-      mpRoomStatus[i]=false; // no host
+      mpRoomStatus[i]=false;
       probe.destroy();renderMPRooms();
-    },3000);
+    },1500);
     conn.on('open',()=>{
       conn.send(JSON.stringify({type:'probe'}));
     });
@@ -5369,7 +5437,24 @@ function probeRoom(i){
   probe.on('error',()=>{mpRoomStatus[i]=false;renderMPRooms();});
 }
 
-// ── MP config — use public PeerJS server with Google STUN ──
+// ── MP overworld: positions of all players seen by everyone ──
+let mpOwPositions={}; // {playerId: {x,y,facing,walkT,bobT,skinId}}
+let mpOwLastSent=0;
+
+function mpOwBroadcastPos(){
+  if(!mpMode||frameCount-mpOwLastSent<4)return;
+  mpOwLastSent=frameCount;
+  let pos={type:'owPos',id:mpMyIndex,x:Math.round(owPlayer.x),y:Math.round(owPlayer.y),f:owPlayer.facing,w:Math.round(owPlayer.walkT),b:+owPlayer.bobT.toFixed(2),sk:p1SkinId};
+  if(mpIsHost) for(let c of mpClients)try{c.conn.send(JSON.stringify(pos));}catch(e){}
+  else if(mpHostConn)try{mpHostConn.send(JSON.stringify(pos));}catch(e){}
+}
+
+// Host: relay client positions to all other clients
+function mpOwRelayPos(fromId,pos){
+  if(!mpIsHost)return;
+  let pkt=JSON.stringify(pos);
+  for(let c of mpClients){if(c.id!==fromId)try{c.conn.send(pkt);}catch(e){}}
+}
 const MP_PEER_CFG={debug:0,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'}]}};
 
 // Pre-connected idle peer — created silently on page load to avoid delay
@@ -5457,6 +5542,18 @@ function mpJoinRoom(roomIndex){
           mpLaunchGame(d);
         } else if(d.type==='goIsland'){
           mpGoIsland(d);
+        } else if(d.type==='owPos'){
+          mpOwPositions[d.id]=d; // store remote position
+        } else if(d.type==='loading'){
+          // Host says loading — show loading screen on client
+          mpShowLoadingScreen(d.total);
+          // Tell host we're ready after a short delay (simulating load)
+          setTimeout(()=>{
+            if(mpHostConn)mpHostConn.send(JSON.stringify({type:'ready',id:mpMyIndex}));
+          },800);
+        } else if(d.type==='allReady'){
+          // Host says everyone loaded — dismiss loading and start intro
+          mpDismissLoading();
         } else if(d.type==='state'){
           mpRemoteState=d;
         } else if(d.type==='playerJoined'||d.type==='playerLeft'){
@@ -5502,6 +5599,15 @@ function mpHandleIncoming(conn){
       if(!cl)return;
       if(d.type==='input')cl.keys=d.keys||{};
       else if(d.type==='vote')mpReceiveVote(cl.id,d.boss,d.diff);
+      else if(d.type==='owPos'){
+        mpOwPositions[d.id]=d;
+        // Relay to other clients
+        mpOwRelayPos(cl.id,d);
+      }
+      else if(d.type==='ready'){
+        mpReadySet.add(cl.id);
+        mpCheckAllReady();
+      }
     }catch(e){}
   });
   conn.on('close',()=>{
@@ -5552,12 +5658,9 @@ function mpStartGame(){
 function mpGoIsland(d){
   mpMode=true;mpPlayerCount=d.playerCount||mpPlayerCount;
   showScreen(null);
-  // Store MP skins so island shows correct characters
   let skins=d.skins||[0,1,2,3];
   p1SkinId=skins[0]||0;
-  // Set P2+ presence for island display (used by drawOwPlayer)
-  p2Active=mpPlayerCount>1;
-  // Go straight to overworld
+  p2Active=false; // MP clients are NOT local P2 — they're separate remote players
   startOverworld();
 }
 
@@ -5574,8 +5677,13 @@ function mpStartAsClient(d){
 
 function mpLaunchGame(d){
   showScreen(null);
-  gameState='intro';frameCount=0;particles=[];
-  p2Active=false; // use mpPlayers instead in MP
+  p2Active=false;
+  selectedBoss=d.selectedBoss||d.boss||selectedBoss;
+  difficulty=d.difficulty||d.diff||difficulty;
+  let skins=d.skins||[0,1,2,3];
+  p1SkinId=skins[mpMyIndex]||mpMyIndex;
+  // Pre-load boss objects (so they exist for the loading screen)
+  frameCount=0;particles=[];
   resetPlayer();
   if(selectedBoss==='tempestina') resetTempestina();
   else if(selectedBoss==='kronos') resetKronos();
@@ -5585,9 +5693,6 @@ function mpLaunchGame(d){
   statShots=0;statKills=0;statStartFrame=0;statDmgDealt=0;bossHpPool=0;
   ghosts=[];p1SpecialCharge=0;p2SpecialCharge=0;p1SpecialAnim=null;p2SpecialAnim=null;
   p1ActiveSlot=0;p2ActiveSlot=0;victoryScreen=null;
-  introVariant=Math.ceil(Math.random()*3);p2IntroAnim=(introVariant%4)+1;introTimer=INTRO_DUR;introDone=false;
-  // Init MP players array
-  let skins=d.skins||[0,1,2,3];
   mpPlayers=[];
   for(let i=0;i<mpPlayerCount;i++){
     let spawnX=150+i*120;
@@ -5595,6 +5700,85 @@ function mpLaunchGame(d){
       onGround:false,facing:1,af:0,at:0,crouching:false,dashing:false,dashT:0,dashDir:1,
       dead:false,skinId:skins[i]||i,invTimer:0,shieldT:0,dashCD:0,shootCD:0,jumpHeld:false,slowTimer:0});
   }
+  // Show loading screen — MUST set gameState before mpCheckAllReady
+  mpShowLoadingScreen(mpPlayerCount);
+  gameState='loading';
+  if(mpIsHost){
+    mpReadySet=new Set([0]); // host is always ready
+    mpBroadcast({type:'loading',total:mpPlayerCount,selectedBoss,difficulty,skins:skins.slice(0,mpPlayerCount)});
+    // Use setTimeout so gameState='loading' is fully set before we might dismiss it
+    setTimeout(()=>mpCheckAllReady(),50);
+  }
+}
+
+function updateMPVote(){
+  if(!mpVoteUI.active)return;
+  if(mpVoteUI.timer>0){
+    mpVoteUI.timer--;
+  } else if(mpIsHost&&mpVote.active&&!_mpTallying){
+    mpVote.active=false;
+    mpTallyVotes();
+  }
+}
+
+function mpCheckAllReady(){
+  if(!mpIsHost)return;
+  // +1 for host itself
+  if(mpReadySet.size>=mpPlayerCount){
+    mpBroadcast({type:'allReady'});
+    mpDismissLoading();
+  }
+}
+
+function mpShowLoadingScreen(total){
+  mpLoadingScreen={timer:0,total};
+  gameState='loading';
+}
+
+function mpDismissLoading(){
+  mpLoadingScreen=null;
+  // Now start the actual intro
+  introVariant=Math.ceil(Math.random()*3);p2IntroAnim=(introVariant%4)+1;
+  introTimer=INTRO_DUR;introDone=false;
+  gameState='intro';
+}
+
+function updateMPLoadingScreen(){
+  let ls=mpLoadingScreen;if(!ls||gameState!=='loading')return;
+  ls.timer++;
+  // Timeout fallback: after 5s force-start even if clients haven't responded
+  if(mpIsHost&&ls.timer>300&&!ls._timedOut){
+    ls._timedOut=true;
+    mpCheckAllReady();
+  }
+}
+
+function drawMPLoadingScreen(){
+  let ls=mpLoadingScreen;if(!ls)return;
+  ctx.fillStyle='#04060e';ctx.fillRect(0,0,W,H);
+  // Animated gear spinner
+  ctx.save();ctx.translate(W/2,H/2-60);ctx.rotate(ls.timer*0.04);
+  ctx.strokeStyle='#c8a028';ctx.lineWidth=4;
+  ctx.beginPath();ctx.arc(0,0,42,0,Math.PI*2);ctx.stroke();
+  for(let t=0;t<10;t++){let a=t/10*Math.PI*2;ctx.beginPath();ctx.moveTo(Math.cos(a)*42,Math.sin(a)*42);ctx.lineTo(Math.cos(a)*54,Math.sin(a)*54);ctx.stroke();}
+  ctx.restore();
+  ctx.fillStyle='#c8a028';ctx.font='bold italic 26px Impact';ctx.textAlign='center';
+  ctx.fillText('CARGANDO...',W/2,H/2+10);
+  ctx.fillStyle='#607090';ctx.font='bold 13px Impact';
+  let readyCount=mpIsHost?mpReadySet.size:1;
+  ctx.fillText(`Jugadores listos: ${readyCount} / ${ls.total}`,W/2,H/2+38);
+  let icons=['❤️','💙','💚','💜'];
+  ctx.globalAlpha=1;
+  for(let i=0;i<ls.total;i++){
+    let ready=mpIsHost?mpReadySet.has(i):(i===mpMyIndex);
+    ctx.globalAlpha=ready?1:0.25;
+    ctx.font='20px Arial';ctx.fillText(icons[i]||'⭐',W/2-(ls.total-1)*24+i*48,H/2+72);
+  }
+  ctx.globalAlpha=1;
+  // Hint to press any key
+  let pulse=0.4+0.3*Math.abs(Math.sin(ls.timer*0.08));
+  ctx.fillStyle=`rgba(150,150,180,${pulse})`;ctx.font='11px Impact';
+  ctx.fillText(mpIsHost?'Esperando que todos carguen...':'Conectando con el host...',W/2,H/2+100);
 }
 
 function mpLeaveRoom(){
@@ -5607,6 +5791,9 @@ function mpLeaveRoom(){
   if(mpPeer){mpPeer.destroy();mpPeer=null;}
   mpMode=false;mpIsHost=false;mpClients=[];mpHostConn=null;
   mpPlayers=[null,null,null,null];mpPlayerCount=1;mpRoomId=null;
+  _mpTallying=false;
+  mpVote={active:false,votes:{},timer:0,result:null};
+  mpVoteUI={active:false,votes:{},timer:0,myVote:null,result:null,counts:null};
   gameState='menu';showScreen('mpLobbyScreen');
   document.getElementById('mpRoomList').style.display='flex';
   document.getElementById('mpWaiting').style.display='none';
@@ -5631,66 +5818,101 @@ function mpBroadcast(msg){
 
 // ── Boss voting system ──
 let mpVote={active:false,votes:{},timer:0,result:null};
-const MP_VOTE_TIME=300; // 5s
+const MP_VOTE_TIME=900; // 15s
 
 function mpStartVote(){
   if(!mpIsHost)return;
   // Reset votes — host pre-votes for their current selection
-  mpVote={active:true,votes:{0:{boss:selectedBoss,diff:difficulty}},timer:MP_VOTE_TIME,result:null};
-  mpBroadcast({type:'voteStart',bosses:['inkboss','tempestina','kronos'],diffs:['normal','hard'],voterId:0,boss:selectedBoss,diff:difficulty});
+  mpVote={active:true,votes:{},timer:MP_VOTE_TIME,result:null}; // start with EMPTY votes — no pre-selection
+  mpBroadcast({type:'voteStart'});
+}
+
+function mpSendVoteSelection(){
+  if(!mpVoteUI.active)return;
+  let boss=mpVoteUI.myVote||null;
+  let diff=mpVoteUI.myDiff||null;
+  if(mpIsHost){
+    let vote={boss,diff};
+    mpVote.votes[0]=vote;mpVoteUI.votes[0]=vote;
+    mpBroadcast({type:'voteUpdate',voterId:0,boss,diff});
+  } else if(mpHostConn){
+    try{mpHostConn.send(JSON.stringify({type:'vote',boss,diff}));}catch(e){}
+  }
 }
 
 function mpCastVote(boss,diff){
+  if(!mpVoteUI.active)return;
+  let vote={boss:boss||null,diff:diff||null};
   if(mpIsHost){
-    mpVote.votes[0]={boss,diff};
-    mpBroadcast({type:'voteUpdate',voterId:0,boss,diff});
-    mpCheckVoteDone();
+    mpVote.votes[0]=vote;mpVoteUI.votes[0]=vote;
+    mpBroadcast({type:'voteUpdate',voterId:0,boss:vote.boss,diff:vote.diff});
   } else if(mpHostConn){
-    mpHostConn.send(JSON.stringify({type:'vote',boss,diff}));
+    try{mpHostConn.send(JSON.stringify({type:'vote',boss:vote.boss,diff:vote.diff}));}catch(e){}
   }
 }
 
 function mpReceiveVote(playerId,boss,diff){
   if(!mpIsHost)return;
-  mpVote.votes[playerId]={boss,diff};
-  mpBroadcast({type:'voteUpdate',voterId:playerId,boss,diff});
-  mpCheckVoteDone();
+  let vote={boss:boss||null,diff:diff||null};
+  mpVote.votes[playerId]=vote;mpVoteUI.votes[playerId]=vote;
+  mpBroadcast({type:'voteUpdate',voterId:playerId,boss:vote.boss,diff:vote.diff});
+  // NO tally here — only timer triggers tally
 }
 
+let _mpTallying=false;
 function mpCheckVoteDone(){
-  if(!mpIsHost)return;
-  let total=mpPlayerCount;
-  let cast=Object.keys(mpVote.votes).length;
-  if(cast>=total||mpVote.timer<=0){
-    mpTallyVotes();
-  }
+  // Only called from timer — never from clicks
+  if(!mpIsHost||_mpTallying||!mpVote.active)return;
+  mpTallyVotes();
 }
 
 function mpTallyVotes(){
-  if(!mpIsHost)return;
-  // Count boss votes
+  if(!mpIsHost||_mpTallying)return;
+  _mpTallying=true;
+  mpVote.active=false;
+  mpVoteUI.active=false;
+
+  let castVotes=Object.values(mpVote.votes);
+  // Count only non-null boss/diff votes
   let bossCounts={inkboss:0,tempestina:0,kronos:0};
   let diffCounts={normal:0,hard:0};
-  for(let v of Object.values(mpVote.votes)){
-    bossCounts[v.boss]=(bossCounts[v.boss]||0)+1;
-    diffCounts[v.diff]=(diffCounts[v.diff]||0)+1;
+  for(let v of castVotes){
+    if(v.boss&&bossCounts[v.boss]!==undefined) bossCounts[v.boss]++;
+    if(v.diff&&diffCounts[v.diff]!==undefined) diffCounts[v.diff]++;
   }
-  // Pick winner — ties resolved randomly
+
+  // Pick winner — if all zeros (nobody voted), pick fully random
+  const allBosses=['inkboss','tempestina','kronos'];
+  const allDiffs=['normal','hard'];
+  let winBoss, winDiff;
+
   let maxB=Math.max(...Object.values(bossCounts));
-  let topBosses=Object.keys(bossCounts).filter(b=>bossCounts[b]===maxB);
-  let winBoss=topBosses[Math.floor(Math.random()*topBosses.length)];
+  if(maxB===0){
+    // No boss votes — pure random
+    winBoss=allBosses[Math.floor(Math.random()*allBosses.length)];
+  } else {
+    let topBosses=allBosses.filter(b=>bossCounts[b]===maxB);
+    winBoss=topBosses[Math.floor(Math.random()*topBosses.length)];
+  }
+
   let maxD=Math.max(...Object.values(diffCounts));
-  let topDiffs=Object.keys(diffCounts).filter(d=>diffCounts[d]===maxD);
-  let winDiff=topDiffs[Math.floor(Math.random()*topDiffs.length)];
-  mpVote.active=false;
+  if(maxD===0){
+    winDiff=allDiffs[Math.floor(Math.random()*allDiffs.length)];
+  } else {
+    let topDiffs=allDiffs.filter(d=>diffCounts[d]===maxD);
+    winDiff=topDiffs[Math.floor(Math.random()*topDiffs.length)];
+  }
+
   mpVote.result={boss:winBoss,diff:winDiff};
-  // Broadcast final result and auto-start
+  mpVoteUI.result={boss:winBoss,diff:winDiff,counts:bossCounts};
   mpBroadcast({type:'voteResult',boss:winBoss,diff:winDiff,counts:bossCounts,diffCounts});
-  // Apply and start after 2s
   selectedBoss=winBoss;difficulty=winDiff;
+
   setTimeout(()=>{
-    mpBroadcast({type:'start',playerCount:mpPlayerCount,skins:[p1SkinId,...mpClients.map(c=>c.skinId)],selectedBoss,difficulty});
-    mpLaunchGame({playerCount:mpPlayerCount,skins:[p1SkinId,...mpClients.map(c=>c.skinId)],selectedBoss,difficulty});
+    let skins=[p1SkinId,...mpClients.map(c=>c.skinId)];
+    mpBroadcast({type:'start',playerCount:mpPlayerCount,skins,selectedBoss,difficulty});
+    mpLaunchGame({playerCount:mpPlayerCount,skins,selectedBoss,difficulty});
+    _mpTallying=false;
   },2000);
 }
 
@@ -5717,99 +5939,75 @@ function mpHandleVoteMsg(d){
 
 function drawMPVoteUI(){
   if(!mpVoteUI.active&&!mpVoteUI.result)return;
-  let mx=W/2,bw=420,bh=mpVoteUI.result?120:220;
+  let mx=W/2,bw=420,bh=mpVoteUI.result?130:230;
   let bx=mx-bw/2,by=H/2-bh/2-30;
   ctx.save();
-  ctx.fillStyle='rgba(0,0,20,0.88)';ctx.strokeStyle='#c8a028';ctx.lineWidth=2;
+  // Semi-transparent backdrop
+  ctx.fillStyle='rgba(0,0,10,0.72)';ctx.fillRect(0,0,W,H);
+  // Card
+  ctx.fillStyle='rgba(2,4,18,0.96)';ctx.strokeStyle='#c8a028';ctx.lineWidth=2;
   ctx.beginPath();ctx.roundRect(bx,by,bw,bh,10);ctx.fill();ctx.stroke();
 
   if(mpVoteUI.result){
     let bossNames={inkboss:'INKBOSS 🎩',tempestina:'TEMPESTINA ⚡',kronos:'KRONOS ⚙'};
     ctx.fillStyle='#f5d020';ctx.font='bold italic 18px Impact';ctx.textAlign='center';
-    ctx.fillText('¡VOTACIÓN TERMINADA!',mx,by+28);
+    ctx.fillText('¡VOTACIÓN TERMINADA!',mx,by+30);
     ctx.fillStyle='#fff';ctx.font='bold 15px Impact';
-    ctx.fillText(`${bossNames[mpVoteUI.result.boss]} · ${mpVoteUI.result.diff.toUpperCase()}`,mx,by+56);
+    ctx.fillText(`${bossNames[mpVoteUI.result.boss]||mpVoteUI.result.boss} · ${mpVoteUI.result.diff.toUpperCase()}`,mx,by+58);
     ctx.fillStyle='#60e080';ctx.font='12px Impact';
-    ctx.fillText('Iniciando en 2 segundos...',mx,by+80);
+    ctx.fillText('Iniciando en 2 segundos...',mx,by+82);
     if(mpVoteUI.counts){
-      let cx2=bx+30;
+      let vcx=bx+30;
       for(let [b,n] of Object.entries(mpVoteUI.counts)){
-        ctx.fillStyle=b===mpVoteUI.result.boss?'#f5d020':'#607090';ctx.font='10px Impact';ctx.textAlign='left';
-        ctx.fillText(`${b}: ${n}v`,cx2,by+104);cx2+=130;
+        ctx.fillStyle=b===mpVoteUI.result.boss?'#f5d020':'#607090';
+        ctx.font='10px Impact';ctx.textAlign='left';
+        ctx.fillText(`${b}: ${n}v`,vcx,by+110);vcx+=130;
       }
     }
   } else {
-    // Active vote
-    if(mpVoteUI.timer>0)mpVoteUI.timer--;
     let pct=mpVoteUI.timer/MP_VOTE_TIME;
     ctx.fillStyle='#f5d020';ctx.font='bold italic 16px Impact';ctx.textAlign='center';
-    ctx.fillText('🗳  VOTACIÓN — ¿Quién es el jefe?',mx,by+24);
+    ctx.fillText('🗳  VOTACIÓN — ¿Quién es el jefe?',mx,by+26);
     // Timer bar
-    ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(bx+16,by+30,bw-32,8);
-    ctx.fillStyle=pct>0.4?'#40e080':'#e08040';ctx.fillRect(bx+16,by+30,Math.floor((bw-32)*pct),8);
+    ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(bx+16,by+34,bw-32,8);
+    ctx.fillStyle=pct>0.4?'#40e080':'#e08040';
+    ctx.fillRect(bx+16,by+34,Math.max(0,Math.floor((bw-32)*pct)),8);
+    ctx.fillStyle='#888';ctx.font='9px Impact';ctx.textAlign='right';
+    ctx.fillText(Math.ceil(mpVoteUI.timer/60)+'s',bx+bw-18,by+42);
     // Boss buttons
     const BOSS_OPTS=[{id:'inkboss',label:'🎩 INKBOSS'},{id:'tempestina',label:'⚡ TEMPESTINA'},{id:'kronos',label:'⚙ KRONOS'}];
     BOSS_OPTS.forEach((b,i)=>{
-      let bx2=bx+16+i*136,by2=by+46;
+      let bx2=bx+16+i*136,by2=by+50;
       let sel=mpVoteUI.myVote===b.id;
-      ctx.fillStyle=sel?'rgba(200,160,40,0.4)':'rgba(20,20,40,0.7)';
+      ctx.fillStyle=sel?'rgba(200,160,40,0.35)':'rgba(20,20,40,0.8)';
       ctx.strokeStyle=sel?'#f5d020':'#444';ctx.lineWidth=sel?2:1;
       ctx.beginPath();ctx.roundRect(bx2,by2,128,32,6);ctx.fill();ctx.stroke();
       ctx.fillStyle=sel?'#f5d020':'#aaa';ctx.font='bold 12px Impact';ctx.textAlign='center';
       ctx.fillText(b.label,bx2+64,by2+21);
     });
-    // Vote counts
-    ctx.fillStyle='#607090';ctx.font='10px Impact';ctx.textAlign='left';
-    let vcx=bx+16;
-    BOSS_OPTS.forEach(b=>{
+    // Vote counts per boss
+    BOSS_OPTS.forEach((b,i)=>{
       let cnt=Object.values(mpVoteUI.votes).filter(v=>v.boss===b.id).length;
-      ctx.fillStyle=cnt>0?'#a0c0a0':'#404060';ctx.fillText(`${cnt}v`,vcx+50,by+108);vcx+=136;
+      ctx.fillStyle=cnt>0?'#80c080':'#404060';ctx.font='10px Impact';ctx.textAlign='center';
+      ctx.fillText(cnt+'v',bx+16+i*136+64,by+92);
     });
     // Diff buttons
-    [{id:'normal',label:'😊 NORMAL'},{id:'hard',label:'💀 DIFÍCIL'}].forEach((d,i)=>{
-      let bx3=bx+60+i*150,by3=by+120;
+    const DIFF_OPTS=[{id:'normal',label:'😊 NORMAL'},{id:'hard',label:'💀 DIFÍCIL'}];
+    DIFF_OPTS.forEach((d,i)=>{
+      let bx3=bx+60+i*150,by3=by+104;
       let sel=mpVoteUI.myDiff===d.id;
-      ctx.fillStyle=sel?'rgba(64,200,64,0.3)':'rgba(20,20,40,0.7)';
+      ctx.fillStyle=sel?'rgba(64,200,64,0.25)':'rgba(20,20,40,0.8)';
       ctx.strokeStyle=sel?'#40e080':'#444';ctx.lineWidth=sel?2:1;
       ctx.beginPath();ctx.roundRect(bx3,by3,140,28,5);ctx.fill();ctx.stroke();
       ctx.fillStyle=sel?'#40e080':'#aaa';ctx.font='bold 11px Impact';ctx.textAlign='center';
       ctx.fillText(d.label,bx3+70,by3+19);
     });
+    let cast=Object.keys(mpVoteUI.votes).length;
     ctx.fillStyle='#505060';ctx.font='10px Impact';ctx.textAlign='center';
-    ctx.fillText(`Jugadores que votaron: ${Object.keys(mpVoteUI.votes).length}/${mpPlayerCount}`,mx,by+168);
-    ctx.fillText('ESC para cerrar · Tu voto se envía al hacer clic',mx,by+184);
-    // Check timer expiry for host
-    if(mpIsHost&&mpVoteUI.timer<=0&&mpVote.active){mpCheckVoteDone();}
+    ctx.fillText(`${cast}/${mpPlayerCount} votaron · Clic para votar`,mx,by+144);
   }
   ctx.restore();
 }
-
-// Click handler for vote UI
-canvas.addEventListener('click',e=>{
-  if(gameState!=='overworld'||!mpMode)return;
-  if(!mpVoteUI.active)return;
-  let rect=canvas.getBoundingClientRect();
-  let cx=(e.clientX-rect.left)*(W/rect.width);
-  let cy=(e.clientY-rect.top)*(H/rect.height);
-  let mx=W/2,bw=420,bh=220,bx=mx-bw/2,by=H/2-bh/2-30;
-  // Boss buttons
-  const BOSS_OPTS=[{id:'inkboss'},{id:'tempestina'},{id:'kronos'}];
-  BOSS_OPTS.forEach((b,i)=>{
-    let bx2=bx+16+i*136,by2=by+46;
-    if(cx>=bx2&&cx<=bx2+128&&cy>=by2&&cy<=by2+32){
-      mpVoteUI.myVote=b.id;
-      mpCastVote(b.id,mpVoteUI.myDiff||'normal');
-    }
-  });
-  // Diff buttons
-  [{id:'normal'},{id:'hard'}].forEach((d,i)=>{
-    let bx3=bx+60+i*150,by3=by+120;
-    if(cx>=bx3&&cx<=bx3+140&&cy>=by3&&cy<=by3+28){
-      mpVoteUI.myDiff=d.id;
-      if(mpVoteUI.myVote)mpCastVote(mpVoteUI.myVote,d.id);
-    }
-  });
-});
 
 // ── Host: build state packet to send to clients ──
 function mpBuildState(){
@@ -5903,14 +6101,22 @@ function mpDrawFromState(){
 
 // ── MP host game update: use mpPlayers instead of player/player2 ──
 function mpUpdateHost(){
-  // Apply my own input (player 0)
-  let s0=updatePlayerObj(mpPlayers[0],P1CFG,dashCD,shootCD,invTimer,shieldT,jumpHeld);
+  // In MP: p2Active must be false — P2 is a separate remote client, not local
+  // We control only mpPlayers[0] (the host's character) with P1CFG
+  let s0=updatePlayerObj(player,P1CFG,dashCD,shootCD,invTimer,shieldT,jumpHeld);
   dashCD=s0.dashCD;shootCD=s0.shootCD;invTimer=s0.invTimer;shieldT=s0.shieldT;jumpHeld=s0.jumpHeld;
-  // Sync mpPlayers[0] with player
-  mpPlayers[0]=player;
-  // Apply client inputs
-  mpApplyClientInputs();
-  // Update homing bullets
+  mpPlayers[0]=player; // sync
+  // Apply each client's inputs to their mpPlayer slot
+  for(let i=0;i<mpClients.length;i++){
+    let cl=mpClients[i];
+    let p=mpPlayers[cl.id];
+    if(!p||p.dead)continue;
+    let savedKeys=keys;keys=cl.keys||{};
+    let s=updatePlayerObj(p,P1CFG,p.dashCD,p.shootCD,p.invTimer,p.shieldT,p.jumpHeld);
+    keys=savedKeys;
+    p.dashCD=s.dashCD;p.shootCD=s.shootCD;p.invTimer=s.invTimer;p.shieldT=s.shieldT;p.jumpHeld=s.jumpHeld;
+  }
+  // Homing bullets
   let bc=selectedBoss==='tempestina'?getTBossC():selectedBoss==='kronos'?getKBossC():getBossC();
   for(let b of bullets){
     if(!b.playerHoming)continue;
@@ -5921,18 +6127,17 @@ function mpUpdateHost(){
     if(spd>WEAPONS.homing.speed*1.5){b.vx=b.vx/spd*WEAPONS.homing.speed*1.5;b.vy=b.vy/spd*WEAPONS.homing.speed*1.5;}
   }
   updateSpecials();
-  // Broadcast state every 3 frames
-  if(frameCount%3===0){
-    let pkt=mpBuildState();
-    for(let c of mpClients)c.conn.send(pkt);
-  }
+  if(frameCount%3===0){let pkt=mpBuildState();for(let cl of mpClients)try{cl.conn.send(pkt);}catch(e){}}
 }
 
 // ══ END MULTIPLAYER ══
 
 function gameLoop(){
   ctx.clearRect(0,0,W,H);ctx.save();applyShake();
-  if(gameState==='intro'){
+  if(gameState==='loading'){
+    updateMPLoadingScreen();
+    drawMPLoadingScreen();
+  } else if(gameState==='intro'){
     updateIntro();
     drawIntro();
   } else if(gameState==='overworld'){
