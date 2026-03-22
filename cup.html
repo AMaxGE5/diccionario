@@ -423,12 +423,74 @@ function kickP2(){
   bossHpPool=0;
 }
 // Pick a random live player to target (50/50 when P2 active)
+// Returns all live players — in MP mode returns mpPlayers, else player+player2
+function mpActivePlayers(){
+  if(mpMode&&mpIsHost&&mpPlayers.length>0){
+    return mpPlayers.filter(p=>p&&!p.dead);
+  }
+  let arr=[player];
+  if(p2Active&&!player2.dead)arr.push(player2);
+  return arr.filter(p=>p&&!p.dead);
+}
+
+// Returns a random live player target
 function randTarget(){
-  if(p2Active&&!player2.dead&&!player.dead) return Math.random()<0.5?player:player2;
-  if(p2Active&&!player2.dead) return player2;
-  return player;
+  let alive=mpActivePlayers();
+  if(alive.length===0)return player;
+  return alive[Math.floor(Math.random()*alive.length)];
 }
 function targetCenter(p){return{x:p.x+p.w/2,y:p.y-p.h/2};}
+
+// Apply projectile hit to one player; returns true if hit
+function mpHitPlayer(p,isMine){
+  p.hp--;
+  if(isMine){invTimer=90;shieldT=120;}
+  else{p.invTimer=90;p.shieldT=120;}
+  triggerShake(5,8);playSFX('hit');
+  spawnParts(p.x+p.w/2,p.y-p.h/2,'#e84040',10,4,30);
+  if(p.hp<=0){
+    p.dead=true;spawnGhost(p);
+    if(allMPPlayersDead()){
+      stopMusic();
+      setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);
+    }
+  }
+  return true;
+}
+
+// Check all active players vs bossProjectiles — removes hit projectile, calls mpHitPlayer
+function checkAllPlayerHits(){
+  for(let i=bossProjectiles.length-1;i>=0;i--){
+    let bp=bossProjectiles[i];
+    if(bp.dead)continue;
+    let hit=false;
+    // Check host/P1
+    if(invTimer<=0&&shieldT<=0&&!player.dead){
+      if(rectsOvlp(bp.x-bp.r,bp.y-bp.r,bp.r*2,bp.r*2,...pHitBox(player))){
+        bossProjectiles.splice(i,1);mpHitPlayer(player,true);hit=true;
+      }
+    }
+    if(hit)continue;
+    // Check local P2 (non-MP)
+    if(!mpMode&&p2Active&&!player2.dead&&player2.invTimer<=0&&player2.shieldT<=0){
+      if(rectsOvlp(bp.x-bp.r,bp.y-bp.r,bp.r*2,bp.r*2,...pHitBox(player2))){
+        bossProjectiles.splice(i,1);mpHitPlayer(player2,false);hit=true;
+      }
+    }
+    if(hit)continue;
+    // Check MP remote clients
+    if(mpMode&&mpIsHost){
+      for(let j=1;j<mpPlayers.length;j++){
+        let mp=mpPlayers[j];
+        if(!mp||mp.dead)continue;
+        if(mp.invTimer>0||mp.shieldT>0)continue;
+        if(rectsOvlp(bp.x-bp.r,bp.y-bp.r,bp.r*2,bp.r*2,...pHitBox(mp))){
+          bossProjectiles.splice(i,1);mpHitPlayer(mp,false);hit=true;break;
+        }
+      }
+    }
+  }
+}
 
 function spawnP2OverWorld(){
   // Join from overworld — P2 spawns next to P1 on island
@@ -459,12 +521,15 @@ function getWeapon(isP2){
   return WEAPONS[slots[slot]||'basic'];
 }
 
-function shootWeapon(p,isP2){
+function shootWeapon(p,isP2,tmx,tmy){
   let wep=getWeapon(isP2);
-  let sk=SKINS[p.skinId||0];
+  let sk=ALL_SKINS[p.skinId]||SKINS[p.skinId]||SKINS[0];
   let bx=p.x+p.w/2;
   let by=p.y-(p.crouching?p.h*0.3:p.h*0.60);
-  let dx=mouseX-bx, dy=mouseY-by;
+  // Use per-player mouse if provided, else global mouse
+  let aimX=tmx!==undefined?tmx:mouseX;
+  let aimY=tmy!==undefined?tmy:mouseY;
+  let dx=aimX-bx, dy=aimY-by;
   let dist=Math.sqrt(dx*dx+dy*dy)||1;
   let col=wep.col||sk.bullet;
 
@@ -593,7 +658,7 @@ function drawSpecials(){
     ctx.shadowBlur=0;
     // Character pose during special — lean forward
     if(p&&!p.dead){
-      let sk=SKINS[p.skinId||0];
+      let sk=ALL_SKINS[p.skinId]||SKINS[p.skinId]||SKINS[0];
       ctx.globalAlpha=alpha;
       ctx.save();ctx.translate(p.x+p.w/2,p.y);ctx.scale(anim.dir*(75/82),75/82);
       // Dramatic lean: scale x stretched, y compressed
@@ -617,8 +682,8 @@ function drawSpecials(){
     }
     ctx.restore();
   }
-  let col1=SKINS[player.skinId||0].bullet||'#f8e840';
-  let col2=p2Active?SKINS[player2.skinId||0].bullet||'#80ffff':'#80ffff';
+  let col1=(ALL_SKINS[player.skinId]||SKINS[player.skinId]||SKINS[0]).bullet||'#f8e840';
+  let col2=p2Active?(ALL_SKINS[player2.skinId]||SKINS[player2.skinId]||SKINS[0]).bullet||'#80ffff':'#80ffff';
   drawBeam(p1SpecialAnim,player,col1);
   if(p2Active) drawBeam(p2SpecialAnim,player2,col2);
 }
@@ -771,7 +836,7 @@ function resetPlayer(){
   bossHpPool=0;
 }
 
-function updatePlayerObj(p,cfg,ownDashCD,ownShootCD,ownInvTimer,ownShieldT,ownJumpHeld){
+function updatePlayerObj(p,cfg,ownDashCD,ownShootCD,ownInvTimer,ownShieldT,ownJumpHeld,tmx,tmy){
   if(p.dead)return{dashCD:ownDashCD,shootCD:ownShootCD,invTimer:ownInvTimer,shieldT:ownShieldT,jumpHeld:ownJumpHeld};
   let spd=4.5;
   // Clock-hand slow effect — tick down and reduce speed
@@ -806,7 +871,7 @@ function updatePlayerObj(p,cfg,ownDashCD,ownShootCD,ownInvTimer,ownShieldT,ownJu
   // SHOOT — uses active weapon; autoShoot fires for both when 2P local
   let wantShoot=keys[cfg.shoot]||(autoShoot&&p2Active&&!mpMode);
   if(wantShoot&&ownShootCD<=0&&!p.dashing&&!((p===player?p1SpecialAnim:p2SpecialAnim))){
-    ownShootCD=shootWeapon(p,p===player2);
+    ownShootCD=shootWeapon(p,p===player2,tmx,tmy);
   }
   if(ownShootCD>0)ownShootCD--;
 
@@ -856,7 +921,7 @@ function updatePlayer(){
   updateSpecials();
 }
 
-function drawPlayerObj(p,isMine){
+function drawPlayerObj(p,isMine,mpLabel){
   if(p.dead)return;
   let ownInvTimer=isMine?invTimer:p.invTimer;
   let ownShieldT=isMine?shieldT:p.shieldT;
@@ -864,12 +929,12 @@ function drawPlayerObj(p,isMine){
   let ownShootCD=isMine?shootCD:p.shootCD;
   if(ownInvTimer>0&&!p.dashing&&ownShieldT<=0&&Math.floor(ownInvTimer/4)%2===0)return;
   let{x:px,y:py,w,h,facing:f,af,onGround,dashing,crouching}=p;
-  let sk=SKINS[p.skinId||0];
+  let sk=ALL_SKINS[p.skinId]||SKINS[p.skinId]||SKINS[0];
 
   // Aim dotted line toward mouse (same for both players)
   if(mouseOnCanvas&&gameState==='playing'){
     let bx=px+w/2, by=py-(crouching?h*0.25:h*0.60);
-    ctx.save();ctx.strokeStyle=`rgba(${sk===SKINS[0]?'248,232,64':'64,200,255'},0.28)`;ctx.lineWidth=1.5;ctx.setLineDash([4,7]);
+    ctx.save();ctx.strokeStyle=`rgba(${(sk.bullet||'').includes('f8e840')||p.skinId===0?'248,232,64':'64,200,255'},0.28)`;ctx.lineWidth=1.5;ctx.setLineDash([4,7]);
     ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(mouseX,mouseY);ctx.stroke();
     ctx.setLineDash([]);ctx.restore();
   }
@@ -908,7 +973,11 @@ function drawPlayerObj(p,isMine){
   }
 
   // P2 label above head
-  if(!isMine){
+  if(!isMine&&mpLabel!==undefined){
+    let lblCol=ALL_SKINS[p.skinId]?ALL_SKINS[p.skinId].hatBand:'#40c8ff';
+    ctx.save();ctx.fillStyle=lblCol;ctx.font='bold 11px Impact';ctx.textAlign='center';
+    ctx.fillText(mpLabel||'J?',px+w/2,py-h-8);ctx.restore();
+  } else if(!isMine&&mpLabel===undefined){
     ctx.save();ctx.fillStyle='#40c8ff';ctx.font='bold 11px Impact';ctx.textAlign='center';
     ctx.fillText('J2',px+w/2,py-h-8);ctx.restore();
   }
@@ -1056,7 +1125,7 @@ function updateMinions(){
       m.x+=m.vx;m.y+=Math.sin(m.bobT)*1.5;
       m.shootT--;
       if(m.shootT<=0){
-        let dx=player.x+player.w/2-m.x,dy=player.y-player.h/2-m.y;
+        let _ft=randTarget();let dx=_ft.x+_ft.w/2-m.x,dy=_ft.y-_ft.h/2-m.y;
         let d=Math.sqrt(dx*dx+dy*dy)||1,spd=D(2.2,3.0);
         bossProjectiles.push({x:m.x,y:m.y,vx:(dx/d)*spd,vy:(dy/d)*spd,r:7,col:'#20e8a0'});
         m.shootT=D(140,100)+Math.floor(Math.random()*50);
@@ -1083,7 +1152,7 @@ function updateMinions(){
       m.shootT--;
       if(m.shootT<=0){
         // Throws ice shard at player
-        let dx=player.x+player.w/2-m.x,dy=player.y-player.h/2-(m.y-m.h/2);
+        let _ig=randTarget();let dx=_ig.x+_ig.w/2-m.x,dy=_ig.y-_ig.h/2-(m.y-m.h/2);
         let d=Math.sqrt(dx*dx+dy*dy)||1,spd=D(3,4.5);
         bossProjectiles.push({x:m.x,y:m.y-m.h/2,vx:(dx/d)*spd,vy:(dy/d)*spd,r:9,col:'#a0f0ff',iceSlide:false});
         m.shootT=D(160,110)+Math.floor(Math.random()*60);
@@ -1097,15 +1166,13 @@ function updateMinions(){
     if(m.x<-80||m.x>W+80){minions.splice(i,1);continue;}
     let mhx=m.x-(m.type==='stormCloud'?m.w/2:m.w/2);
     let mhy=m.y-m.h,mhw=m.w,mhh=m.h;
-    if((invTimer<=0&&shieldT<=0)&&!player.dead&&rectsOvlp(mhx,mhy,mhw,mhh,...pHitBox(player))){
-      player.hp--;invTimer=90;shieldT=100;triggerShake(4,8);
-      spawnParts(player.x+player.w/2,player.y-player.h/2,'#e84040',8,4,30);
-      if(player.hp<=0){player.dead=true;spawnGhost(player);triggerShake(8,20);if(!p2Active||player2.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}}
-    }
-    if(p2Active&&!player2.dead&&player2.invTimer<=0&&player2.shieldT<=0&&rectsOvlp(mhx,mhy,mhw,mhh,...pHitBox(player2))){
-      player2.hp--;player2.invTimer=90;player2.shieldT=100;triggerShake(4,8);
-      spawnParts(player2.x+player2.w/2,player2.y-player2.h/2,'#e84040',8,4,30);
-      if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}}
+    for(let pp of mpActivePlayers()){
+      let inv=pp===player?invTimer:pp.invTimer;
+      let sht=pp===player?shieldT:pp.shieldT;
+      if(inv>0||sht>0)continue;
+      if(rectsOvlp(mhx,mhy,mhw,mhh,...pHitBox(pp))){
+        mpHitPlayer(pp,pp===player);break;
+      }
     }
   }
 }
@@ -2170,32 +2237,8 @@ function checkCollisionsInk(){
       }
     }
   }
-  // P1 hit by projectiles
-  if((invTimer<=0&&shieldT<=0)&&!player.dead){
-    for(let i=bossProjectiles.length-1;i>=0;i--){
-      let bp=bossProjectiles[i];
-      if(rectsOvlp(bp.x-bp.r,bp.y-bp.r,bp.r*2,bp.r*2,...pHitBox(player))){
-        bossProjectiles.splice(i,1);player.hp--;invTimer=90;shieldT=120;
-        triggerShake(5,8);playSFX('hit');spawnParts(player.x+player.w/2,player.y-player.h/2,'#e84040',10,4,30);
-        if(player.hp<=0){player.dead=true;spawnGhost(player);spawnParts(player.x+player.w/2,player.y-player.h/2,'#f5c030',20,6,50);triggerShake(8,20);
-          if(!p2Active||player2.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
-        }break;
-      }
-    }
-  }
-  // P2 hit by projectiles
-  if(p2Active&&!player2.dead&&player2.invTimer<=0&&player2.shieldT<=0){
-    for(let i=bossProjectiles.length-1;i>=0;i--){
-      let bp=bossProjectiles[i];
-      if(rectsOvlp(bp.x-bp.r,bp.y-bp.r,bp.r*2,bp.r*2,...pHitBox(player2))){
-        bossProjectiles.splice(i,1);player2.hp--;player2.invTimer=90;player2.shieldT=120;
-        triggerShake(5,8);playSFX('hit');spawnParts(player2.x+player2.w/2,player2.y-player2.h/2,'#e84040',10,4,30);
-        if(player2.hp<=0){player2.dead=true;spawnGhost(player2);
-          if(player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
-        }break;
-      }
-    }
-  }
+  // All players hit by projectiles
+  checkAllPlayerHits();
   for(let i=bullets.length-1;i>=0;i--){
     bullets[i].x+=bullets[i].vx;bullets[i].y+=bullets[i].vy;bullets[i].life--;
     if(bullets[i].life<=0||bullets[i].x>W+20||bullets[i].x<-20||bullets[i].y<-20||bullets[i].y>H+20)bullets.splice(i,1);
@@ -3459,41 +3502,17 @@ function checkCollisions(){
       bullets[i]&&(bullets[i].x+=bullets[i].vx,bullets[i].y+=bullets[i].vy,bullets[i].life--);
       if(bullets[i]&&(bullets[i].life<=0||bullets[i].x>W+20||bullets[i].x<-20||bullets[i].y<-20||bullets[i].y>H+20))bullets.splice(i,1);
     }
-    // P1 projectile hits
-    if(invTimer<=0&&shieldT<=0&&!player.dead){
-      for(let i=bossProjectiles.length-1;i>=0;i--){
-        let bp=bossProjectiles[i];if(bp.tornado)continue;
-        if(rectsOvlp(bp.x-bp.r,bp.y-bp.r,bp.r*2,bp.r*2,...pHitBox(player))){
-          bossProjectiles.splice(i,1);player.hp--;invTimer=90;shieldT=120;triggerShake(5,8);playSFX('hit');spawnParts(player.x+player.w/2,player.y-player.h/2,'#e84040',10,4,30);
-          if(player.hp<=0){player.dead=true;spawnGhost(player);spawnParts(player.x+player.w/2,player.y-player.h/2,'#f5c030',20,6,50);triggerShake(8,20);
-            if(!p2Active||player2.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
-          }break;
-        }
-      }
-    }
-    // P2 projectile hits
-    if(p2Active&&!player2.dead&&player2.invTimer<=0&&player2.shieldT<=0){
-      for(let i=bossProjectiles.length-1;i>=0;i--){
-        let bp=bossProjectiles[i];if(bp.tornado)continue;
-        if(rectsOvlp(bp.x-bp.r,bp.y-bp.r,bp.r*2,bp.r*2,...pHitBox(player2))){
-          bossProjectiles.splice(i,1);player2.hp--;player2.invTimer=90;player2.shieldT=120;triggerShake(5,8);playSFX('hit');spawnParts(player2.x+player2.w/2,player2.y-player2.h/2,'#e84040',10,4,30);
-          if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}}break;
-        }
-      }
-    }
-    // Tornado
+    // All players — projectile hits (non-tornado)
+    checkAllPlayerHits();
+    // Tornado — hits all active players
     for(let bp of bossProjectiles){
       if(!bp.tornado)continue;
-      if(invTimer<=0&&shieldT<=0&&!player.dead){
-        if(Math.abs(bp.x-(player.x+player.w/2))<bp.r+10&&bp.y>player.y-player.h&&bp.y<player.y+10){
-          player.hp--;invTimer=90;shieldT=100;triggerShake(5,8);playSFX('hit');spawnParts(player.x+player.w/2,player.y-player.h/2,'#e84040',8,4,25);
-          if(player.hp<=0){player.dead=true;if(!p2Active||player2.dead){stopMusic();triggerShake(8,20);setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
-        }
-      }
-      if(p2Active&&!player2.dead&&player2.invTimer<=0&&player2.shieldT<=0){
-        if(Math.abs(bp.x-(player2.x+player2.w/2))<bp.r+10&&bp.y>player2.y-player2.h&&bp.y<player2.y+10){
-          player2.hp--;player2.invTimer=90;player2.shieldT=100;triggerShake(5,8);playSFX('hit');
-          if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}}
+      for(let pp of mpActivePlayers()){
+        let inv=pp===player?invTimer:pp.invTimer;
+        let sht=pp===player?shieldT:pp.shieldT;
+        if(inv>0||sht>0)continue;
+        if(Math.abs(bp.x-(pp.x+pp.w/2))<bp.r+10&&bp.y>pp.y-pp.h&&bp.y<pp.y+10){
+          mpHitPlayer(pp,pp===player);
         }
       }
     }
@@ -3689,7 +3708,7 @@ function drawIntro(){
 // Prep animations for players during intro
 // P1 gets variant-based animation, P2 always gets their own independent animation
 function drawOnePlayerPrep(p, poseT, anim, sc){
-  let sk=SKINS[p.skinId||0];
+  let sk=ALL_SKINS[p.skinId]||SKINS[p.skinId]||SKINS[0];
   let px=p.x+p.w/2, py=p.y;
   ctx.save();ctx.translate(px,py);ctx.scale(sc,sc);
 
@@ -3804,16 +3823,38 @@ function drawIntroPrepPlayers(progress){
 // ║              SISTEMA DE FANTASMAS                   ║
 // ╚══════════════════════════════════════════════════════╝
 let ghosts=[]; // {x,y,vy,owner,skinId,timer,alpha}
-const GHOST_RISE_SPD=0.7;
-const GHOST_LIFE=360; // 6s before disappears
+const GHOST_RISE_SPD=1.8;
+const GHOST_LIFE=420;
 const REVIVE_HP=4;    // HP on revival (half max)
 
+// ── MP: check if all players are dead (used for game-over trigger) ──
+function allMPPlayersDead(){
+  if(mpMode){
+    // All mpPlayers must be dead (or null) with no live ghosts
+    let anyAlive=mpPlayers.some(p=>p&&!p.dead);
+    if(anyAlive)return false;
+    // Also check if any ghost can still be revived
+    let anyGhost=ghosts.length>0;
+    return !anyGhost;
+  }
+  // Local mode
+  if(!p2Active)return true;
+  return player.dead&&player2.dead;
+}
+
 function spawnGhost(p){
+  // Find MP player index for revival
+  let mpIdx=-1;
+  if(mpMode){
+    if(p===player){mpIdx=0;}
+    else{for(let i=0;i<mpPlayers.length;i++){if(mpPlayers[i]===p){mpIdx=i;break;}}}
+  }
   ghosts.push({
     x:p.x+p.w/2, y:p.y-p.h/2,
     vy:-GHOST_RISE_SPD,
     skinId:p.skinId||0,
     isP2:(p===player2),
+    mpPlayerId:mpIdx,
     timer:GHOST_LIFE, alpha:1
   });
 }
@@ -3823,41 +3864,47 @@ function updateGhosts(){
     let g=ghosts[i];
     g.y+=g.vy;
     g.timer--;
-    // Fade out in last 60 frames
-    g.alpha=Math.min(1,g.timer/60);
-    // Wobble
+    // Fade when near top of screen or last 80 frames
+    let nearTop=g.y<80;
+    g.alpha=Math.min(1,Math.min(g.timer/80, nearTop?(g.y/80):1));
     g.x+=Math.sin(g.timer*0.08)*0.5;
-    if(g.timer<=0){ghosts.splice(i,1);continue;}
+    if(g.timer<=0||g.y<-60){ghosts.splice(i,1);continue;}
     // Check bullets hitting ghost
     for(let j=bullets.length-1;j>=0;j--){
       let b=bullets[j];
       if(b.owner!=='player')continue;
-      // P1 bullet can revive P2 ghost, P2 bullet can revive P1 ghost
-      let canRevive=(g.isP2&&!b.fromP2)||((!g.isP2)&&b.fromP2);
+      // In MP: any player can revive any OTHER player's ghost
+      let canRevive;
+      if(mpMode){
+        // bullet's shooter index vs ghost's player index
+        let shooterIdx=b.fromP2?1:0; // fromP2 is local, index 0=host
+        canRevive=(g.mpPlayerId!==shooterIdx&&g.mpPlayerId>=0);
+      } else {
+        canRevive=(g.isP2&&!b.fromP2)||((!g.isP2)&&b.fromP2);
+      }
       if(!canRevive)continue;
       let dx=b.x-g.x,dy=b.y-g.y;
       if(Math.sqrt(dx*dx+dy*dy)<22){
-        // REVIVE!
         bullets.splice(j,1);
         ghosts.splice(i,1);
-        if(g.isP2&&p2Active){
-          player2.dead=false;
-          player2.x=g.x-player2.w/2;
-          player2.y=FLOOR;
-          player2.hp=REVIVE_HP;
-          player2.invTimer=90;player2.shieldT=120;
-          spawnParts(g.x,g.y,'#40c8ff',18,6,40);
-          triggerShake(4,8);
-          playSFX('heal');
+        if(mpMode){
+          // Host applies revival directly; broadcast event
+          let pid=g.mpPlayerId;
+          if(pid>=0&&pid<mpPlayers.length&&mpPlayers[pid]){
+            let rp=mpPlayers[pid];
+            rp.dead=false;rp.x=g.x-rp.w/2;rp.y=FLOOR;
+            rp.hp=REVIVE_HP;rp.invTimer=90;rp.shieldT=120;
+            spawnParts(g.x,g.y,'#f8e840',18,6,40);triggerShake(4,8);playSFX('heal');
+            mpBroadcast({type:'revived',pid});
+          }
+        } else if(g.isP2&&p2Active){
+          player2.dead=false;player2.x=g.x-player2.w/2;player2.y=FLOOR;
+          player2.hp=REVIVE_HP;player2.invTimer=90;player2.shieldT=120;
+          spawnParts(g.x,g.y,'#40c8ff',18,6,40);triggerShake(4,8);playSFX('heal');
         } else if(!g.isP2){
-          player.dead=false;
-          player.x=g.x-player.w/2;
-          player.y=FLOOR;
-          player.hp=REVIVE_HP;
-          invTimer=90;shieldT=120;
-          spawnParts(g.x,g.y,'#f8e840',18,6,40);
-          triggerShake(4,8);
-          playSFX('heal');
+          player.dead=false;player.x=g.x-player.w/2;player.y=FLOOR;
+          player.hp=REVIVE_HP;invTimer=90;shieldT=120;
+          spawnParts(g.x,g.y,'#f8e840',18,6,40);triggerShake(4,8);playSFX('heal');
         }
         break;
       }
@@ -3867,7 +3914,7 @@ function updateGhosts(){
 
 function drawGhosts(){
   for(let g of ghosts){
-    let sk=SKINS[g.skinId||0];
+    let sk=ALL_SKINS[g.skinId]||SKINS[g.skinId]||SKINS[0];
     let float=Math.sin(frameCount*0.08)*4;
     ctx.save();ctx.globalAlpha=g.alpha*0.85;
     ctx.translate(g.x,g.y+float);
@@ -4145,8 +4192,8 @@ function updateKronos(){
         p.hp--;setInv(90);p.shieldT=100;triggerShake(6,10);playSFX('hit');
         spawnParts(p.x+p.w/2,p.y-p.h/2,'#e84040',10,4,28);
         if(p.hp<=0){p.dead=true;spawnGhost(p);
-          if(p===player&&(!p2Active||player2.dead)){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
-          if(p===player2&&player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+          if(allMPPlayersDead()){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+          // (covered by allMPPlayersDead above)
         }
       }
     }
@@ -4201,8 +4248,8 @@ function updateKronos(){
             p.hp--;(p===player?invTimer=90:p.invTimer=90);p.shieldT=80;
             triggerShake(4,6);playSFX('hit');
             if(p.hp<=0){p.dead=true;spawnGhost(p);
-              if(p===player&&(!p2Active||player2.dead)){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
-              if(p===player2&&player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+              if(allMPPlayersDead()){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+              // (covered by allMPPlayersDead above)
             }
           }
         }
@@ -4220,8 +4267,8 @@ function updateKronos(){
           (p===player?invTimer=90:p.invTimer=90);p.shieldT=90;
           triggerShake(8,14);playSFX('hit');spawnParts(sg.x,sg.y,'#cc40ff',14,6,50);
           if(p.hp<=0){p.dead=true;spawnGhost(p);
-            if(p===player&&(!p2Active||player2.dead)){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
-            if(p===player2&&player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+            if(allMPPlayersDead()){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+            // (covered by allMPPlayersDead above)
           }
         }
       }
@@ -4278,21 +4325,8 @@ function checkCollisionsKronos(){
       continue;
     }
   }
-  // Boss projectiles (reversed player bullets) → player
-  for(let i=bossProjectiles.length-1;i>=0;i--){
-    let bp=bossProjectiles[i];
-    if(invTimer<=0&&shieldT<=0&&!player.dead&&rectsOvlp(bp.x-bp.r,bp.y-bp.r,bp.r*2,bp.r*2,...pHitBox(player))){
-      bossProjectiles.splice(i,1);player.hp--;invTimer=90;shieldT=120;triggerShake(5,8);playSFX('hit');
-      spawnParts(player.x+player.w/2,player.y-player.h/2,'#e84040',10,4,30);
-      if(player.hp<=0){player.dead=true;spawnGhost(player);if(!p2Active||player2.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}}
-      continue;
-    }
-    if(p2Active&&!player2.dead&&player2.invTimer<=0&&player2.shieldT<=0&&rectsOvlp(bp.x-bp.r,bp.y-bp.r,bp.r*2,bp.r*2,...pHitBox(player2))){
-      bossProjectiles.splice(i,1);player2.hp--;player2.invTimer=90;player2.shieldT=120;triggerShake(5,8);playSFX('hit');
-      spawnParts(player2.x+player2.w/2,player2.y-player2.h/2,'#e84040',10,4,30);
-      if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}}
-    }
-  }
+  // All players hit by Kronos projectiles
+  checkAllPlayerHits();
   for(let i=bullets.length-1;i>=0;i--){
     if(!bullets[i])continue;
     bullets[i].x+=bullets[i].vx;bullets[i].y+=bullets[i].vy;bullets[i].life--;
@@ -5538,19 +5572,40 @@ function mpJoinRoom(roomIndex){
           setMPStatus('Sala llena (4/4). Elige otra sala.','#e84040');
           p.destroy();mpPeer=null;mpHostConn=null;
         } else if(d.type==='start'){
-          mpPlayerCount=d.playerCount;selectedBoss=d.selectedBoss||d.boss||'inkboss';difficulty=d.difficulty||d.diff||'normal';
-          mpLaunchGame(d);
+          // Client: just update state vars — loading/allReady flow handles the actual start
+          mpPlayerCount=d.playerCount||mpPlayerCount;
+          selectedBoss=d.selectedBoss||d.boss||selectedBoss;
+          difficulty=d.difficulty||d.diff||difficulty;
         } else if(d.type==='goIsland'){
           mpGoIsland(d);
         } else if(d.type==='owPos'){
           mpOwPositions[d.id]=d; // store remote position
         } else if(d.type==='loading'){
-          // Host says loading — show loading screen on client
-          mpShowLoadingScreen(d.total);
-          // Tell host we're ready after a short delay (simulating load)
+          // Host says loading — initialize client-side data and show loading screen
+          selectedBoss=d.selectedBoss||selectedBoss;
+          difficulty=d.difficulty||difficulty;
+          let skins=d.skins||[0,1,2,3];
+          p1SkinId=skins[mpMyIndex]||mpMyIndex;
+          player.skinId=p1SkinId;player.hp=7;player.maxHp=7;player.dead=false;
+          // Init minimal boss shell so HUD/draw won't crash (no full reset — host owns sim)
+          if(selectedBoss==='tempestina'){
+            if(!tBoss.maxHp)tBoss={x:W/2-90,y:50,w:180,h:160,hp:300,maxHp:300,bobT:0,bobOff:0,facing:-1};
+            tDefeated=false;tPhase=1;
+          } else if(selectedBoss==='kronos'){
+            if(!kBoss.maxHp)kBoss={x:W/2-90,y:50,w:180,h:140,hp:360,maxHp:360,bobT:0,bobOff:0,facing:-1,gear1Ang:0,gear2Ang:0,outerRingAng:0};
+            kDefeated=false;kPhase=1;
+          } else {
+            if(!boss.maxHp)boss={x:W-220,y:FLOOR-60,w:160,h:180,hp:400,maxHp:400,af:0,at:0,eyeX:0,eyeY:0,mouthOpen:0.3,bobT:0,bobOff:0};
+            bossDefeated=false;bossPhase=1;
+          }
+          bossProjectiles=[];bullets=[];minions=[];ghosts=[];particles=[];
+          mpPlayerCount=d.total||mpPlayerCount;
+          mpShowLoadingScreen(d.total||mpPlayerCount);
+          gameState='loading';
+          // Tell host we're ready
           setTimeout(()=>{
-            if(mpHostConn)mpHostConn.send(JSON.stringify({type:'ready',id:mpMyIndex}));
-          },800);
+            if(mpHostConn)try{mpHostConn.send(JSON.stringify({type:'ready',id:mpMyIndex}));}catch(e){}
+          },600);
         } else if(d.type==='allReady'){
           // Host says everyone loaded — dismiss loading and start intro
           mpDismissLoading();
@@ -5562,6 +5617,11 @@ function mpJoinRoom(roomIndex){
           setMPStatus('Fuiste expulsado por el host.','#e84040');mpLeaveRoom();
         } else if(d.type==='hostLeft'){
           setMPStatus('El host se fue. Sala cerrada.','#e08040');setTimeout(()=>mpLeaveRoom(),2000);
+        } else if(d.type==='revived'){
+          if(d.pid===mpMyIndex){
+            player.dead=false;player.hp=REVIVE_HP;player.y=FLOOR;
+            invTimer=90;shieldT=120;
+          }
         } else {
           // Vote/game messages
           mpHandleVoteMsg(d);
@@ -5597,8 +5657,24 @@ function mpHandleIncoming(conn){
       if(d.type==='probe'){conn.send(JSON.stringify({type:'probeReply',count:mpPlayerCount}));return;}
       let cl=mpClients.find(c=>c.conn===conn);
       if(!cl)return;
-      if(d.type==='input')cl.keys=d.keys||{};
+      if(d.type==='input'){cl.keys=d.keys||{};if(d.mx!==undefined)cl.mx=d.mx;if(d.my!==undefined)cl.my=d.my;}
       else if(d.type==='vote')mpReceiveVote(cl.id,d.boss,d.diff);
+      else if(d.type==='reviveRequest'){
+        let pid=d.pid;
+        if(pid>=0&&pid<mpPlayers.length&&mpPlayers[pid]&&mpPlayers[pid].dead){
+          let rp=mpPlayers[pid];
+          // Find ghost by mpPlayerId (robust, doesn't depend on index)
+          let gi=ghosts.findIndex(g2=>g2.mpPlayerId===pid);
+          if(gi>=0){
+            let g=ghosts[gi];
+            ghosts.splice(gi,1);
+            rp.dead=false;rp.x=g.x-rp.w/2;rp.y=FLOOR;
+            rp.hp=REVIVE_HP;rp.invTimer=90;rp.shieldT=120;
+            spawnParts(g.x,g.y,'#f8e840',18,6,40);triggerShake(4,8);playSFX('heal');
+            mpBroadcast({type:'revived',pid});
+          }
+        }
+      }
       else if(d.type==='owPos'){
         mpOwPositions[d.id]=d;
         // Relay to other clients
@@ -5737,10 +5813,15 @@ function mpShowLoadingScreen(total){
 
 function mpDismissLoading(){
   mpLoadingScreen=null;
-  // Now start the actual intro
-  introVariant=Math.ceil(Math.random()*3);p2IntroAnim=(introVariant%4)+1;
-  introTimer=INTRO_DUR;introDone=false;
-  gameState='intro';
+  if(mpIsHost){
+    // Host runs the full intro animation
+    introVariant=Math.ceil(Math.random()*3);p2IntroAnim=(introVariant%4)+1;
+    introTimer=INTRO_DUR;introDone=false;
+    gameState='intro';
+  } else {
+    // Clients skip intro — render directly from state
+    gameState='playing';
+  }
 }
 
 function updateMPLoadingScreen(){
@@ -5932,8 +6013,10 @@ function mpHandleVoteMsg(d){
   } else if(d.type==='returnIsland'||d.type==='goIsland'){
     gameState='overworld';startOverworld();
   } else if(d.type==='start'){
-    mpPlayerCount=d.playerCount;selectedBoss=d.selectedBoss||d.boss||'inkboss';difficulty=d.difficulty||d.diff||'normal';
-    mpLaunchGame(d);
+    // Client receives start: just update vars — loading/allReady flow handles the rest
+    mpPlayerCount=d.playerCount||mpPlayerCount;
+    selectedBoss=d.selectedBoss||d.boss||selectedBoss;
+    difficulty=d.difficulty||d.diff||difficulty;
   }
 }
 
@@ -6017,11 +6100,20 @@ function mpBuildState(){
   else bossState={x:boss.x,y:boss.y,hp:boss.hp,maxHp:boss.maxHp,ph:bossPhase,def:bossDefeated?1:0,bob:boss.bobOff};
   return JSON.stringify({
     type:'state',f:frameCount,gs:gameState,
-    pl:mpPlayers.map(p=>p?{x:Math.round(p.x),y:Math.round(p.y),hp:p.hp,f:p.facing,cr:p.crouching?1:0,d:p.dashing?1:0,dead:p.dead?1:0,af:p.af,sc:p.shootCD>0?1:0,sk:p.skinId,slow:p.slowTimer||0}:null),
+    pl:mpPlayers.map((p,i)=>{
+      if(!p)return null;
+      let cl=i>0?mpClients.find(c=>c.id===i):null;
+      let pInvT=i===0?invTimer:(p.invTimer||0);
+      let pShT=i===0?shieldT:(p.shieldT||0);
+      return{x:Math.round(p.x),y:Math.round(p.y),hp:p.hp,f:p.facing,cr:p.crouching?1:0,d:p.dashing?1:0,dead:p.dead?1:0,af:p.af,sc:p.shootCD>0?1:0,sk:p.skinId,slow:p.slowTimer||0,
+        sh:pShT>0?Math.round(pShT):0, iv:pInvT>0?Math.round(pInvT):0,
+        mx:cl?cl.mx||mouseX:mouseX, my:cl?cl.my||mouseY:mouseY};
+    }),
     boss:bossState,
-    bp:bossProjectiles.slice(0,50).map(b=>({x:Math.round(b.x),y:Math.round(b.y),vx:+(b.vx).toFixed(1),vy:+(b.vy).toFixed(1),r:b.r,col:b.col})),
-    mn:minions.slice(0,20).map(m=>({x:Math.round(m.x),y:Math.round(m.y),t:m.type,hp:m.hp})),
-    bl:bullets.slice(0,60).map(b=>({x:Math.round(b.x),y:Math.round(b.y),col:b.col,r:b.h/2})),
+    bp:bossProjectiles.slice(0,60).map(b=>({x:Math.round(b.x),y:+(b.y).toFixed(1),vx:+(b.vx).toFixed(1),vy:+(b.vy).toFixed(1),r:b.r,col:b.col||'#ff4040'})),
+    bl:bullets.slice(0,80).map(b=>({x:Math.round(b.x),y:Math.round(b.y),vx:+(b.vx).toFixed(1),vy:+(b.vy).toFixed(1),col:b.col,w:b.w||14,h:b.h||8})),
+    mn:minions.slice(0,20).map(m=>({x:Math.round(m.x),y:Math.round(m.y),t:m.type,hp:m.hp,f:m.facing||1,bt:+(m.bobT||0).toFixed(2),af:m.af||0,la:+(m.legAng||0).toFixed(2)})),
+    gh:ghosts.map(g=>({x:Math.round(g.x),y:Math.round(g.y),sk:g.skinId||0,tm:g.timer,al:+(g.alpha).toFixed(2),p2:g.isP2?1:0,pi:g.mpPlayerId!==undefined?g.mpPlayerId:-1})),
   });
 }
 
@@ -6045,54 +6137,166 @@ function mpApplyClientInputs(){
   }
 }
 
-// ── Client: send local keys to host ──
+// ── Draw all MP players using full drawPlayerObj ──
+function drawMPAllPlayers(){
+  let savedMX=mouseX,savedMY=mouseY;
+  for(let i=0;i<mpPlayers.length;i++){
+    let p=mpPlayers[i];
+    if(!p||p.dead)continue;
+    let isMine=(i===0);
+    // Set per-player mouse for correct aim line
+    if(i===0){
+      mouseX=savedMX;mouseY=savedMY; // host uses their own mouse
+    } else {
+      let cl=mpClients.find(c=>c.id===i);
+      mouseX=cl&&cl.mx!==undefined?cl.mx:savedMX;
+      mouseY=cl&&cl.my!==undefined?cl.my:savedMY;
+    }
+    drawPlayerObj(p,isMine,isMine?undefined:'J'+(i+1));
+  }
+  mouseX=savedMX;mouseY=savedMY;
+}
+
+// ── Client: send local keys + mouse + ghost hits to host ──
 function mpSendInput(){
   if(!mpHostConn||mpIsHost)return;
   let relevant=['KeyA','KeyD','KeyW','KeyS','ShiftLeft','Space'];
   let k={};for(let r of relevant)if(keys[r])k[r]=true;
-  mpHostConn.send(JSON.stringify({type:'input',keys:k}));
+  try{mpHostConn.send(JSON.stringify({type:'input',keys:k,mx:Math.round(mouseX),my:Math.round(mouseY)}));}catch(e){}
+
+  // Check if any of our bullets hit a ghost — send revive request to host
+  let s=mpRemoteState;if(!s||!s.gh||!s.gh.length)return;
+  for(let j=bullets.length-1;j>=0;j--){
+    let b=bullets[j];if(b.owner!=='player')continue;
+    for(let gi=0;gi<s.gh.length;gi++){
+      let g=s.gh[gi];
+      if(g.pi===mpMyIndex||g.pi<0)continue; // can't revive self or unknown
+      let dx=b.x-g.x,dy=b.y-g.y;
+      if(Math.sqrt(dx*dx+dy*dy)<34){ // larger hitbox for lag compensation
+        bullets.splice(j,1);
+        try{mpHostConn.send(JSON.stringify({type:'reviveRequest',pid:g.pi}));}catch(e){}
+        break;
+      }
+    }
+  }
 }
 
 // ── Client: draw from received state ──
 function mpDrawFromState(){
   let s=mpRemoteState;if(!s)return;
-  // Draw background
+
+  // ── Background ──
   if(selectedBoss==='tempestina')drawBackgroundTemp();
   else if(selectedBoss==='kronos')drawBackgroundKronos();
   else drawBackground();
   drawParts();
-  // Draw boss from state
+
+  // ── Boss ── set ALL required fields so draw functions don't get NaN
   if(s.boss){
-    if(selectedBoss==='tempestina'){tBoss.x=s.boss.x;tBoss.y=s.boss.y;tBoss.hp=s.boss.hp;tBoss.maxHp=s.boss.maxHp;tBoss.bobOff=s.boss.bob;tPhase=s.boss.ph;tDefeated=!!s.boss.def;drawTempestina();}
-    else if(selectedBoss==='kronos'){kBoss.x=s.boss.x;kBoss.y=s.boss.y;kBoss.hp=s.boss.hp;kBoss.maxHp=s.boss.maxHp;kBoss.bobOff=s.boss.bob;kPhase=s.boss.ph;kDefeated=!!s.boss.def;drawKronos();}
-    else{boss.x=s.boss.x;boss.y=s.boss.y;boss.hp=s.boss.hp;boss.maxHp=s.boss.maxHp;boss.bobOff=s.boss.bob;bossPhase=s.boss.ph;bossDefeated=!!s.boss.def;drawBoss();}
+    if(selectedBoss==='tempestina'){
+      if(!tBoss.w){tBoss.w=180;tBoss.h=180;}
+      tBoss.x=s.boss.x;tBoss.y=s.boss.y;tBoss.hp=s.boss.hp;tBoss.maxHp=s.boss.maxHp;
+      tBoss.bobOff=s.boss.bob;tPhase=s.boss.ph;tDefeated=!!s.boss.def;
+      tBoss.bobT=(tBoss.bobT||0)+0.05;tBoss.atkAnim=(tBoss.atkAnim||0);
+      tExitDir=0;tEntering=false;tInvT=0;tCurrentAtk=null;
+      drawTempestina();
+    } else if(selectedBoss==='kronos'){
+      if(!kBoss.w){kBoss.w=180;kBoss.h=140;}
+      kBoss.x=s.boss.x;kBoss.y=s.boss.y;kBoss.hp=s.boss.hp;kBoss.maxHp=s.boss.maxHp;
+      kBoss.bobOff=s.boss.bob;kPhase=s.boss.ph;kDefeated=!!s.boss.def;
+      kBoss.bobT=(kBoss.bobT||0)+0.05;
+      kBoss.gear1Ang=(kBoss.gear1Ang||0)+0.04;
+      kBoss.gear2Ang=(kBoss.gear2Ang||0)-0.05;
+      kBoss.outerRingAng=(kBoss.outerRingAng||0)+0.01;
+      kEntering=false;kInvT=0;kExitDir=0;kCurrentAtk=null;
+      drawKronos();
+    } else {
+      if(!boss.w){boss.w=160;boss.h=180;boss.eyeX=0;boss.eyeY=0;boss.mouthOpen=0.3;}
+      boss.x=s.boss.x;boss.y=s.boss.y;boss.hp=s.boss.hp;boss.maxHp=s.boss.maxHp;
+      boss.bobOff=s.boss.bob;bossPhase=s.boss.ph;bossDefeated=!!s.boss.def;
+      boss.bobT=(boss.bobT||0)+0.05;boss.mouthOpen=0.25+Math.sin(boss.bobT*2)*0.15;
+      boss.af=(boss.af||0)+1;if(boss.af>=8){boss.af=0;}
+      bossExitDir=0;bossEntering=false;bossInvT=0;bossDeathAnim=0;bossCurrentAtk=null;
+      drawBoss();
+    }
   }
-  // Draw minions
-  if(s.mn)for(let m of s.mn){let found=minions.find(mm=>mm.type===m.t&&Math.abs(mm.x-m.x)<2);if(!found)minions=minions.filter(mm=>!(mm.type===m.t&&Math.abs(mm.x-m.x)>100));}
+
+  // ── Minions — rebuild array from state so drawMinions() works fully ──
+  if(s.mn){
+    minions=s.mn.map(m=>({
+      x:m.x,y:m.y,vx:0,vy:0,
+      type:m.t,hp:m.hp,dead:false,
+      facing:m.f||1,bobT:m.bt||0,af:m.af||0,at:0,
+      legAng:m.la||0,shootT:99,
+      w:m.t==='stormCloud'?50:m.t==='clockSpider'?30:32,
+      h:m.t==='stormCloud'?40:m.t==='clockSpider'?28:28,
+    }));
+  }
   drawMinions();
-  // Draw boss projectiles
-  if(s.bp)for(let bp of s.bp){ctx.save();ctx.fillStyle=bp.col||'#ff4040';ctx.beginPath();ctx.arc(bp.x,bp.y,bp.r,0,Math.PI*2);ctx.fill();ctx.strokeStyle='rgba(0,0,0,0.5)';ctx.lineWidth=1.5;ctx.stroke();ctx.restore();}
-  // Draw player bullets
-  if(s.bl)for(let b of s.bl){ctx.save();ctx.fillStyle=b.col||'#f8e840';ctx.beginPath();ctx.arc(b.x,b.y,b.r||5,0,Math.PI*2);ctx.fill();ctx.restore();}
-  // Draw all MP players
+
+  // ── Boss projectiles — rebuild and use real draw ──
+  if(s.bp){
+    bossProjectiles=s.bp.map(b=>({x:b.x,y:b.y,vx:b.vx||0,vy:b.vy||0,r:b.r||9,col:b.col||'#ff4040',dead:false}));
+  }
+  // Draw boss projectiles using the real styled draw (rotate ellipse toward velocity)
+  for(let bp of bossProjectiles){
+    if(bp.dead)continue;
+    ctx.save();ctx.translate(bp.x,bp.y);
+    let ang=Math.atan2(bp.vy||0,bp.vx||0);ctx.rotate(ang);
+    ctx.fillStyle=bp.col;
+    ctx.beginPath();ctx.ellipse(0,0,bp.r*1.3,bp.r*0.7,0,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,0.6)';ctx.lineWidth=2;ctx.stroke();
+    // Glow
+    ctx.shadowColor=bp.col;ctx.shadowBlur=8;
+    ctx.strokeStyle=bp.col+'88';ctx.lineWidth=1;
+    ctx.beginPath();ctx.ellipse(0,0,bp.r*1.5,bp.r*0.9,0,0,Math.PI*2);ctx.stroke();
+    ctx.shadowBlur=0;
+    ctx.restore();
+  }
+
+  // ── Player bullets — rebuild and use drawBullets() ──
+  if(s.bl){
+    bullets=s.bl.map(b=>({x:b.x,y:b.y,vx:b.vx||0,vy:b.vy||0,col:b.col||'#f8e840',w:b.w||14,h:b.h||8,owner:'player',life:99}));
+  }
+  drawBullets();
+
+  // ── Ghosts — rebuild and draw ──
+  if(s.gh){
+    // Rebuild ghosts array for visual (no collision on client — host handles it)
+    ghosts=s.gh.map(g=>({
+      x:g.x,y:g.y,vy:-GHOST_RISE_SPD,
+      skinId:g.sk||0,isP2:!!g.p2,mpPlayerId:g.pi,
+      timer:g.tm,alpha:g.al
+    }));
+  }
+  drawGhosts();
   if(s.pl)for(let i=0;i<s.pl.length;i++){
     let pd=s.pl[i];if(!pd||pd.dead)continue;
-    let sk=ALL_SKINS[pd.sk||0];
-    let px=pd.x,py=pd.y,f=pd.f||1;
-    if(i===mpMyIndex){ctx.save();ctx.fillStyle=sk.hatBand;ctx.font='bold 11px Impact';ctx.textAlign='center';ctx.fillText('TÚ',px+14,py-84);ctx.restore();}
-    // Simple character draw
-    ctx.save();ctx.translate(px+14,py);let sc2=75/82;ctx.scale(f*sc2,sc2*(pd.cr?0.6:1));
-    ctx.fillStyle=sk.coat;ctx.beginPath();ctx.ellipse(0,-26,11,12,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#000';ctx.lineWidth=2.5;ctx.stroke();
-    ctx.fillStyle='#f8c840';ctx.beginPath();ctx.ellipse(0,-50,15,14,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#000';ctx.lineWidth=3;ctx.stroke();
-    ctx.fillStyle='#1a1a1a';ctx.beginPath();ctx.ellipse(0,-63,17,4,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#000';ctx.lineWidth=2;ctx.stroke();
-    ctx.beginPath();ctx.roundRect(-11,-82,22,20,3);ctx.fill();ctx.stroke();
-    ctx.fillStyle=sk.hatBand;ctx.fillRect(-11,-69,22,5);
-    ctx.restore();
-    // HP label
-    ctx.fillStyle=sk.hatBand;ctx.font='bold 9px Impact';ctx.textAlign='center';
-    ctx.fillText(`J${i+1} ❤${pd.hp}`,px+14,py-90);
+    let tmp={
+      x:pd.x,y:pd.y,vx:0,vy:0,w:28,h:75,
+      hp:pd.hp,maxHp:7,dead:false,
+      facing:pd.f||1,af:pd.af||0,at:0,
+      crouching:!!pd.cr,dashing:!!pd.d,dashT:pd.d?4:0,dashDir:pd.f||1,
+      onGround:true,
+      skinId:pd.sk!==undefined?pd.sk:i,
+      invTimer:pd.iv||0,shieldT:pd.sh||0,dashCD:0,shootCD:pd.sc?1:0,
+      slowTimer:pd.slow||0,
+    };
+    let isMine=(i===mpMyIndex);
+    mouseX=pd.mx!==undefined?pd.mx:savedMX;
+    mouseY=pd.my!==undefined?pd.my:savedMY;
+    drawPlayerObj(tmp,isMine,isMine?undefined:'J'+(i+1));
   }
-  // HUD
+  mouseX=savedMX;mouseY=savedMY;
+
+  // ── HUD — sync local player HP/shield from state ──
+  if(s.pl&&s.pl[mpMyIndex]){
+    let me=s.pl[mpMyIndex];
+    player.hp=me.hp||0;player.maxHp=7;
+    // Sync globals so shield and flicker show correctly for local player
+    invTimer=me.iv||0;
+    shieldT=me.sh||0;
+  }
   if(selectedBoss==='tempestina')drawHUDTemp();
   else if(selectedBoss==='kronos')drawHUDKronos();
   else drawHUD();
@@ -6112,7 +6316,9 @@ function mpUpdateHost(){
     let p=mpPlayers[cl.id];
     if(!p||p.dead)continue;
     let savedKeys=keys;keys=cl.keys||{};
-    let s=updatePlayerObj(p,P1CFG,p.dashCD,p.shootCD,p.invTimer,p.shieldT,p.jumpHeld);
+    let cmx=cl.mx!==undefined?cl.mx:mouseX;
+    let cmy=cl.my!==undefined?cl.my:mouseY;
+    let s=updatePlayerObj(p,P1CFG,p.dashCD,p.shootCD,p.invTimer,p.shieldT,p.jumpHeld,cmx,cmy);
     keys=savedKeys;
     p.dashCD=s.dashCD;p.shootCD=s.shootCD;p.invTimer=s.invTimer;p.shieldT=s.shieldT;p.jumpHeld=s.jumpHeld;
   }
@@ -6138,8 +6344,14 @@ function gameLoop(){
     updateMPLoadingScreen();
     drawMPLoadingScreen();
   } else if(gameState==='intro'){
-    updateIntro();
-    drawIntro();
+    if(mpMode&&!mpIsHost){
+      // Client skips local intro — draw from state and send inputs
+      mpSendInput();
+      mpDrawFromState();
+    } else {
+      updateIntro();
+      drawIntro();
+    }
   } else if(gameState==='overworld'){
     updateOverworld();
     drawOverworld();
@@ -6149,13 +6361,19 @@ function gameLoop(){
       mpSendInput();
       mpDrawFromState();
     } else if(selectedBoss==='tempestina'){
-      drawBackgroundTemp();drawParts();drawTempestina();drawMinions();drawBullets();drawPlayer();drawGhosts();drawSpecials();drawHUDTemp();drawPost();
+      drawBackgroundTemp();drawParts();drawTempestina();drawMinions();drawBullets();
+      if(mpMode)drawMPAllPlayers();else drawPlayer();
+      drawGhosts();drawSpecials();drawHUDTemp();drawPost();
       if(gameState==='playing'){if(mpMode)mpUpdateHost();else updatePlayer();updateTempestina();updateMinions();updateParts();checkCollisions();updateGhosts();}
     } else if(selectedBoss==='kronos'){
-      drawBackgroundKronos();drawParts();drawKronos();drawMinions();drawBullets();drawPlayer();drawGhosts();drawSpecials();drawHUDKronos();
+      drawBackgroundKronos();drawParts();drawKronos();drawMinions();drawBullets();
+      if(mpMode)drawMPAllPlayers();else drawPlayer();
+      drawGhosts();drawSpecials();drawHUDKronos();
       if(gameState==='playing'){if(mpMode)mpUpdateHost();else updatePlayer();updateKronos();updateMinions();updateParts();checkCollisions();updateGhosts();}
     } else {
-      drawBackground();drawParts();drawBoss();drawMinions();drawBullets();drawPlayer();drawGhosts();drawSpecials();drawHUD();drawPost();
+      drawBackground();drawParts();drawBoss();drawMinions();drawBullets();
+      if(mpMode)drawMPAllPlayers();else drawPlayer();
+      drawGhosts();drawSpecials();drawHUD();drawPost();
       if(gameState==='playing'){if(mpMode)mpUpdateHost();else updatePlayer();updateBoss();updateMinions();updateParts();checkCollisions();updateGhosts();}
     }
     if(gameState==='end'&&victoryScreen)drawVictoryScreen();
@@ -6166,7 +6384,7 @@ function gameLoop(){
       ctx.fillText('PAUSA',W/2,H/2-38);
       ctx.fillStyle='#fff';ctx.font='bold 16px Impact,sans-serif';
       ctx.fillText('ESC / P  ·  Continuar',W/2,H/2+10);
-      if(!p2Active){
+      if(!p2Active&&!mpMode){
         ctx.fillStyle='#a0d0ff';ctx.font='bold 12px Impact';
         ctx.fillText('↑ + → + Enter  ·  Unirse como J2',W/2,H/2+32);
       }
