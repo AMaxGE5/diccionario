@@ -459,12 +459,15 @@ function getWeapon(isP2){
   return WEAPONS[slots[slot]||'basic'];
 }
 
-function shootWeapon(p,isP2){
+function shootWeapon(p,isP2,aimX,aimY){
   let wep=getWeapon(isP2);
   let sk=SKINS[p.skinId||0];
   let bx=p.x+p.w/2;
   let by=p.y-(p.crouching?p.h*0.3:p.h*0.60);
-  let dx=mouseX-bx, dy=mouseY-by;
+  // aimX/aimY permite que clientes MP apunten independientemente
+  let _ax=aimX!==undefined?aimX:mouseX;
+  let _ay=aimY!==undefined?aimY:mouseY;
+  let dx=_ax-bx, dy=_ay-by;
   let dist=Math.sqrt(dx*dx+dy*dy)||1;
   let col=wep.col||sk.bullet;
 
@@ -771,7 +774,7 @@ function resetPlayer(){
   bossHpPool=0;
 }
 
-function updatePlayerObj(p,cfg,ownDashCD,ownShootCD,ownInvTimer,ownShieldT,ownJumpHeld){
+function updatePlayerObj(p,cfg,ownDashCD,ownShootCD,ownInvTimer,ownShieldT,ownJumpHeld,tmx,tmy){
   if(p.dead)return{dashCD:ownDashCD,shootCD:ownShootCD,invTimer:ownInvTimer,shieldT:ownShieldT,jumpHeld:ownJumpHeld};
   let spd=4.5;
   // Clock-hand slow effect — tick down and reduce speed
@@ -806,7 +809,7 @@ function updatePlayerObj(p,cfg,ownDashCD,ownShootCD,ownInvTimer,ownShieldT,ownJu
   // SHOOT — uses active weapon; autoShoot fires for both when 2P local
   let wantShoot=keys[cfg.shoot]||(autoShoot&&p2Active&&!mpMode);
   if(wantShoot&&ownShootCD<=0&&!p.dashing&&!((p===player?p1SpecialAnim:p2SpecialAnim))){
-    ownShootCD=shootWeapon(p,p===player2);
+    ownShootCD=shootWeapon(p,p===player2,tmx,tmy);
   }
   if(ownShootCD>0)ownShootCD--;
 
