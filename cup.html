@@ -273,14 +273,8 @@ document.addEventListener('keydown',e=>{
   if(e.code==='KeyU'&&gameState==='playing'&&p2Active&&!player2.dead){activateSpecial(true);return;}
   // Weapon switch J1: Q, J2: I
   if(e.code==='KeyQ'&&gameState==='playing'){
-    if(mpMode&&!mpIsHost){
-      // Cliente: notifica al host y cambia su slot local para el HUD
-      mpPlayerActiveSlot[mpMyIndex]=(mpPlayerActiveSlot[mpMyIndex]+1)%2;
-      if(mpHostConn)try{mpHostConn.send(JSON.stringify({type:'switchWeapon',slot:mpPlayerActiveSlot[mpMyIndex]}));}catch(e2){}
-    } else {
-      p1ActiveSlot=(p1ActiveSlot+1)%2;
-      if(mpMode&&mpIsHost) mpPlayerActiveSlot[0]=(mpPlayerActiveSlot[0]+1)%2;
-    }
+    if(mpMode&&!mpIsHost){mpPlayerActiveSlot[mpMyIndex]=(mpPlayerActiveSlot[mpMyIndex]+1)%2;if(mpHostConn)try{mpHostConn.send(JSON.stringify({type:'switchWeapon',slot:mpPlayerActiveSlot[mpMyIndex]}));}catch(e2){}}
+    else{p1ActiveSlot=(p1ActiveSlot+1)%2;if(mpMode&&mpIsHost)mpPlayerActiveSlot[0]=p1ActiveSlot;}
   }
   if(e.code==='KeyI'&&gameState==='playing'&&p2Active){p2ActiveSlot=(p2ActiveSlot+1)%2;}
   // Overworld: E key to interact
@@ -465,18 +459,12 @@ let p1Slots=['basic','homing'];
 let p2Slots=['basic','shotgun'];
 let p1ActiveSlot=0;
 let p2ActiveSlot=0;
-// MP: slots y slot activo por player index (0=host, 1-3=clientes)
 let mpPlayerSlots=[['basic','homing'],['basic','shotgun'],['basic','homing'],['basic','shotgun']];
 let mpPlayerActiveSlot=[0,0,0,0];
 let owWeaponMenu=false; // weapon inventory open on island
 
 function getWeapon(isP2,mpIdx){
-  // En MP el host llama con mpIdx del cliente; fuera de MP usa P1/P2
-  if(mpMode&&mpIdx!==undefined){
-    let slots=mpPlayerSlots[mpIdx]||['basic','homing'];
-    let slot=mpPlayerActiveSlot[mpIdx]||0;
-    return WEAPONS[slots[slot]||'basic'];
-  }
+  if(mpMode&&mpIdx!==undefined){let slots=mpPlayerSlots[mpIdx]||['basic','homing'];let slot=mpPlayerActiveSlot[mpIdx]||0;return WEAPONS[slots[slot]||'basic'];}
   let slots=isP2?p2Slots:p1Slots;
   let slot=isP2?p2ActiveSlot:p1ActiveSlot;
   return WEAPONS[slots[slot]||'basic'];
@@ -484,12 +472,11 @@ function getWeapon(isP2,mpIdx){
 
 function shootWeapon(p,isP2,aimX,aimY,mpIdx){
   let wep=getWeapon(isP2,mpIdx);
+  let _ax=aimX!==undefined?aimX:mouseX;
+  let _ay=aimY!==undefined?aimY:mouseY;
   let sk=SKINS[p.skinId||0];
   let bx=p.x+p.w/2;
   let by=p.y-(p.crouching?p.h*0.3:p.h*0.60);
-  // aimX/aimY permite que clientes MP apunten independientemente
-  let _ax=aimX!==undefined?aimX:mouseX;
-  let _ay=aimY!==undefined?aimY:mouseY;
   let dx=_ax-bx, dy=_ay-by;
   let dist=Math.sqrt(dx*dx+dy*dy)||1;
   let col=wep.col||sk.bullet;
@@ -516,7 +503,7 @@ function shootWeapon(p,isP2,aimX,aimY,mpIdx){
     p.facing=facing;
     let b={x:bx+(facing>=0?p.w/2:-p.w/2),y:by,vx,vy,w:14,h:8,
       owner:'player',col,life:wep.maxRange===9999?70:Math.ceil(wep.maxRange/wep.speed),
-      fromP2:isP2,dmgMult:wep.dmg,fromMPId:mpMode?(mpIdx!==undefined?mpIdx:0):undefined};
+      fromP2:isP2,dmgMult:wep.dmg};
     if(wep===WEAPONS.homing) b.playerHoming=true;
     bullets.push(b);
   } else {
@@ -530,7 +517,7 @@ function shootWeapon(p,isP2,aimX,aimY,mpIdx){
       let life=Math.ceil((wep.maxRange/spd)*(0.8+Math.random()*0.4));
       bullets.push({x:bx+(dx>=0?p.w/2:-p.w/2),y:by,
         vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,
-        w:10,h:6,owner:'player',col,life,fromP2:isP2,dmgMult:wep.dmg,fromMPId:mpMode?(mpIdx!==undefined?mpIdx:0):undefined});
+        w:10,h:6,owner:'player',col,life,fromP2:isP2,dmgMult:wep.dmg});
     }
   }
   statShots++;playSFX('shoot');
@@ -546,9 +533,7 @@ let p1SpecialCharge=0, p2SpecialCharge=0;
 let p1SpecialAnim=null; // null or {t,dur,beamY,dir}
 let p2SpecialAnim=null;
 
-function addSpecialCharge(isP2,amt,mpIdx){
-  // En MP solo el host (mpIdx===0 o undefined) carga el especial
-  if(mpMode&&mpIdx!==undefined&&mpIdx!==0)return;
+function addSpecialCharge(isP2,amt){
   if(isP2) p2SpecialCharge=Math.min(SPECIAL_THRESHOLD,p2SpecialCharge+(amt||1));
   else p1SpecialCharge=Math.min(SPECIAL_THRESHOLD,p1SpecialCharge+(amt||1));
 }
@@ -691,30 +676,13 @@ function drawOwWeaponMenu(){
     {id:'homing', name:'TELEDIRIGIDA', icon:'🎯', desc:'Sigue enemigos · Daño 0.35 · Largo alcance'},
     {id:'shotgun',name:'ESCOPETA',     icon:'💥', desc:'5 perdigones · Daño 1.4 · Solo corto alcance'},
   ];
-
-  // En MP cada jugador solo ve y edita sus propias armas
-  let isMPClient=mpMode&&!mpIsHost;
-  let myIdx=mpMode?mpMyIndex:0;
-  // Slots y slot activo del jugador actual
-  let mySlots  = mpMode ? mpPlayerSlots[myIdx]         : p1Slots;
-  let myActive = mpMode ? mpPlayerActiveSlot[myIdx]    : p1ActiveSlot;
-  let myCol    = ALL_SKINS[myIdx]?.hatBand || '#f5d020';
-  let myLabel  = mpMode?`J${myIdx+1}  [ Q = cambiar slot ]`:'J1  [ Q = cambiar slot ]';
-
-  // Modo local sin MP: mostrar también J2 si está activo
-  let showJ2 = !mpMode && (p2Active || true); // siempre mostrar J2 en local
-
-  let bw = showJ2?680:380;
-  let bh = 320;
-  let mx=W/2, my=H/2;
-  let bx=mx-bw/2, by=my-bh/2;
-
+  let bw=680,bh=320,mx=W/2,my=H/2;
+  let bx=mx-bw/2,by=my-bh/2;
   ctx.save();
   ctx.fillStyle='rgba(0,0,0,0.78)';ctx.fillRect(0,0,W,H);
   ctx.fillStyle='#08050c';ctx.strokeStyle='#c8a028';ctx.lineWidth=3;
   ctx.beginPath();ctx.roundRect(bx,by,bw,bh,12);ctx.fill();ctx.stroke();
-
-  // Título
+  // Title
   ctx.fillStyle='#f5d020';ctx.font='bold italic 20px Impact';ctx.textAlign='center';
   ctx.fillText('⚔  EQUIPAR ARMAS',mx,by+28);
   ctx.strokeStyle='rgba(200,160,40,0.3)';ctx.lineWidth=1;
@@ -722,90 +690,68 @@ function drawOwWeaponMenu(){
 
   owWpnClicks=[];
 
-  if(showJ2){
-    // ── MODO LOCAL: dos columnas J1 y J2 ──
-    let col1x=bx+14, col2x=bx+bw/2+6;
-    ctx.fillStyle='#f5d020';ctx.font='bold 13px Impact';ctx.textAlign='left';
-    ctx.fillText('J1  [ Q = cambiar slot ]',col1x,by+56);
-    ctx.fillStyle='#40c8ff';
-    ctx.fillText('J2  [ I = cambiar slot ]'+(p2Active?'':' (sin J2)'),col2x,by+56);
+  // Column headers
+  let col1x=bx+14, col2x=bx+bw/2+6;
+  ctx.fillStyle='#f5d020';ctx.font='bold 13px Impact';ctx.textAlign='left';
+  ctx.fillText('J1  [ Q = cambiar slot ]',col1x,by+56);
+  ctx.fillStyle='#40c8ff';
+  ctx.fillText('J2  [ I = cambiar slot ]'+(p2Active?'':' (sin J2)'),col2x,by+56);
 
-    WPNS.forEach((w,wi)=>{
-      let wy=by+66+wi*76, rowH=68;
-      // J1
-      let anyEq=p1Slots[0]===w.id||p1Slots[1]===w.id;
-      ctx.fillStyle=anyEq?'rgba(200,160,40,0.12)':'rgba(14,14,24,0.85)';
-      ctx.strokeStyle=anyEq?'#c8a028':'#2a2a3a';ctx.lineWidth=anyEq?2:1.2;
-      ctx.beginPath();ctx.roundRect(col1x,wy,bw/2-22,rowH-4,7);ctx.fill();ctx.stroke();
-      ctx.font='18px Arial';ctx.fillStyle='#fff';ctx.fillText(w.icon,col1x+8,wy+24);
-      ctx.fillStyle=anyEq?'#f5d020':'#ddd';ctx.font='bold 12px Impact';ctx.textAlign='left';
-      ctx.fillText(w.name,col1x+34,wy+20);
-      ctx.fillStyle='#777';ctx.font='9px Impact';ctx.fillText(w.desc,col1x+34,wy+34);
-      for(let si=0;si<2;si++){
-        let eq=p1Slots[si]===w.id;
-        let btnX=col1x+bw/2-22-94+si*50,btnY=wy+36;
-        ctx.fillStyle=eq?'#c8a028':'rgba(30,30,44,0.9)';
-        ctx.strokeStyle=eq?'#f5d020':'#444';ctx.lineWidth=eq?2:1.5;
-        ctx.beginPath();ctx.roundRect(btnX,btnY,42,24,5);ctx.fill();ctx.stroke();
-        ctx.fillStyle=eq?'#000':'#999';ctx.font='bold 11px Impact';ctx.textAlign='center';
-        ctx.fillText(`S${si+1}`,btnX+21,btnY+16);
-        owWpnClicks.push({x:btnX,y:btnY,w:42,h:24,isP2:false,slot:si,weaponId:w.id,mpIdx:0});
-      }
-      // J2
-      let anyEq2=p2Slots[0]===w.id||p2Slots[1]===w.id;
-      ctx.fillStyle=anyEq2?'rgba(64,200,255,0.10)':'rgba(14,14,24,0.85)';
-      ctx.strokeStyle=anyEq2?'#40c8ff':'#2a2a3a';ctx.lineWidth=anyEq2?2:1.2;
-      ctx.beginPath();ctx.roundRect(col2x,wy,bw/2-22,rowH-4,7);ctx.fill();ctx.stroke();
-      ctx.font='18px Arial';ctx.fillStyle='#fff';ctx.fillText(w.icon,col2x+8,wy+24);
-      ctx.fillStyle=anyEq2?'#40c8ff':'#ddd';ctx.font='bold 12px Impact';ctx.textAlign='left';
-      ctx.fillText(w.name,col2x+34,wy+20);
-      ctx.fillStyle='#777';ctx.font='9px Impact';ctx.fillText(w.desc,col2x+34,wy+34);
-      for(let si=0;si<2;si++){
-        let eq=p2Slots[si]===w.id;
-        let btnX=col2x+bw/2-22-94+si*50,btnY=wy+36;
-        ctx.fillStyle=eq?'#40c8ff':'rgba(30,30,44,0.9)';
-        ctx.strokeStyle=eq?'#80e8ff':'#444';ctx.lineWidth=eq?2:1.5;
-        ctx.beginPath();ctx.roundRect(btnX,btnY,42,24,5);ctx.fill();ctx.stroke();
-        ctx.fillStyle=eq?'#000':'#999';ctx.font='bold 11px Impact';ctx.textAlign='center';
-        ctx.fillText(`S${si+1}`,btnX+21,btnY+16);
-        owWpnClicks.push({x:btnX,y:btnY,w:42,h:24,isP2:true,slot:si,weaponId:w.id,mpIdx:1});
-      }
-    });
-    // Divider
-    ctx.strokeStyle='rgba(200,160,40,0.2)';ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(mx,by+42);ctx.lineTo(mx,by+bh-20);ctx.stroke();
+  // Weapon rows
+  WPNS.forEach((w,wi)=>{
+    let wy=by+66+wi*76;
+    let rowH=68;
 
-  } else {
-    // ── MODO MP: columna única centrada, solo tu jugador ──
-    let colx=bx+14, colw=bw-28;
-    ctx.fillStyle=myCol;ctx.font='bold 13px Impact';ctx.textAlign='left';
-    ctx.fillText(myLabel,colx,by+56);
+    // ── J1 weapon row ──
+    let s0eq=p1Slots[0]===w.id, s1eq=p1Slots[1]===w.id;
+    let anyEq=s0eq||s1eq;
+    ctx.fillStyle=anyEq?'rgba(200,160,40,0.12)':'rgba(14,14,24,0.85)';
+    ctx.strokeStyle=anyEq?'#c8a028':'#2a2a3a';ctx.lineWidth=anyEq?2:1.2;
+    ctx.beginPath();ctx.roundRect(col1x,wy,bw/2-22,rowH-4,7);ctx.fill();ctx.stroke();
+    // icon + name + desc
+    ctx.font='18px Arial';ctx.fillText(w.icon,col1x+8,wy+24);
+    ctx.fillStyle=anyEq?'#f5d020':'#ddd';ctx.font='bold 12px Impact';ctx.textAlign='left';
+    ctx.fillText(w.name,col1x+34,wy+20);
+    ctx.fillStyle='#777';ctx.font='9px Impact';ctx.fillText(w.desc,col1x+34,wy+34);
+    // Slot buttons S1 S2
+    for(let si=0;si<2;si++){
+      let eq=p1Slots[si]===w.id;
+      let btnX=col1x+bw/2-22-94+si*50,btnY=wy+36;
+      ctx.fillStyle=eq?'#c8a028':'rgba(30,30,44,0.9)';
+      ctx.strokeStyle=eq?'#f5d020':'#444';ctx.lineWidth=eq?2:1.5;
+      ctx.beginPath();ctx.roundRect(btnX,btnY,42,24,5);ctx.fill();ctx.stroke();
+      ctx.fillStyle=eq?'#000':'#999';ctx.font='bold 11px Impact';ctx.textAlign='center';
+      ctx.fillText(`S${si+1}`,btnX+21,btnY+16);
+      owWpnClicks.push({x:btnX,y:btnY,w:42,h:24,isP2:false,slot:si,weaponId:w.id});
+    }
 
-    WPNS.forEach((w,wi)=>{
-      let wy=by+66+wi*76, rowH=68;
-      let anyEq=mySlots[0]===w.id||mySlots[1]===w.id;
-      ctx.fillStyle=anyEq?'rgba(200,160,40,0.14)':'rgba(14,14,24,0.85)';
-      ctx.strokeStyle=anyEq?myCol:'#2a2a3a';ctx.lineWidth=anyEq?2:1.2;
-      ctx.beginPath();ctx.roundRect(colx,wy,colw,rowH-4,7);ctx.fill();ctx.stroke();
-      ctx.font='22px Arial';ctx.fillStyle='#fff';ctx.fillText(w.icon,colx+12,wy+28);
-      ctx.fillStyle=anyEq?myCol:'#ddd';ctx.font='bold 14px Impact';ctx.textAlign='left';
-      ctx.fillText(w.name,colx+48,wy+22);
-      ctx.fillStyle='#777';ctx.font='10px Impact';ctx.fillText(w.desc,colx+48,wy+38);
-      // Botones S1 S2 centrados
-      for(let si=0;si<2;si++){
-        let eq=mySlots[si]===w.id;
-        let btnX=colx+colw-110+si*56, btnY=wy+36;
-        ctx.fillStyle=eq?myCol:'rgba(30,30,44,0.9)';
-        ctx.strokeStyle=eq?'#fff':'#444';ctx.lineWidth=eq?2:1.5;
-        ctx.beginPath();ctx.roundRect(btnX,btnY,48,26,5);ctx.fill();ctx.stroke();
-        ctx.fillStyle=eq?'#000':'#999';ctx.font='bold 12px Impact';ctx.textAlign='center';
-        ctx.fillText(`S${si+1}`,btnX+24,btnY+18);
-        if(eq){ctx.fillStyle=myCol;ctx.font='bold 8px Impact';ctx.fillText('●',btnX+24,btnY+10);}
-        owWpnClicks.push({x:btnX,y:btnY,w:48,h:26,isP2:false,slot:si,weaponId:w.id,mpIdx:myIdx,mpMenu:true});
-      }
-    });
-  }
+    // ── J2 weapon row ──
+    let s0eq2=p2Slots[0]===w.id, s1eq2=p2Slots[1]===w.id;
+    let anyEq2=s0eq2||s1eq2;
+    ctx.fillStyle=anyEq2?'rgba(64,200,255,0.10)':'rgba(14,14,24,0.85)';
+    ctx.strokeStyle=anyEq2?'#40c8ff':'#2a2a3a';ctx.lineWidth=anyEq2?2:1.2;
+    ctx.beginPath();ctx.roundRect(col2x,wy,bw/2-22,rowH-4,7);ctx.fill();ctx.stroke();
+    ctx.font='18px Arial';ctx.fillStyle='#fff';ctx.fillText(w.icon,col2x+8,wy+24);
+    ctx.fillStyle=anyEq2?'#40c8ff':'#ddd';ctx.font='bold 12px Impact';ctx.textAlign='left';
+    ctx.fillText(w.name,col2x+34,wy+20);
+    ctx.fillStyle='#777';ctx.font='9px Impact';ctx.fillText(w.desc,col2x+34,wy+34);
+    for(let si=0;si<2;si++){
+      let eq=p2Slots[si]===w.id;
+      let btnX=col2x+bw/2-22-94+si*50,btnY=wy+36;
+      ctx.fillStyle=eq?'#40c8ff':'rgba(30,30,44,0.9)';
+      ctx.strokeStyle=eq?'#80e8ff':'#444';ctx.lineWidth=eq?2:1.5;
+      ctx.beginPath();ctx.roundRect(btnX,btnY,42,24,5);ctx.fill();ctx.stroke();
+      ctx.fillStyle=eq?'#000':'#999';ctx.font='bold 11px Impact';ctx.textAlign='center';
+      ctx.fillText(`S${si+1}`,btnX+21,btnY+16);
+      owWpnClicks.push({x:btnX,y:btnY,w:42,h:24,isP2:true,slot:si,weaponId:w.id});
+    }
+  });
 
+  // Divider between J1 and J2 columns
+  ctx.strokeStyle='rgba(200,160,40,0.2)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(mx,by+42);ctx.lineTo(mx,by+bh-20);ctx.stroke();
+
+  // Footer hint
   ctx.fillStyle='#555';ctx.font='10px Impact';ctx.textAlign='center';
   ctx.fillText('Clic en S1 o S2 para equipar · No puedes llevar el mismo arma en ambos slots · ESC · Cerrar',mx,by+bh-10);
   ctx.restore();
@@ -1041,26 +987,6 @@ function drawPlayer(){
   if(p2Active&&!player2.dead)drawPlayerObj(player2,false);
 }
 
-// ── Dibuja todos los jugadores MP (solo host) ──
-function drawMPAllPlayers(){
-  let savedMX=mouseX,savedMY=mouseY;
-  for(let i=0;i<mpPlayers.length;i++){
-    let p=mpPlayers[i];
-    if(!p||p.dead)continue;
-    let isMine=(i===0);
-    // Restaurar mouse del cliente correspondiente para la línea de puntería
-    if(isMine){
-      mouseX=savedMX;mouseY=savedMY;
-    } else {
-      let cl=mpClients.find(c=>c.id===i);
-      mouseX=cl&&cl.mx!==undefined?cl.mx:savedMX;
-      mouseY=cl&&cl.my!==undefined?cl.my:savedMY;
-    }
-    drawPlayerObj(p,isMine,isMine?undefined:'J'+(i+1));
-  }
-  mouseX=savedMX;mouseY=savedMY;
-}
-
 // ===== MINIONS =====
 let minions=[],minionSpawnT=0,minionAlert={text:'',timer:0};
 function resetMinions(){minions=[];minionSpawnT=D(210,140);minionAlert={text:'',timer:0};}
@@ -1187,12 +1113,12 @@ function updateMinions(){
     if((invTimer<=0&&shieldT<=0)&&!player.dead&&rectsOvlp(mhx,mhy,mhw,mhh,...pHitBox(player))){
       player.hp--;invTimer=90;shieldT=100;triggerShake(4,8);
       spawnParts(player.x+player.w/2,player.y-player.h/2,'#e84040',8,4,30);
-      if(player.hp<=0){player.dead=true;spawnGhost(player);triggerShake(8,20);if(!p2Active||player2.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}}
+      if(player.hp<=0){player.dead=true;spawnGhost(player);triggerShake(8,20);if(!p2Active||player2.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}}
     }
     if(p2Active&&!player2.dead&&player2.invTimer<=0&&player2.shieldT<=0&&rectsOvlp(mhx,mhy,mhw,mhh,...pHitBox(player2))){
       player2.hp--;player2.invTimer=90;player2.shieldT=100;triggerShake(4,8);
       spawnParts(player2.x+player2.w/2,player2.y-player2.h/2,'#e84040',8,4,30);
-      if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}}
+      if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}}
     }
   }
 }
@@ -2227,51 +2153,36 @@ function rectsOvlp(ax,ay,aw,ah,bx,by,bw,bh){return ax<bx+bw&&ax+aw>bx&&ay<by+bh&
 // ── MP: aplicar daño de proyectil del jefe a un mpPlayer ──
 function applyHitToMPPlayer(p, pid){
   if(!p||p.dead)return;
-  let pInvT = pid===0 ? invTimer : p.invTimer;
-  let pShT  = pid===0 ? shieldT  : p.shieldT;
+  let pInvT=pid===0?invTimer:p.invTimer;
+  let pShT =pid===0?shieldT :p.shieldT;
   if(pInvT>0||pShT>0)return;
   for(let i=bossProjectiles.length-1;i>=0;i--){
-    let bp=bossProjectiles[i];
-    if(bp.dead)continue;
+    let bp=bossProjectiles[i];if(bp.dead)continue;
     if(!rectsOvlp(bp.x-bp.r,bp.y-bp.r,bp.r*2,bp.r*2,...pHitBox(p)))continue;
     bossProjectiles.splice(i,1);
     p.hp--;
-    // Sync invTimer/shieldT globals para host (pid===0)
-    if(pid===0){invTimer=90;shieldT=120;}
-    else{p.invTimer=90;p.shieldT=120;}
+    if(pid===0){invTimer=90;shieldT=120;}else{p.invTimer=90;p.shieldT=120;}
     triggerShake(5,8);playSFX('hit');
     spawnParts(p.x+p.w/2,p.y-p.h/2,'#e84040',10,4,30);
     if(p.hp<=0){
-      p.dead=true;
-      spawnGhost(p);
+      p.dead=true;spawnGhost(p);
       spawnParts(p.x+p.w/2,p.y-p.h/2,'#f5c030',16,6,45);
-      triggerShake(8,18);
-      checkAllDeadMP();
+      triggerShake(8,18);checkAllDeadMP();
     }
-    // Notificar al cliente que recibió daño
     if(pid>0){
       let cl=mpClients.find(c=>c.id===pid);
-      if(cl)try{cl.conn.send(JSON.stringify({
-        type:'playerHit',
-        pid,hp:p.hp,dead:p.dead?1:0,
-        x:Math.round(p.x),y:Math.round(p.y)
-      }));}catch(e){}
+      if(cl)try{cl.conn.send(JSON.stringify({type:'playerHit',pid,hp:p.hp,dead:p.dead?1:0,x:Math.round(p.x),y:Math.round(p.y)}));}catch(e){}
     }
-    return; // un proyectil por frame
+    return;
   }
 }
-
-// ── MP: chequear colisión de proyectiles del jefe con TODOS los mpPlayers ──
 function checkAllMPBossHits(){
   if(!mpMode||!mpIsHost)return;
   for(let pid=0;pid<mpPlayers.length;pid++){
-    let p=mpPlayers[pid];
-    if(!p||p.dead)continue;
+    let p=mpPlayers[pid];if(!p||p.dead)continue;
     applyHitToMPPlayer(p,pid);
   }
 }
-
-// ── MP: chequear colisión de miniones con TODOS los mpPlayers ──
 function checkAllMPMinionHits(){
   if(!mpMode||!mpIsHost)return;
   for(let i=minions.length-1;i>=0;i--){
@@ -2285,8 +2196,7 @@ function checkAllMPMinionHits(){
       if(!rectsOvlp(mhx,mhy,mhw,mhh,...pHitBox(p)))continue;
       p.hp--;
       if(pid===0){invTimer=90;shieldT=100;}else{p.invTimer=90;p.shieldT=100;}
-      triggerShake(4,8);
-      spawnParts(p.x+p.w/2,p.y-p.h/2,'#e84040',8,4,30);
+      triggerShake(4,8);spawnParts(p.x+p.w/2,p.y-p.h/2,'#e84040',8,4,30);
       if(p.hp<=0){p.dead=true;spawnGhost(p);triggerShake(8,18);checkAllDeadMP();}
       if(pid>0){
         let cl=mpClients.find(c=>c.id===pid);
@@ -2295,7 +2205,47 @@ function checkAllMPMinionHits(){
     }
   }
 }
-
+// ── MP: aplicar daño a mpPlayer desde proyectil ──
+function applyHitToMPPlayer(p,pid){
+  if(!p||p.dead)return;
+  let pInvT=pid===0?invTimer:p.invTimer;
+  let pShT =pid===0?shieldT :p.shieldT;
+  if(pInvT>0||pShT>0)return;
+  for(let i=bossProjectiles.length-1;i>=0;i--){
+    let bp=bossProjectiles[i];if(bp.dead)continue;
+    if(!rectsOvlp(bp.x-bp.r,bp.y-bp.r,bp.r*2,bp.r*2,...pHitBox(p)))continue;
+    bossProjectiles.splice(i,1);
+    p.hp--;
+    if(pid===0){invTimer=90;shieldT=120;}else{p.invTimer=90;p.shieldT=120;}
+    triggerShake(5,8);playSFX('hit');
+    spawnParts(p.x+p.w/2,p.y-p.h/2,'#e84040',10,4,30);
+    if(p.hp<=0){p.dead=true;spawnGhost(p);spawnParts(p.x+p.w/2,p.y-p.h/2,'#f5c030',16,6,45);triggerShake(8,18);checkAllDeadMP();}
+    if(pid>0){let cl=mpClients.find(c=>c.id===pid);if(cl)try{cl.conn.send(JSON.stringify({type:'playerHit',pid,hp:p.hp,dead:p.dead?1:0,x:Math.round(p.x),y:Math.round(p.y)}));}catch(e){}}
+    return;
+  }
+}
+function checkAllMPBossHits(){
+  if(!mpMode||!mpIsHost)return;
+  for(let pid=0;pid<mpPlayers.length;pid++){let p=mpPlayers[pid];if(!p||p.dead)continue;applyHitToMPPlayer(p,pid);}
+}
+function checkAllMPMinionHits(){
+  if(!mpMode||!mpIsHost)return;
+  for(let i=minions.length-1;i>=0;i--){
+    let m=minions[i];if(m.dead)continue;
+    let mhx=m.x-m.w/2,mhy=m.y-m.h,mhw=m.w,mhh=m.h;
+    for(let pid=0;pid<mpPlayers.length;pid++){
+      let p=mpPlayers[pid];if(!p||p.dead)continue;
+      let pInvT=pid===0?invTimer:p.invTimer;let pShT=pid===0?shieldT:p.shieldT;
+      if(pInvT>0||pShT>0)continue;
+      if(!rectsOvlp(mhx,mhy,mhw,mhh,...pHitBox(p)))continue;
+      p.hp--;
+      if(pid===0){invTimer=90;shieldT=100;}else{p.invTimer=90;p.shieldT=100;}
+      triggerShake(4,8);spawnParts(p.x+p.w/2,p.y-p.h/2,'#e84040',8,4,30);
+      if(p.hp<=0){p.dead=true;spawnGhost(p);triggerShake(8,18);checkAllDeadMP();}
+      if(pid>0){let cl=mpClients.find(c=>c.id===pid);if(cl)try{cl.conn.send(JSON.stringify({type:'playerHit',pid,hp:p.hp,dead:p.dead?1:0,x:Math.round(p.x),y:Math.round(p.y)}));}catch(e){}}
+    }
+  }
+}
 function checkCollisionsInk(){
   let canHitBoss = bossExitDir===0 && !bossEntering;
   for(let i=bullets.length-1;i>=0;i--){
@@ -2317,7 +2267,7 @@ function checkCollisionsInk(){
           let scaled=dmg*mpDmgMult();bossHpPool+=scaled;
           if(bossHpPool>=1){let h=Math.floor(bossHpPool);bossHpPool-=h;boss.hp-=h;bossInvT=10;statDmgDealt+=h;playSFX('bossHit');spawnParts(boss.x+boss.w*0.3,boss.y+boss.h*0.5+boss.bobOff,'#f0a020',5,5,18);triggerShake(3,4);}
         }
-        addSpecialCharge(b.fromP2,dmg>=1?1:0.5,b.fromMPId);
+        addSpecialCharge(b.fromP2,dmg>=1?1:0.5);
         if(boss.hp<=0){
           bossDefeated=true;bossExitDir=0;pendingPhase=0;
           stopMusic();playSFX('win');markVictory('inkboss',difficulty);
@@ -2329,9 +2279,9 @@ function checkCollisionsInk(){
       }
     }
   }
-  // MP: chequear todos los clientes
+  // MP: chequear daño a todos los clientes
   if(mpMode&&mpIsHost){checkAllMPBossHits();checkAllMPMinionHits();}
-  // P1 hit by projectiles (local/no-MP only)
+  // P1 hit by projectiles (local only)
   if(!mpMode&&(invTimer<=0&&shieldT<=0)&&!player.dead){
     for(let i=bossProjectiles.length-1;i>=0;i--){
       let bp=bossProjectiles[i];
@@ -2339,7 +2289,7 @@ function checkCollisionsInk(){
         bossProjectiles.splice(i,1);player.hp--;invTimer=90;shieldT=120;
         triggerShake(5,8);playSFX('hit');spawnParts(player.x+player.w/2,player.y-player.h/2,'#e84040',10,4,30);
         if(player.hp<=0){player.dead=true;spawnGhost(player);spawnParts(player.x+player.w/2,player.y-player.h/2,'#f5c030',20,6,50);triggerShake(8,20);
-          if(!p2Active||player2.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
+          if(!p2Active||player2.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
         }break;
       }
     }
@@ -2352,7 +2302,7 @@ function checkCollisionsInk(){
         bossProjectiles.splice(i,1);player2.hp--;player2.invTimer=90;player2.shieldT=120;
         triggerShake(5,8);playSFX('hit');spawnParts(player2.x+player2.w/2,player2.y-player2.h/2,'#e84040',10,4,30);
         if(player2.hp<=0){player2.dead=true;spawnGhost(player2);
-          if(player.dead){stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}
+          if(player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
         }break;
       }
     }
@@ -2481,8 +2431,8 @@ function drawHUD(){
     let sp2ready=p2SpecialCharge>=SPECIAL_THRESHOLD;
     drawSpecialBar(W-178,96,164,p2SpecialCharge,sp2ready,'#40c8ff');
     drawWeaponSlots(W-178,112,p2Slots,p2ActiveSlot,true);
-  } else if(!p2Active&&!mpMode){
-    // Join hint (solo local)
+  } else if(!p2Active){
+    // Join hint (subtle)
     ctx.fillStyle='rgba(64,200,255,0.18)';ctx.fillRect(W-178,44,164,18);
     ctx.strokeStyle='rgba(64,200,255,0.3)';ctx.lineWidth=1;ctx.strokeRect(W-178,44,164,18);
     ctx.fillStyle='rgba(180,220,255,0.55)';ctx.font='bold 9px Impact';ctx.textAlign='center';
@@ -3571,7 +3521,7 @@ function drawHUDTemp(){
     let sp2ready=p2SpecialCharge>=SPECIAL_THRESHOLD;
     drawSpecialBar(W-178,96,164,p2SpecialCharge,sp2ready,'#40c8ff');
     drawWeaponSlots(W-178,112,p2Slots,p2ActiveSlot,true);
-  } else if(!p2Active&&!mpMode){
+  } else if(!p2Active){
     ctx.fillStyle='rgba(64,200,255,0.18)';ctx.fillRect(W-178,44,164,18);
     ctx.strokeStyle='rgba(64,200,255,0.3)';ctx.lineWidth=1;ctx.strokeRect(W-178,44,164,18);
     ctx.fillStyle='rgba(180,220,255,0.55)';ctx.font='bold 9px Impact';ctx.textAlign='center';
@@ -3604,7 +3554,7 @@ function checkCollisions(){
             let scaled=dmg*mpDmgMult();bossHpPool+=scaled;
             if(bossHpPool>=1){let h=Math.floor(bossHpPool);bossHpPool-=h;tBoss.hp-=h;tInvT=10;statDmgDealt+=h;playSFX('bossHit');spawnParts(tBoss.x+tBoss.w/2,tBoss.y+tBoss.h/2+tBoss.bobOff,'#40c0ff',5,5,18);triggerShake(3,4);}
           }
-          addSpecialCharge(b.fromP2,dmg>=1?1:0.5,b.fromMPId);
+          addSpecialCharge(b.fromP2,dmg>=1?1:0.5);
           if(tBoss.hp<=0){tDefeated=true;stopMusic();markVictory('tempestina',difficulty);playSFX('win');spawnParts(tBoss.x+tBoss.w/2,tBoss.y+tBoss.h/2,'#f5d020',30,8,60);triggerShake(12,35);setTimeout(()=>triggerVictoryScreen('tempestina'),2200);}
         }
         continue;
@@ -3620,7 +3570,7 @@ function checkCollisions(){
       bullets[i]&&(bullets[i].x+=bullets[i].vx,bullets[i].y+=bullets[i].vy,bullets[i].life--);
       if(bullets[i]&&(bullets[i].life<=0||bullets[i].x>W+20||bullets[i].x<-20||bullets[i].y<-20||bullets[i].y>H+20))bullets.splice(i,1);
     }
-    // MP: chequear todos los clientes
+    // MP: chequear daño a todos los clientes
     if(mpMode&&mpIsHost){checkAllMPBossHits();checkAllMPMinionHits();}
     // P1 projectile hits (local only)
     if(!mpMode&&invTimer<=0&&shieldT<=0&&!player.dead){
@@ -3629,7 +3579,7 @@ function checkCollisions(){
         if(rectsOvlp(bp.x-bp.r,bp.y-bp.r,bp.r*2,bp.r*2,...pHitBox(player))){
           bossProjectiles.splice(i,1);player.hp--;invTimer=90;shieldT=120;triggerShake(5,8);playSFX('hit');spawnParts(player.x+player.w/2,player.y-player.h/2,'#e84040',10,4,30);
           if(player.hp<=0){player.dead=true;spawnGhost(player);spawnParts(player.x+player.w/2,player.y-player.h/2,'#f5c030',20,6,50);triggerShake(8,20);
-            if(!p2Active||player2.dead){stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
+            if(!p2Active||player2.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
           }break;
         }
       }
@@ -3640,11 +3590,11 @@ function checkCollisions(){
         let bp=bossProjectiles[i];if(bp.tornado)continue;
         if(rectsOvlp(bp.x-bp.r,bp.y-bp.r,bp.r*2,bp.r*2,...pHitBox(player2))){
           bossProjectiles.splice(i,1);player2.hp--;player2.invTimer=90;player2.shieldT=120;triggerShake(5,8);playSFX('hit');spawnParts(player2.x+player2.w/2,player2.y-player2.h/2,'#e84040',10,4,30);
-          if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}break;
+          if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}}break;
         }
       }
     }
-    // Tornado — MP usa checkAllMP, local checa P1/P2
+    // Tornado (local only)
     for(let bp of bossProjectiles){
       if(!bp.tornado)continue;
       if(!mpMode&&invTimer<=0&&shieldT<=0&&!player.dead){
@@ -3656,7 +3606,7 @@ function checkCollisions(){
       if(!mpMode&&p2Active&&!player2.dead&&player2.invTimer<=0&&player2.shieldT<=0){
         if(Math.abs(bp.x-(player2.x+player2.w/2))<bp.r+10&&bp.y>player2.y-player2.h&&bp.y<player2.y+10){
           player2.hp--;player2.invTimer=90;player2.shieldT=100;triggerShake(5,8);playSFX('hit');
-          if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
+          if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}}
         }
       }
     }
@@ -3971,40 +3921,12 @@ const GHOST_RISE_SPD=0.7;
 const GHOST_LIFE=360; // 6s before disappears
 const REVIVE_HP=4;    // HP on revival (half max)
 
-// Verifica si todos los jugadores están muertos Y sin fantasmas activos → game over MP
-function checkAllDeadMP(){
-  if(!mpMode||!mpIsHost)return;
-  let anyAlive=mpPlayers.some(p=>p&&!p.dead);
-  if(anyAlive)return;
-  if(ghosts.length>0)return; // aún hay fantasmas que pueden ser revividos
-  // Todos muertos y sin posibilidad de revival
-  stopMusic();
-  setTimeout(()=>{
-    mpBroadcast({type:'gameOverMP'});
-    showScreen('gameOver');gameState='end';
-  },1800);
-}
-
-// Llamar checkAllDeadMP cuando expira o se revive un fantasma
-function onGhostExpired(){
-  if(mpMode&&mpIsHost) checkAllDeadMP();
-}
-
 function spawnGhost(p){
-  // Determinar mpPlayerId: buscar en mpPlayers primero, luego isP2
-  let mpId=-1;
-  if(mpMode){
-    if(p===player) mpId=0;
-    else{for(let i=1;i<mpPlayers.length;i++){if(mpPlayers[i]===p){mpId=i;break;}}}
-  } else {
-    mpId=p===player2?1:0;
-  }
   ghosts.push({
     x:p.x+p.w/2, y:p.y-p.h/2,
     vy:-GHOST_RISE_SPD,
     skinId:p.skinId||0,
     isP2:(p===player2),
-    mpPlayerId:mpId,
     timer:GHOST_LIFE, alpha:1
   });
 }
@@ -4014,78 +3936,43 @@ function updateGhosts(){
     let g=ghosts[i];
     g.y+=g.vy;
     g.timer--;
+    // Fade out in last 60 frames
     g.alpha=Math.min(1,g.timer/60);
+    // Wobble
     g.x+=Math.sin(g.timer*0.08)*0.5;
-    if(g.timer<=0){ghosts.splice(i,1);onGhostExpired();continue;}
-
-    // ── MODO MP HOST: revisar balas de CUALQUIER jugador vivo vs cualquier fantasma ──
-    if(mpMode&&mpIsHost){
-      for(let j=bullets.length-1;j>=0;j--){
-        let b=bullets[j];
-        if(b.owner!=='player')continue;
-        // No puedes revivir tu propio fantasma
-        let shooterIdx=b.fromMPId!==undefined?b.fromMPId:0;
-        if(shooterIdx===g.mpPlayerId)continue;
-        let dx=b.x-g.x,dy=b.y-g.y;
-        if(Math.sqrt(dx*dx+dy*dy)<28){
-          bullets.splice(j,1);
-          ghosts.splice(i,1);
-          // Revivir al jugador correspondiente
-          let pid=g.mpPlayerId;
-          let rp=mpPlayers[pid];
-          if(rp){
-            rp.dead=false;rp.x=g.x-rp.w/2;rp.y=FLOOR;
-            rp.hp=REVIVE_HP;rp.invTimer=90;rp.shieldT=120;
-            if(pid===0){invTimer=90;shieldT=120;} // sync host globals
-            spawnParts(g.x,g.y,(ALL_SKINS[rp.skinId]||ALL_SKINS[0]).hatBand,18,6,40);
-            triggerShake(4,8);playSFX('heal');
-            // Notificar a todos los clientes
-            mpBroadcast({type:'revived',pid,x:Math.round(rp.x),y:Math.round(rp.y)});
-          }
-          onGhostExpired();
-          break;
+    if(g.timer<=0){ghosts.splice(i,1);continue;}
+    // Check bullets hitting ghost
+    for(let j=bullets.length-1;j>=0;j--){
+      let b=bullets[j];
+      if(b.owner!=='player')continue;
+      // P1 bullet can revive P2 ghost, P2 bullet can revive P1 ghost
+      let canRevive=(g.isP2&&!b.fromP2)||((!g.isP2)&&b.fromP2);
+      if(!canRevive)continue;
+      let dx=b.x-g.x,dy=b.y-g.y;
+      if(Math.sqrt(dx*dx+dy*dy)<22){
+        // REVIVE!
+        bullets.splice(j,1);
+        ghosts.splice(i,1);
+        if(g.isP2&&p2Active){
+          player2.dead=false;
+          player2.x=g.x-player2.w/2;
+          player2.y=FLOOR;
+          player2.hp=REVIVE_HP;
+          player2.invTimer=90;player2.shieldT=120;
+          spawnParts(g.x,g.y,'#40c8ff',18,6,40);
+          triggerShake(4,8);
+          playSFX('heal');
+        } else if(!g.isP2){
+          player.dead=false;
+          player.x=g.x-player.w/2;
+          player.y=FLOOR;
+          player.hp=REVIVE_HP;
+          invTimer=90;shieldT=120;
+          spawnParts(g.x,g.y,'#f8e840',18,6,40);
+          triggerShake(4,8);
+          playSFX('heal');
         }
-      }
-      continue; // host no usa la lógica local de abajo
-    }
-
-    // ── MODO LOCAL (sin MP) ──
-    if(!mpMode){
-      for(let j=bullets.length-1;j>=0;j--){
-        let b=bullets[j];
-        if(b.owner!=='player')continue;
-        let canRevive=(g.isP2&&!b.fromP2)||((!g.isP2)&&b.fromP2);
-        if(!canRevive)continue;
-        let dx=b.x-g.x,dy=b.y-g.y;
-        if(Math.sqrt(dx*dx+dy*dy)<22){
-          bullets.splice(j,1);ghosts.splice(i,1);
-          if(g.isP2&&p2Active){
-            player2.dead=false;player2.x=g.x-player2.w/2;player2.y=FLOOR;
-            player2.hp=REVIVE_HP;player2.invTimer=90;player2.shieldT=120;
-            spawnParts(g.x,g.y,'#40c8ff',18,6,40);triggerShake(4,8);playSFX('heal');
-          } else if(!g.isP2){
-            player.dead=false;player.x=g.x-player.w/2;player.y=FLOOR;
-            player.hp=REVIVE_HP;invTimer=90;shieldT=120;
-            spawnParts(g.x,g.y,'#f8e840',18,6,40);triggerShake(4,8);playSFX('heal');
-          }
-          break;
-        }
-      }
-    }
-
-    // ── MODO MP CLIENTE: detectar su propia bala tocando fantasma ajeno ──
-    if(mpMode&&!mpIsHost){
-      for(let j=bullets.length-1;j>=0;j--){
-        let b=bullets[j];
-        if(b.owner!=='player')continue;
-        if(g.mpPlayerId===mpMyIndex)continue; // no revivir el propio
-        let dx=b.x-g.x,dy=b.y-g.y;
-        if(Math.sqrt(dx*dx+dy*dy)<28){
-          bullets.splice(j,1);
-          // Pedir al host que aplique el revival
-          if(mpHostConn)try{mpHostConn.send(JSON.stringify({type:'reviveRequest',pid:g.mpPlayerId}));}catch(e2){}
-          break;
-        }
+        break;
       }
     }
   }
@@ -4371,8 +4258,8 @@ function updateKronos(){
         p.hp--;setInv(90);p.shieldT=100;triggerShake(6,10);playSFX('hit');
         spawnParts(p.x+p.w/2,p.y-p.h/2,'#e84040',10,4,28);
         if(p.hp<=0){p.dead=true;spawnGhost(p);
-          if(p===player&&(!p2Active||player2.dead)){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
-          if(p===player2&&player.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
+          if(p===player&&(!p2Active||player2.dead)){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+          if(p===player2&&player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
         }
       }
     }
@@ -4427,8 +4314,8 @@ function updateKronos(){
             p.hp--;(p===player?invTimer=90:p.invTimer=90);p.shieldT=80;
             triggerShake(4,6);playSFX('hit');
             if(p.hp<=0){p.dead=true;spawnGhost(p);
-              if(p===player&&(!p2Active||player2.dead)){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
-              if(p===player2&&player.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
+              if(p===player&&(!p2Active||player2.dead)){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+              if(p===player2&&player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
             }
           }
         }
@@ -4446,8 +4333,8 @@ function updateKronos(){
           (p===player?invTimer=90:p.invTimer=90);p.shieldT=90;
           triggerShake(8,14);playSFX('hit');spawnParts(sg.x,sg.y,'#cc40ff',14,6,50);
           if(p.hp<=0){p.dead=true;spawnGhost(p);
-            if(p===player&&(!p2Active||player2.dead)){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
-            if(p===player2&&player.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
+            if(p===player&&(!p2Active||player2.dead)){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+            if(p===player2&&player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
           }
         }
       }
@@ -4498,26 +4385,27 @@ function checkCollisionsKronos(){
           let scaled=dmg*mpDmgMult();bossHpPool+=scaled;
           if(bossHpPool>=1){let h=Math.floor(bossHpPool);bossHpPool-=h;kBoss.hp-=h;kInvT=10;statDmgDealt+=h;playSFX('bossHit');spawnParts(kBoss.x+kBoss.w/2,kBoss.y+kBoss.h/2+kBoss.bobOff,'#c8a028',5,5,18);triggerShake(3,4);}
         }
-        addSpecialCharge(b.fromP2,dmg>=1?1:0.5,b.fromMPId);
+        addSpecialCharge(b.fromP2,dmg>=1?1:0.5);
         if(kBoss.hp<=0){kDefeated=true;stopMusic();markVictory('kronos',difficulty);playSFX('win');spawnParts(kBoss.x+kBoss.w/2,kBoss.y+kBoss.h/2,'#f5d020',30,8,60);triggerShake(12,35);kGears=[];kPendulum=null;kReverseZone=null;kSingularity=null;kClockHands=[];setTimeout(()=>triggerVictoryScreen('kronos'),2200);}
       }
       continue;
     }
   }
-  // Boss projectiles → jugadores
+  // MP: chequear daño a todos los clientes
   if(mpMode&&mpIsHost){checkAllMPBossHits();checkAllMPMinionHits();}
+  // Boss projectiles → player (local only)
   for(let i=bossProjectiles.length-1;i>=0;i--){
     let bp=bossProjectiles[i];
     if(!mpMode&&invTimer<=0&&shieldT<=0&&!player.dead&&rectsOvlp(bp.x-bp.r,bp.y-bp.r,bp.r*2,bp.r*2,...pHitBox(player))){
       bossProjectiles.splice(i,1);player.hp--;invTimer=90;shieldT=120;triggerShake(5,8);playSFX('hit');
       spawnParts(player.x+player.w/2,player.y-player.h/2,'#e84040',10,4,30);
-      if(player.hp<=0){player.dead=true;spawnGhost(player);if(!p2Active||player2.dead){stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
+      if(player.hp<=0){player.dead=true;spawnGhost(player);if(!p2Active||player2.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}}
       continue;
     }
     if(!mpMode&&p2Active&&!player2.dead&&player2.invTimer<=0&&player2.shieldT<=0&&rectsOvlp(bp.x-bp.r,bp.y-bp.r,bp.r*2,bp.r*2,...pHitBox(player2))){
       bossProjectiles.splice(i,1);player2.hp--;player2.invTimer=90;player2.shieldT=120;triggerShake(5,8);playSFX('hit');
       spawnParts(player2.x+player2.w/2,player2.y-player2.h/2,'#e84040',10,4,30);
-      if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
+      if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}}
     }
   }
   for(let i=bullets.length-1;i>=0;i--){
@@ -4779,7 +4667,7 @@ function drawHUDKronos(){
     let sp2ready=p2SpecialCharge>=SPECIAL_THRESHOLD;
     drawSpecialBar(W-178,82,164,p2SpecialCharge,sp2ready,'#40c8ff');
     drawWeaponSlots(W-178,98,p2Slots,p2ActiveSlot,true);
-  } else if(!p2Active&&!mpMode){ctx.fillStyle='rgba(64,200,255,0.18)';ctx.fillRect(W-178,44,164,18);ctx.strokeStyle='rgba(64,200,255,0.3)';ctx.lineWidth=1;ctx.strokeRect(W-178,44,164,18);ctx.fillStyle='rgba(180,220,255,0.55)';ctx.font='bold 9px Impact';ctx.textAlign='center';ctx.fillText('↑+→+ENTER · Unirse J2',W-96,56);}
+  } else if(!p2Active){ctx.fillStyle='rgba(64,200,255,0.18)';ctx.fillRect(W-178,44,164,18);ctx.strokeStyle='rgba(64,200,255,0.3)';ctx.lineWidth=1;ctx.strokeRect(W-178,44,164,18);ctx.fillStyle='rgba(180,220,255,0.55)';ctx.font='bold 9px Impact';ctx.textAlign='center';ctx.fillText('↑+→+ENTER · Unirse J2',W-96,56);}
   // Attack banner
   if(kCurrentAtk&&kCurrentAtk.t<60){let alpha=Math.min(1,kCurrentAtk.t<15?kCurrentAtk.t/15:(kCurrentAtk.t>45?(60-kCurrentAtk.t)/15:1));let col=kCurrentAtk.col||'#fff';ctx.save();ctx.globalAlpha=alpha;ctx.fillStyle='rgba(0,0,0,0.65)';ctx.fillRect(W/2-140,H-116,280,34);ctx.strokeStyle=col;ctx.lineWidth=2.5;ctx.strokeRect(W/2-140,H-116,280,34);ctx.fillStyle=col;ctx.font='bold italic 17px Impact';ctx.textAlign='center';ctx.fillText(`⚙ ${kCurrentAtk.name}`,W/2,H-94);ctx.restore();}
   ctx.restore();
@@ -5355,24 +5243,10 @@ canvas.addEventListener('click',e=>{
   if(owWeaponMenu&&owWpnClicks){
     for(let btn of owWpnClicks){
       if(cx>=btn.x&&cx<=btn.x+btn.w&&cy>=btn.y&&cy<=btn.y+btn.h){
-        if(btn.mpMenu){
-          // Modo MP: editar slots propios
-          let idx=btn.mpIdx;
-          let slots=mpPlayerSlots[idx];
-          if(slots[1-btn.slot]===btn.weaponId)return; // ya en el otro slot
-          slots[btn.slot]=btn.weaponId;
-          // Si soy cliente, notificar al host
-          if(!mpIsHost&&mpHostConn){
-            try{mpHostConn.send(JSON.stringify({type:'setWeaponSlot',slot:btn.slot,weaponId:btn.weaponId}));}catch(e2){}
-          }
-          // Si soy host, actualizar también mpPlayerSlots[0] (ya está hecho)
-        } else {
-          // Modo local
-          let slots=btn.isP2?p2Slots:p1Slots;
-          if(slots[1-btn.slot]===btn.weaponId)return;
-          if(btn.isP2)p2Slots[btn.slot]=btn.weaponId;
-          else p1Slots[btn.slot]=btn.weaponId;
-        }
+        let slots=btn.isP2?p2Slots:p1Slots;
+        if(slots[1-btn.slot]===btn.weaponId)return;
+        if(btn.isP2)p2Slots[btn.slot]=btn.weaponId;
+        else p1Slots[btn.slot]=btn.weaponId;
         return;
       }
     }
@@ -5786,17 +5660,12 @@ function mpJoinRoom(roomIndex){
         } else if(d.type==='owPos'){
           mpOwPositions[d.id]=d; // store remote position
         } else if(d.type==='loading'){
-          // Host dice que va a empezar — inicializar estado del cliente
-          selectedBoss=d.selectedBoss||selectedBoss;
-          difficulty=d.difficulty||difficulty;
-          let skins=d.skins||[0,1,2,3];
-          p1SkinId=skins[mpMyIndex]||mpMyIndex;
-          player.skinId=p1SkinId;
-          mpPlayerCount=d.total||mpPlayerCount;
-          mpShowLoadingScreen(d.total||mpPlayerCount);
+          // Host says loading — show loading screen on client
+          mpShowLoadingScreen(d.total);
+          // Tell host we're ready after a short delay (simulating load)
           setTimeout(()=>{
             if(mpHostConn)mpHostConn.send(JSON.stringify({type:'ready',id:mpMyIndex}));
-          },600);
+          },800);
         } else if(d.type==='allReady'){
           // Host says everyone loaded — dismiss loading and start intro
           mpDismissLoading();
@@ -5846,28 +5715,7 @@ function mpHandleIncoming(conn){
       if(d.type==='input'){cl.keys=d.keys||{};if(d.mx!==undefined)cl.mx=d.mx;if(d.my!==undefined)cl.my=d.my;}
       else if(d.type==='switchWeapon'){mpPlayerActiveSlot[cl.id]=d.slot%2;}
       else if(d.type==='setWeaponSlot'){if(mpPlayerSlots[cl.id]&&d.weaponId&&d.slot>=0&&d.slot<2){let opp=1-d.slot;if(mpPlayerSlots[cl.id][opp]!==d.weaponId)mpPlayerSlots[cl.id][d.slot]=d.weaponId;}}
-      else if(d.type==='reviveRequest'){
-        // Cliente pide revivir a otro jugador
-        let pid=d.pid;
-        if(pid>=0&&pid<mpPlayers.length){
-          // Encontrar el fantasma de ese jugador
-          let gi=ghosts.findIndex(g=>g.mpPlayerId===pid);
-          if(gi>=0){
-            let g=ghosts[gi];
-            let rp=mpPlayers[pid];
-            if(rp&&rp.dead){
-              ghosts.splice(gi,1);
-              rp.dead=false;rp.x=g.x-rp.w/2;rp.y=FLOOR;
-              rp.hp=REVIVE_HP;rp.invTimer=90;rp.shieldT=120;
-              if(pid===0){invTimer=90;shieldT=120;} // host globals
-              spawnParts(g.x,g.y,(ALL_SKINS[rp.skinId]||ALL_SKINS[0]).hatBand,18,6,40);
-              triggerShake(4,8);playSFX('heal');
-              mpBroadcast({type:'revived',pid,x:Math.round(rp.x),y:Math.round(rp.y)});
-              onGhostExpired();
-            }
-          }
-        }
-      }
+      else if(d.type==='reviveRequest'){let pid=d.pid;if(pid>=0&&pid<mpPlayers.length){let gi=ghosts.findIndex(g=>g.mpPlayerId===pid);if(gi>=0){let g=ghosts[gi];let rp=mpPlayers[pid];if(rp&&rp.dead){ghosts.splice(gi,1);rp.dead=false;rp.x=g.x-rp.w/2;rp.y=FLOOR;rp.hp=REVIVE_HP;rp.invTimer=90;rp.shieldT=120;if(pid===0){invTimer=90;shieldT=120;}spawnParts(g.x,g.y,(ALL_SKINS[rp.skinId]||ALL_SKINS[0]).hatBand,18,6,40);triggerShake(4,8);playSFX('heal');mpBroadcast({type:'revived',pid,x:Math.round(rp.x),y:Math.round(rp.y)});onGhostExpired();}}}}
       else if(d.type==='vote')mpReceiveVote(cl.id,d.boss,d.diff);
       else if(d.type==='owPos'){
         mpOwPositions[d.id]=d;
@@ -6199,38 +6047,27 @@ function mpHandleVoteMsg(d){
   } else if(d.type==='voteResult'){
     mpVoteUI.result={boss:d.boss,diff:d.diff};mpVoteUI.active=false;mpVoteUI.counts=d.counts;
     selectedBoss=d.boss;difficulty=d.diff;
+  } else if(d.type==='playerHit'){
+    if(d.pid===mpMyIndex){
+      player.hp=d.hp;
+      if(d.dead){player.dead=true;spawnGhost(player);spawnParts(player.x+player.w/2,player.y-player.h/2,'#f5c030',16,6,45);}
+      else{invTimer=90;shieldT=120;triggerShake(5,8);playSFX('hit');spawnParts(player.x+player.w/2,player.y-player.h/2,'#e84040',10,4,30);}
+    }
+  } else if(d.type==='gameOverMP'){
+    stopMusic();showScreen('gameOver');gameState='end';
+  } else if(d.type==='revived'){
+    if(d.pid===mpMyIndex){player.dead=false;if(d.x!==undefined)player.x=d.x;player.y=FLOOR;player.hp=REVIVE_HP;invTimer=90;shieldT=120;spawnParts(player.x+player.w/2,player.y-player.h/2,'#f8e840',18,6,40);triggerShake(4,8);playSFX('heal');}
+  } else if(d.type==='playerHit'){
+    if(d.pid===mpMyIndex){player.hp=d.hp;if(d.dead){player.dead=true;spawnGhost(player);spawnParts(player.x+player.w/2,player.y-player.h/2,'#f5c030',16,6,45);}else{invTimer=90;shieldT=120;triggerShake(5,8);playSFX('hit');spawnParts(player.x+player.w/2,player.y-player.h/2,'#e84040',10,4,30);}}
+  } else if(d.type==='gameOverMP'){
+    stopMusic();showScreen('gameOver');gameState='end';
+  } else if(d.type==='revived'){
+    if(d.pid===mpMyIndex){player.dead=false;if(d.x!==undefined)player.x=d.x;player.y=FLOOR;player.hp=REVIVE_HP;invTimer=90;shieldT=120;spawnParts(player.x+player.w/2,player.y-player.h/2,'#f8e840',18,6,40);triggerShake(4,8);playSFX('heal');}
   } else if(d.type==='returnIsland'||d.type==='goIsland'){
     gameState='overworld';startOverworld();
   } else if(d.type==='start'){
     mpPlayerCount=d.playerCount;selectedBoss=d.selectedBoss||d.boss||'inkboss';difficulty=d.difficulty||d.diff||'normal';
     mpLaunchGame(d);
-  } else if(d.type==='playerHit'){
-    // Host aplica daño — actualizar estado local si soy yo
-    if(d.pid===mpMyIndex){
-      player.hp=d.hp;
-      if(d.dead){
-        player.dead=true;
-        spawnGhost(player);
-        spawnParts(player.x+player.w/2,player.y-player.h/2,'#f5c030',16,6,45);
-      } else {
-        invTimer=90;shieldT=120;
-        triggerShake(5,8);playSFX('hit');
-        spawnParts(player.x+player.w/2,player.y-player.h/2,'#e84040',10,4,30);
-      }
-    }
-  } else if(d.type==='revived'){
-    // Host revivió a alguien — si soy yo, restaurar estado local
-    if(d.pid===mpMyIndex){
-      player.dead=false;
-      if(d.x!==undefined)player.x=d.x;
-      player.y=FLOOR;player.hp=REVIVE_HP;
-      invTimer=90;shieldT=120;
-      spawnParts(player.x+player.w/2,player.y-player.h/2,'#f8e840',18,6,40);
-      triggerShake(4,8);playSFX('heal');
-    }
-  } else if(d.type==='gameOverMP'){
-    // Todos muertos sin posibilidad de revival
-    stopMusic();showScreen('gameOver');gameState='end';
   }
 }
 
@@ -6314,19 +6151,12 @@ function mpBuildState(){
   else bossState={x:boss.x,y:boss.y,hp:boss.hp,maxHp:boss.maxHp,ph:bossPhase,def:bossDefeated?1:0,bob:boss.bobOff};
   return JSON.stringify({
     type:'state',f:frameCount,gs:gameState,
-    pl:mpPlayers.map((p,i)=>{
-      if(!p)return null;
-      let cl=i>0?mpClients.find(c=>c.id===i):null;
-      return{x:Math.round(p.x),y:Math.round(p.y),hp:p.hp,f:p.facing,cr:p.crouching?1:0,d:p.dashing?1:0,dead:p.dead?1:0,af:p.af,sc:p.shootCD>0?1:0,sk:p.skinId,slow:p.slowTimer||0,
-        iv:p.invTimer||0,sh:p.shieldT||0,
-        mx:cl?Math.round(cl.mx||mouseX):Math.round(mouseX),
-        my:cl?Math.round(cl.my||mouseY):Math.round(mouseY)};
-    }),
+    pl:mpPlayers.map((p,i)=>{if(!p)return null;let cl=i>0?mpClients.find(c=>c.id===i):null;return{x:Math.round(p.x),y:Math.round(p.y),hp:p.hp,f:p.facing,cr:p.crouching?1:0,d:p.dashing?1:0,dead:p.dead?1:0,af:p.af,sc:p.shootCD>0?1:0,sk:p.skinId,slow:p.slowTimer||0,iv:p.invTimer||0,sh:p.shieldT||0,mx:cl?Math.round(cl.mx||mouseX):Math.round(mouseX),my:cl?Math.round(cl.my||mouseY):Math.round(mouseY)};}),
+    gh:ghosts.map(g=>({x:Math.round(g.x),y:Math.round(g.y),sk:g.skinId||0,tm:g.timer,al:+(g.alpha).toFixed(2),pi:g.mpPlayerId!==undefined?g.mpPlayerId:-1})),
     boss:bossState,
     bp:bossProjectiles.slice(0,50).map(b=>({x:Math.round(b.x),y:Math.round(b.y),vx:+(b.vx).toFixed(1),vy:+(b.vy).toFixed(1),r:b.r,col:b.col})),
-    mn:minions.slice(0,20).map(m=>({x:Math.round(m.x),y:Math.round(m.y),vx:+(m.vx||0).toFixed(1),vy:+(m.vy||0).toFixed(1),t:m.type,hp:m.hp,f:m.facing||1,bt:+(m.bobT||0).toFixed(2),af:m.af||0,la:+(m.legAng||0).toFixed(2)})),
-    bl:bullets.slice(0,60).map(b=>({x:Math.round(b.x),y:Math.round(b.y),vx:+(b.vx).toFixed(1),vy:+(b.vy).toFixed(1),col:b.col,w:b.w||14,h:b.h||8})),
-    gh:ghosts.map(g=>({x:Math.round(g.x),y:Math.round(g.y),sk:g.skinId||0,tm:g.timer,al:+(g.alpha).toFixed(2),pi:g.mpPlayerId!==undefined?g.mpPlayerId:-1})),
+    mn:minions.slice(0,20).map(m=>({x:Math.round(m.x),y:Math.round(m.y),t:m.type,hp:m.hp})),
+    bl:bullets.slice(0,60).map(b=>({x:Math.round(b.x),y:Math.round(b.y),vx:+(b.vx||0).toFixed(1),vy:+(b.vy||0).toFixed(1),col:b.col,w:b.w||14,h:b.h||8})),
   });
 }
 
@@ -6372,71 +6202,37 @@ function mpDrawFromState(){
     else if(selectedBoss==='kronos'){kBoss.x=s.boss.x;kBoss.y=s.boss.y;kBoss.hp=s.boss.hp;kBoss.maxHp=s.boss.maxHp;kBoss.bobOff=s.boss.bob;kPhase=s.boss.ph;kDefeated=!!s.boss.def;drawKronos();}
     else{boss.x=s.boss.x;boss.y=s.boss.y;boss.hp=s.boss.hp;boss.maxHp=s.boss.maxHp;boss.bobOff=s.boss.bob;bossPhase=s.boss.ph;bossDefeated=!!s.boss.def;drawBoss();}
   }
-  // Reconstruir miniones con todos los campos que drawMinions necesita
-  if(s.mn){
-    minions=s.mn.map(m=>({
-      x:m.x,y:m.y,vx:m.vx||0,vy:m.vy||0,dead:false,
-      type:m.t,hp:m.hp,
-      w:m.t==='iceGolem'?44:m.t==='stormCloud'?50:m.t==='clockSpider'?30:32,
-      h:m.t==='iceGolem'?30:m.t==='stormCloud'?30:m.t==='clockSpider'?28:20,
-      facing:m.f||1,bobT:m.bt||0,af:m.af||0,at:0,
-      legAng:m.la||0,shootT:999,
-    }));
-  }
+  // Reconstruir miniones completos
+  if(s.mn){minions=s.mn.map(m=>({x:m.x,y:m.y,vx:m.vx||0,vy:m.vy||0,dead:false,type:m.t,hp:m.hp,w:m.t==='iceGolem'?44:m.t==='stormCloud'?50:m.t==='clockSpider'?30:32,h:m.t==='iceGolem'?30:m.t==='stormCloud'?30:m.t==='clockSpider'?28:20,facing:m.f||1,bobT:m.bt||0,af:m.af||0,at:0,legAng:m.la||0,shootT:999}));}
   drawMinions();
-  // Reconstruir proyectiles del jefe y dibujarlos con estilo
-  if(s.bp){
-    bossProjectiles=s.bp.map(b=>({x:b.x,y:b.y,vx:b.vx||0,vy:b.vy||0,r:b.r||9,col:b.col||'#ff4040',dead:false}));
-  }
-  for(let bp of bossProjectiles){
-    if(bp.dead)continue;
-    ctx.save();ctx.translate(bp.x,bp.y);
-    let ang=Math.atan2(bp.vy||0,bp.vx||0);ctx.rotate(ang);
-    ctx.fillStyle=bp.col;
-    ctx.beginPath();ctx.ellipse(0,0,bp.r*1.3,bp.r*0.7,0,0,Math.PI*2);ctx.fill();
-    ctx.strokeStyle='rgba(0,0,0,0.65)';ctx.lineWidth=2.5;ctx.stroke();
-    ctx.shadowColor=bp.col;ctx.shadowBlur=8;
-    ctx.strokeStyle=bp.col+'66';ctx.lineWidth=1.5;
-    ctx.beginPath();ctx.ellipse(0,0,bp.r*1.6,bp.r*0.9,0,0,Math.PI*2);ctx.stroke();
-    ctx.shadowBlur=0;
-    ctx.restore();
-  }
-  // Reconstruir balas del jugador y dibujarlas con estilo completo
-  if(s.bl){
-    bullets=s.bl.map(b=>({x:b.x,y:b.y,vx:b.vx||0,vy:b.vy||0,col:b.col||'#f8e840',w:b.w||14,h:b.h||8,owner:'player',life:99}));
-  }
+  // Reconstruir proyectiles del jefe con estilo
+  if(s.bp){bossProjectiles=s.bp.map(b=>({x:b.x,y:b.y,vx:b.vx||0,vy:b.vy||0,r:b.r||9,col:b.col||'#ff4040',dead:false}));}
+  for(let bp of bossProjectiles){if(bp.dead)continue;ctx.save();ctx.translate(bp.x,bp.y);let ang=Math.atan2(bp.vy||0,bp.vx||0);ctx.rotate(ang);ctx.fillStyle=bp.col;ctx.beginPath();ctx.ellipse(0,0,bp.r*1.3,bp.r*0.7,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='rgba(0,0,0,0.65)';ctx.lineWidth=2.5;ctx.stroke();ctx.shadowColor=bp.col;ctx.shadowBlur=8;ctx.strokeStyle=bp.col+'66';ctx.lineWidth=1.5;ctx.beginPath();ctx.ellipse(0,0,bp.r*1.6,bp.r*0.9,0,0,Math.PI*2);ctx.stroke();ctx.shadowBlur=0;ctx.restore();}
+  // Balas del jugador con estilo
+  if(s.bl){bullets=s.bl.map(b=>({x:b.x,y:b.y,vx:b.vx||0,vy:b.vy||0,col:b.col||'#f8e840',w:b.w||14,h:b.h||8,owner:'player',life:99}));}
   drawBullets();
-  // Reconstruir fantasmas desde estado del host y dibujarlos
-  if(s.gh!==undefined){
-    ghosts=s.gh.map(g=>({
-      x:g.x,y:g.y,vy:-GHOST_RISE_SPD,
-      skinId:g.sk||0,isP2:(g.pi===1),
-      mpPlayerId:g.pi,
-      timer:g.tm||60,alpha:g.al||1
-    }));
-  }
+  // Fantasmas desde estado
+  if(s.gh!==undefined){ghosts=s.gh.map(g=>({x:g.x,y:g.y,vy:-GHOST_RISE_SPD,skinId:g.sk||0,isP2:(g.pi===1),mpPlayerId:g.pi,timer:g.tm||60,alpha:g.al||1}));}
   drawGhosts();
-  // Draw all MP players usando drawPlayerObj completo
+  // Draw all MP players con drawPlayerObj completo
   if(s.pl){
     let savedMX=mouseX,savedMY=mouseY;
     for(let i=0;i<s.pl.length;i++){
       let pd=s.pl[i];if(!pd||pd.dead)continue;
       let isMine=(i===mpMyIndex);
-      let tmp={
+      let p_tmp={
         x:pd.x,y:pd.y,vx:0,vy:0,w:28,h:75,
-        hp:isMine?player.hp:pd.hp, maxHp:7, dead:false,
+        hp:isMine?player.hp:pd.hp,maxHp:7,dead:false,
         facing:pd.f||1,af:pd.af||0,at:0,
         crouching:!!pd.cr,dashing:!!pd.d,dashT:pd.d?4:0,dashDir:pd.f||1,
         onGround:true,skinId:pd.sk!==undefined?pd.sk:i,
-        // propio jugador usa variables locales para que el escudo/parpadeo sean inmediatos
         invTimer:isMine?invTimer:(pd.iv||0),
         shieldT: isMine?shieldT :(pd.sh||0),
         dashCD:0,shootCD:pd.sc?1:0,slowTimer:pd.slow||0,
       };
-      // Propio jugador usa mouse local; otros usan el reportado por el host
       if(isMine){mouseX=savedMX;mouseY=savedMY;}
       else{mouseX=pd.mx!==undefined?pd.mx:savedMX;mouseY=pd.my!==undefined?pd.my:savedMY;}
-      drawPlayerObj(tmp,isMine,isMine?undefined:'J'+(i+1));
+      drawPlayerObj(p_tmp,isMine,isMine?undefined:'J'+(i+1));
     }
     mouseX=savedMX;mouseY=savedMY;
   }
@@ -6499,13 +6295,13 @@ function gameLoop(){
       mpSendInput();
       mpDrawFromState();
     } else if(selectedBoss==='tempestina'){
-      drawBackgroundTemp();drawParts();drawTempestina();drawMinions();drawBullets();if(mpMode&&mpIsHost)drawMPAllPlayers();else drawPlayer();drawGhosts();drawSpecials();drawHUDTemp();drawPost();
+      drawBackgroundTemp();drawParts();drawTempestina();drawMinions();drawBullets();drawPlayer();drawGhosts();drawSpecials();drawHUDTemp();drawPost();
       if(gameState==='playing'){if(mpMode)mpUpdateHost();else updatePlayer();updateTempestina();updateMinions();updateParts();checkCollisions();updateGhosts();}
     } else if(selectedBoss==='kronos'){
-      drawBackgroundKronos();drawParts();drawKronos();drawMinions();drawBullets();if(mpMode&&mpIsHost)drawMPAllPlayers();else drawPlayer();drawGhosts();drawSpecials();drawHUDKronos();
+      drawBackgroundKronos();drawParts();drawKronos();drawMinions();drawBullets();drawPlayer();drawGhosts();drawSpecials();drawHUDKronos();
       if(gameState==='playing'){if(mpMode)mpUpdateHost();else updatePlayer();updateKronos();updateMinions();updateParts();checkCollisions();updateGhosts();}
     } else {
-      drawBackground();drawParts();drawBoss();drawMinions();drawBullets();if(mpMode&&mpIsHost)drawMPAllPlayers();else drawPlayer();drawGhosts();drawSpecials();drawHUD();drawPost();
+      drawBackground();drawParts();drawBoss();drawMinions();drawBullets();drawPlayer();drawGhosts();drawSpecials();drawHUD();drawPost();
       if(gameState==='playing'){if(mpMode)mpUpdateHost();else updatePlayer();updateBoss();updateMinions();updateParts();checkCollisions();updateGhosts();}
     }
     if(gameState==='end'&&victoryScreen)drawVictoryScreen();
