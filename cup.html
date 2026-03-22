@@ -3832,7 +3832,8 @@ function spawnGhost(p){
   // Find MP player index for revival
   let mpIdx=-1;
   if(mpMode){
-    for(let i=0;i<mpPlayers.length;i++){if(mpPlayers[i]===p){mpIdx=i;break;}}
+    if(p===player){mpIdx=0;}
+    else{for(let i=0;i<mpPlayers.length;i++){if(mpPlayers[i]===p){mpIdx=i;break;}}}
   }
   ghosts.push({
     x:p.x+p.w/2, y:p.y-p.h/2,
@@ -6058,7 +6059,10 @@ function mpBuildState(){
     pl:mpPlayers.map((p,i)=>{
       if(!p)return null;
       let cl=i>0?mpClients.find(c=>c.id===i):null;
+      let pInvT=i===0?invTimer:(p.invTimer||0);
+      let pShT=i===0?shieldT:(p.shieldT||0);
       return{x:Math.round(p.x),y:Math.round(p.y),hp:p.hp,f:p.facing,cr:p.crouching?1:0,d:p.dashing?1:0,dead:p.dead?1:0,af:p.af,sc:p.shootCD>0?1:0,sk:p.skinId,slow:p.slowTimer||0,
+        sh:pShT>0?Math.round(pShT):0, iv:pInvT>0?Math.round(pInvT):0,
         mx:cl?cl.mx||mouseX:mouseX, my:cl?cl.my||mouseY:mouseY};
     }),
     boss:bossState,
@@ -6218,7 +6222,7 @@ function mpDrawFromState(){
       crouching:!!pd.cr,dashing:!!pd.d,dashT:pd.d?4:0,dashDir:pd.f||1,
       onGround:true,
       skinId:pd.sk!==undefined?pd.sk:i,
-      invTimer:0,shieldT:0,dashCD:0,shootCD:pd.sc?1:0,
+      invTimer:pd.iv||0,shieldT:pd.sh||0,dashCD:0,shootCD:pd.sc?1:0,
       slowTimer:pd.slow||0,
     };
     let isMine=(i===mpMyIndex);
