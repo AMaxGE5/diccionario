@@ -272,7 +272,16 @@ document.addEventListener('keydown',e=>{
   // J2 Special: U while playing
   if(e.code==='KeyU'&&gameState==='playing'&&p2Active&&!player2.dead){activateSpecial(true);return;}
   // Weapon switch J1: Q, J2: I
-  if(e.code==='KeyQ'&&gameState==='playing'){p1ActiveSlot=(p1ActiveSlot+1)%2;}
+  if(e.code==='KeyQ'&&gameState==='playing'){
+    if(mpMode&&!mpIsHost){
+      // Cliente: notifica al host y cambia su slot local para el HUD
+      mpPlayerActiveSlot[mpMyIndex]=(mpPlayerActiveSlot[mpMyIndex]+1)%2;
+      if(mpHostConn)try{mpHostConn.send(JSON.stringify({type:'switchWeapon',slot:mpPlayerActiveSlot[mpMyIndex]}));}catch(e2){}
+    } else {
+      p1ActiveSlot=(p1ActiveSlot+1)%2;
+      if(mpMode&&mpIsHost) mpPlayerActiveSlot[0]=(mpPlayerActiveSlot[0]+1)%2;
+    }
+  }
   if(e.code==='KeyI'&&gameState==='playing'&&p2Active){p2ActiveSlot=(p2ActiveSlot+1)%2;}
   // Overworld: E key to interact
   if(e.code==='KeyE'&&gameState==='overworld'){owHandleE();}
@@ -451,16 +460,25 @@ let p1Slots=['basic','homing'];
 let p2Slots=['basic','shotgun'];
 let p1ActiveSlot=0;
 let p2ActiveSlot=0;
+// MP: slots y slot activo por player index (0=host, 1-3=clientes)
+let mpPlayerSlots=[['basic','homing'],['basic','shotgun'],['basic','homing'],['basic','shotgun']];
+let mpPlayerActiveSlot=[0,0,0,0];
 let owWeaponMenu=false; // weapon inventory open on island
 
-function getWeapon(isP2){
+function getWeapon(isP2,mpIdx){
+  // En MP el host llama con mpIdx del cliente; fuera de MP usa P1/P2
+  if(mpMode&&mpIdx!==undefined){
+    let slots=mpPlayerSlots[mpIdx]||['basic','homing'];
+    let slot=mpPlayerActiveSlot[mpIdx]||0;
+    return WEAPONS[slots[slot]||'basic'];
+  }
   let slots=isP2?p2Slots:p1Slots;
   let slot=isP2?p2ActiveSlot:p1ActiveSlot;
   return WEAPONS[slots[slot]||'basic'];
 }
 
-function shootWeapon(p,isP2,aimX,aimY){
-  let wep=getWeapon(isP2);
+function shootWeapon(p,isP2,aimX,aimY,mpIdx){
+  let wep=getWeapon(isP2,mpIdx);
   let sk=SKINS[p.skinId||0];
   let bx=p.x+p.w/2;
   let by=p.y-(p.crouching?p.h*0.3:p.h*0.60);
@@ -493,7 +511,7 @@ function shootWeapon(p,isP2,aimX,aimY){
     p.facing=facing;
     let b={x:bx+(facing>=0?p.w/2:-p.w/2),y:by,vx,vy,w:14,h:8,
       owner:'player',col,life:wep.maxRange===9999?70:Math.ceil(wep.maxRange/wep.speed),
-      fromP2:isP2,dmgMult:wep.dmg};
+      fromP2:isP2,dmgMult:wep.dmg,fromMPId:mpMode?(mpIdx!==undefined?mpIdx:0):undefined};
     if(wep===WEAPONS.homing) b.playerHoming=true;
     bullets.push(b);
   } else {
@@ -507,7 +525,7 @@ function shootWeapon(p,isP2,aimX,aimY){
       let life=Math.ceil((wep.maxRange/spd)*(0.8+Math.random()*0.4));
       bullets.push({x:bx+(dx>=0?p.w/2:-p.w/2),y:by,
         vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,
-        w:10,h:6,owner:'player',col,life,fromP2:isP2,dmgMult:wep.dmg});
+        w:10,h:6,owner:'player',col,life,fromP2:isP2,dmgMult:wep.dmg,fromMPId:mpMode?(mpIdx!==undefined?mpIdx:0):undefined});
     }
   }
   statShots++;playSFX('shoot');
@@ -523,7 +541,9 @@ let p1SpecialCharge=0, p2SpecialCharge=0;
 let p1SpecialAnim=null; // null or {t,dur,beamY,dir}
 let p2SpecialAnim=null;
 
-function addSpecialCharge(isP2,amt){
+function addSpecialCharge(isP2,amt,mpIdx){
+  // En MP solo el host (mpIdx===0 o undefined) carga el especial
+  if(mpMode&&mpIdx!==undefined&&mpIdx!==0)return;
   if(isP2) p2SpecialCharge=Math.min(SPECIAL_THRESHOLD,p2SpecialCharge+(amt||1));
   else p1SpecialCharge=Math.min(SPECIAL_THRESHOLD,p1SpecialCharge+(amt||1));
 }
@@ -774,7 +794,7 @@ function resetPlayer(){
   bossHpPool=0;
 }
 
-function updatePlayerObj(p,cfg,ownDashCD,ownShootCD,ownInvTimer,ownShieldT,ownJumpHeld,tmx,tmy){
+function updatePlayerObj(p,cfg,ownDashCD,ownShootCD,ownInvTimer,ownShieldT,ownJumpHeld,tmx,tmy,_mpIdx){
   if(p.dead)return{dashCD:ownDashCD,shootCD:ownShootCD,invTimer:ownInvTimer,shieldT:ownShieldT,jumpHeld:ownJumpHeld};
   let spd=4.5;
   // Clock-hand slow effect — tick down and reduce speed
@@ -809,7 +829,7 @@ function updatePlayerObj(p,cfg,ownDashCD,ownShootCD,ownInvTimer,ownShieldT,ownJu
   // SHOOT — uses active weapon; autoShoot fires for both when 2P local
   let wantShoot=keys[cfg.shoot]||(autoShoot&&p2Active&&!mpMode);
   if(wantShoot&&ownShootCD<=0&&!p.dashing&&!((p===player?p1SpecialAnim:p2SpecialAnim))){
-    ownShootCD=shootWeapon(p,p===player2,tmx,tmy);
+    ownShootCD=shootWeapon(p,p===player2,tmx,tmy,_mpIdx);
   }
   if(ownShootCD>0)ownShootCD--;
 
@@ -2181,7 +2201,7 @@ function checkCollisionsInk(){
           let scaled=dmg*mpDmgMult();bossHpPool+=scaled;
           if(bossHpPool>=1){let h=Math.floor(bossHpPool);bossHpPool-=h;boss.hp-=h;bossInvT=10;statDmgDealt+=h;playSFX('bossHit');spawnParts(boss.x+boss.w*0.3,boss.y+boss.h*0.5+boss.bobOff,'#f0a020',5,5,18);triggerShake(3,4);}
         }
-        addSpecialCharge(b.fromP2,dmg>=1?1:0.5);
+        addSpecialCharge(b.fromP2,dmg>=1?1:0.5,b.fromMPId);
         if(boss.hp<=0){
           bossDefeated=true;bossExitDir=0;pendingPhase=0;
           stopMusic();playSFX('win');markVictory('inkboss',difficulty);
@@ -3466,7 +3486,7 @@ function checkCollisions(){
             let scaled=dmg*mpDmgMult();bossHpPool+=scaled;
             if(bossHpPool>=1){let h=Math.floor(bossHpPool);bossHpPool-=h;tBoss.hp-=h;tInvT=10;statDmgDealt+=h;playSFX('bossHit');spawnParts(tBoss.x+tBoss.w/2,tBoss.y+tBoss.h/2+tBoss.bobOff,'#40c0ff',5,5,18);triggerShake(3,4);}
           }
-          addSpecialCharge(b.fromP2,dmg>=1?1:0.5);
+          addSpecialCharge(b.fromP2,dmg>=1?1:0.5,b.fromMPId);
           if(tBoss.hp<=0){tDefeated=true;stopMusic();markVictory('tempestina',difficulty);playSFX('win');spawnParts(tBoss.x+tBoss.w/2,tBoss.y+tBoss.h/2,'#f5d020',30,8,60);triggerShake(12,35);setTimeout(()=>triggerVictoryScreen('tempestina'),2200);}
         }
         continue;
@@ -4295,7 +4315,7 @@ function checkCollisionsKronos(){
           let scaled=dmg*mpDmgMult();bossHpPool+=scaled;
           if(bossHpPool>=1){let h=Math.floor(bossHpPool);bossHpPool-=h;kBoss.hp-=h;kInvT=10;statDmgDealt+=h;playSFX('bossHit');spawnParts(kBoss.x+kBoss.w/2,kBoss.y+kBoss.h/2+kBoss.bobOff,'#c8a028',5,5,18);triggerShake(3,4);}
         }
-        addSpecialCharge(b.fromP2,dmg>=1?1:0.5);
+        addSpecialCharge(b.fromP2,dmg>=1?1:0.5,b.fromMPId);
         if(kBoss.hp<=0){kDefeated=true;stopMusic();markVictory('kronos',difficulty);playSFX('win');spawnParts(kBoss.x+kBoss.w/2,kBoss.y+kBoss.h/2,'#f5d020',30,8,60);triggerShake(12,35);kGears=[];kPendulum=null;kReverseZone=null;kSingularity=null;kClockHands=[];setTimeout(()=>triggerVictoryScreen('kronos'),2200);}
       }
       continue;
@@ -5621,6 +5641,7 @@ function mpHandleIncoming(conn){
       let cl=mpClients.find(c=>c.conn===conn);
       if(!cl)return;
       if(d.type==='input'){cl.keys=d.keys||{};if(d.mx!==undefined)cl.mx=d.mx;if(d.my!==undefined)cl.my=d.my;}
+      else if(d.type==='switchWeapon'){mpPlayerActiveSlot[cl.id]=d.slot%2;}
       else if(d.type==='vote')mpReceiveVote(cl.id,d.boss,d.diff);
       else if(d.type==='owPos'){
         mpOwPositions[d.id]=d;
@@ -6148,7 +6169,7 @@ function mpUpdateHost(){
     let savedKeys=keys;keys=cl.keys||{};
     let cmx=cl.mx!==undefined?cl.mx:mouseX;
     let cmy=cl.my!==undefined?cl.my:mouseY;
-    let s=updatePlayerObj(p,P1CFG,p.dashCD,p.shootCD,p.invTimer,p.shieldT,p.jumpHeld,cmx,cmy);
+    let s=updatePlayerObj(p,P1CFG,p.dashCD,p.shootCD,p.invTimer,p.shieldT,p.jumpHeld,cmx,cmy,cl.id);
     keys=savedKeys;
     p.dashCD=s.dashCD;p.shootCD=s.shootCD;p.invTimer=s.invTimer;p.shieldT=s.shieldT;p.jumpHeld=s.jumpHeld;
   }
