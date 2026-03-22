@@ -1182,12 +1182,12 @@ function updateMinions(){
     if((invTimer<=0&&shieldT<=0)&&!player.dead&&rectsOvlp(mhx,mhy,mhw,mhh,...pHitBox(player))){
       player.hp--;invTimer=90;shieldT=100;triggerShake(4,8);
       spawnParts(player.x+player.w/2,player.y-player.h/2,'#e84040',8,4,30);
-      if(player.hp<=0){player.dead=true;spawnGhost(player);triggerShake(8,20);if(!p2Active||player2.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}}
+      if(player.hp<=0){player.dead=true;spawnGhost(player);triggerShake(8,20);if(!p2Active||player2.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}}
     }
     if(p2Active&&!player2.dead&&player2.invTimer<=0&&player2.shieldT<=0&&rectsOvlp(mhx,mhy,mhw,mhh,...pHitBox(player2))){
       player2.hp--;player2.invTimer=90;player2.shieldT=100;triggerShake(4,8);
       spawnParts(player2.x+player2.w/2,player2.y-player2.h/2,'#e84040',8,4,30);
-      if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}}
+      if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}}
     }
   }
 }
@@ -2260,7 +2260,7 @@ function checkCollisionsInk(){
         bossProjectiles.splice(i,1);player.hp--;invTimer=90;shieldT=120;
         triggerShake(5,8);playSFX('hit');spawnParts(player.x+player.w/2,player.y-player.h/2,'#e84040',10,4,30);
         if(player.hp<=0){player.dead=true;spawnGhost(player);spawnParts(player.x+player.w/2,player.y-player.h/2,'#f5c030',20,6,50);triggerShake(8,20);
-          if(!p2Active||player2.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+          if(!p2Active||player2.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
         }break;
       }
     }
@@ -2273,7 +2273,7 @@ function checkCollisionsInk(){
         bossProjectiles.splice(i,1);player2.hp--;player2.invTimer=90;player2.shieldT=120;
         triggerShake(5,8);playSFX('hit');spawnParts(player2.x+player2.w/2,player2.y-player2.h/2,'#e84040',10,4,30);
         if(player2.hp<=0){player2.dead=true;spawnGhost(player2);
-          if(player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+          if(player.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
         }break;
       }
     }
@@ -3548,7 +3548,7 @@ function checkCollisions(){
         if(rectsOvlp(bp.x-bp.r,bp.y-bp.r,bp.r*2,bp.r*2,...pHitBox(player))){
           bossProjectiles.splice(i,1);player.hp--;invTimer=90;shieldT=120;triggerShake(5,8);playSFX('hit');spawnParts(player.x+player.w/2,player.y-player.h/2,'#e84040',10,4,30);
           if(player.hp<=0){player.dead=true;spawnGhost(player);spawnParts(player.x+player.w/2,player.y-player.h/2,'#f5c030',20,6,50);triggerShake(8,20);
-            if(!p2Active||player2.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+            if(!p2Active||player2.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
           }break;
         }
       }
@@ -3559,7 +3559,7 @@ function checkCollisions(){
         let bp=bossProjectiles[i];if(bp.tornado)continue;
         if(rectsOvlp(bp.x-bp.r,bp.y-bp.r,bp.r*2,bp.r*2,...pHitBox(player2))){
           bossProjectiles.splice(i,1);player2.hp--;player2.invTimer=90;player2.shieldT=120;triggerShake(5,8);playSFX('hit');spawnParts(player2.x+player2.w/2,player2.y-player2.h/2,'#e84040',10,4,30);
-          if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}}break;
+          if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}}break;
         }
       }
     }
@@ -3575,7 +3575,7 @@ function checkCollisions(){
       if(p2Active&&!player2.dead&&player2.invTimer<=0&&player2.shieldT<=0){
         if(Math.abs(bp.x-(player2.x+player2.w/2))<bp.r+10&&bp.y>player2.y-player2.h&&bp.y<player2.y+10){
           player2.hp--;player2.invTimer=90;player2.shieldT=100;triggerShake(5,8);playSFX('hit');
-          if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}}
+          if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}}
         }
       }
     }
@@ -3890,12 +3890,40 @@ const GHOST_RISE_SPD=0.7;
 const GHOST_LIFE=360; // 6s before disappears
 const REVIVE_HP=4;    // HP on revival (half max)
 
+// Verifica si todos los jugadores están muertos Y sin fantasmas activos → game over MP
+function checkAllDeadMP(){
+  if(!mpMode||!mpIsHost)return;
+  let anyAlive=mpPlayers.some(p=>p&&!p.dead);
+  if(anyAlive)return;
+  if(ghosts.length>0)return; // aún hay fantasmas que pueden ser revividos
+  // Todos muertos y sin posibilidad de revival
+  stopMusic();
+  setTimeout(()=>{
+    mpBroadcast({type:'gameOverMP'});
+    showScreen('gameOver');gameState='end';
+  },1800);
+}
+
+// Llamar checkAllDeadMP cuando expira o se revive un fantasma
+function onGhostExpired(){
+  if(mpMode&&mpIsHost) checkAllDeadMP();
+}
+
 function spawnGhost(p){
+  // Determinar mpPlayerId: buscar en mpPlayers primero, luego isP2
+  let mpId=-1;
+  if(mpMode){
+    if(p===player) mpId=0;
+    else{for(let i=1;i<mpPlayers.length;i++){if(mpPlayers[i]===p){mpId=i;break;}}}
+  } else {
+    mpId=p===player2?1:0;
+  }
   ghosts.push({
     x:p.x+p.w/2, y:p.y-p.h/2,
     vy:-GHOST_RISE_SPD,
     skinId:p.skinId||0,
     isP2:(p===player2),
+    mpPlayerId:mpId,
     timer:GHOST_LIFE, alpha:1
   });
 }
@@ -3905,43 +3933,78 @@ function updateGhosts(){
     let g=ghosts[i];
     g.y+=g.vy;
     g.timer--;
-    // Fade out in last 60 frames
     g.alpha=Math.min(1,g.timer/60);
-    // Wobble
     g.x+=Math.sin(g.timer*0.08)*0.5;
-    if(g.timer<=0){ghosts.splice(i,1);continue;}
-    // Check bullets hitting ghost
-    for(let j=bullets.length-1;j>=0;j--){
-      let b=bullets[j];
-      if(b.owner!=='player')continue;
-      // P1 bullet can revive P2 ghost, P2 bullet can revive P1 ghost
-      let canRevive=(g.isP2&&!b.fromP2)||((!g.isP2)&&b.fromP2);
-      if(!canRevive)continue;
-      let dx=b.x-g.x,dy=b.y-g.y;
-      if(Math.sqrt(dx*dx+dy*dy)<22){
-        // REVIVE!
-        bullets.splice(j,1);
-        ghosts.splice(i,1);
-        if(g.isP2&&p2Active){
-          player2.dead=false;
-          player2.x=g.x-player2.w/2;
-          player2.y=FLOOR;
-          player2.hp=REVIVE_HP;
-          player2.invTimer=90;player2.shieldT=120;
-          spawnParts(g.x,g.y,'#40c8ff',18,6,40);
-          triggerShake(4,8);
-          playSFX('heal');
-        } else if(!g.isP2){
-          player.dead=false;
-          player.x=g.x-player.w/2;
-          player.y=FLOOR;
-          player.hp=REVIVE_HP;
-          invTimer=90;shieldT=120;
-          spawnParts(g.x,g.y,'#f8e840',18,6,40);
-          triggerShake(4,8);
-          playSFX('heal');
+    if(g.timer<=0){ghosts.splice(i,1);onGhostExpired();continue;}
+
+    // ── MODO MP HOST: revisar balas de CUALQUIER jugador vivo vs cualquier fantasma ──
+    if(mpMode&&mpIsHost){
+      for(let j=bullets.length-1;j>=0;j--){
+        let b=bullets[j];
+        if(b.owner!=='player')continue;
+        // No puedes revivir tu propio fantasma
+        let shooterIdx=b.fromMPId!==undefined?b.fromMPId:0;
+        if(shooterIdx===g.mpPlayerId)continue;
+        let dx=b.x-g.x,dy=b.y-g.y;
+        if(Math.sqrt(dx*dx+dy*dy)<28){
+          bullets.splice(j,1);
+          ghosts.splice(i,1);
+          // Revivir al jugador correspondiente
+          let pid=g.mpPlayerId;
+          let rp=mpPlayers[pid];
+          if(rp){
+            rp.dead=false;rp.x=g.x-rp.w/2;rp.y=FLOOR;
+            rp.hp=REVIVE_HP;rp.invTimer=90;rp.shieldT=120;
+            if(pid===0){invTimer=90;shieldT=120;} // sync host globals
+            spawnParts(g.x,g.y,(ALL_SKINS[rp.skinId]||ALL_SKINS[0]).hatBand,18,6,40);
+            triggerShake(4,8);playSFX('heal');
+            // Notificar a todos los clientes
+            mpBroadcast({type:'revived',pid,x:Math.round(rp.x),y:Math.round(rp.y)});
+          }
+          onGhostExpired();
+          break;
         }
-        break;
+      }
+      continue; // host no usa la lógica local de abajo
+    }
+
+    // ── MODO LOCAL (sin MP) ──
+    if(!mpMode){
+      for(let j=bullets.length-1;j>=0;j--){
+        let b=bullets[j];
+        if(b.owner!=='player')continue;
+        let canRevive=(g.isP2&&!b.fromP2)||((!g.isP2)&&b.fromP2);
+        if(!canRevive)continue;
+        let dx=b.x-g.x,dy=b.y-g.y;
+        if(Math.sqrt(dx*dx+dy*dy)<22){
+          bullets.splice(j,1);ghosts.splice(i,1);
+          if(g.isP2&&p2Active){
+            player2.dead=false;player2.x=g.x-player2.w/2;player2.y=FLOOR;
+            player2.hp=REVIVE_HP;player2.invTimer=90;player2.shieldT=120;
+            spawnParts(g.x,g.y,'#40c8ff',18,6,40);triggerShake(4,8);playSFX('heal');
+          } else if(!g.isP2){
+            player.dead=false;player.x=g.x-player.w/2;player.y=FLOOR;
+            player.hp=REVIVE_HP;invTimer=90;shieldT=120;
+            spawnParts(g.x,g.y,'#f8e840',18,6,40);triggerShake(4,8);playSFX('heal');
+          }
+          break;
+        }
+      }
+    }
+
+    // ── MODO MP CLIENTE: detectar su propia bala tocando fantasma ajeno ──
+    if(mpMode&&!mpIsHost){
+      for(let j=bullets.length-1;j>=0;j--){
+        let b=bullets[j];
+        if(b.owner!=='player')continue;
+        if(g.mpPlayerId===mpMyIndex)continue; // no revivir el propio
+        let dx=b.x-g.x,dy=b.y-g.y;
+        if(Math.sqrt(dx*dx+dy*dy)<28){
+          bullets.splice(j,1);
+          // Pedir al host que aplique el revival
+          if(mpHostConn)try{mpHostConn.send(JSON.stringify({type:'reviveRequest',pid:g.mpPlayerId}));}catch(e2){}
+          break;
+        }
       }
     }
   }
@@ -3949,7 +4012,7 @@ function updateGhosts(){
 
 function drawGhosts(){
   for(let g of ghosts){
-    let sk=SKINS[g.skinId||0];
+    let sk=ALL_SKINS[g.skinId]||SKINS[g.skinId]||SKINS[0];
     let float=Math.sin(frameCount*0.08)*4;
     ctx.save();ctx.globalAlpha=g.alpha*0.85;
     ctx.translate(g.x,g.y+float);
@@ -4227,8 +4290,8 @@ function updateKronos(){
         p.hp--;setInv(90);p.shieldT=100;triggerShake(6,10);playSFX('hit');
         spawnParts(p.x+p.w/2,p.y-p.h/2,'#e84040',10,4,28);
         if(p.hp<=0){p.dead=true;spawnGhost(p);
-          if(p===player&&(!p2Active||player2.dead)){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
-          if(p===player2&&player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+          if(p===player&&(!p2Active||player2.dead)){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
+          if(p===player2&&player.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
         }
       }
     }
@@ -4283,8 +4346,8 @@ function updateKronos(){
             p.hp--;(p===player?invTimer=90:p.invTimer=90);p.shieldT=80;
             triggerShake(4,6);playSFX('hit');
             if(p.hp<=0){p.dead=true;spawnGhost(p);
-              if(p===player&&(!p2Active||player2.dead)){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
-              if(p===player2&&player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+              if(p===player&&(!p2Active||player2.dead)){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
+              if(p===player2&&player.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
             }
           }
         }
@@ -4302,8 +4365,8 @@ function updateKronos(){
           (p===player?invTimer=90:p.invTimer=90);p.shieldT=90;
           triggerShake(8,14);playSFX('hit');spawnParts(sg.x,sg.y,'#cc40ff',14,6,50);
           if(p.hp<=0){p.dead=true;spawnGhost(p);
-            if(p===player&&(!p2Active||player2.dead)){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
-            if(p===player2&&player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+            if(p===player&&(!p2Active||player2.dead)){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
+            if(p===player2&&player.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
           }
         }
       }
@@ -4366,13 +4429,13 @@ function checkCollisionsKronos(){
     if(invTimer<=0&&shieldT<=0&&!player.dead&&rectsOvlp(bp.x-bp.r,bp.y-bp.r,bp.r*2,bp.r*2,...pHitBox(player))){
       bossProjectiles.splice(i,1);player.hp--;invTimer=90;shieldT=120;triggerShake(5,8);playSFX('hit');
       spawnParts(player.x+player.w/2,player.y-player.h/2,'#e84040',10,4,30);
-      if(player.hp<=0){player.dead=true;spawnGhost(player);if(!p2Active||player2.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}}
+      if(player.hp<=0){player.dead=true;spawnGhost(player);if(!p2Active||player2.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}}
       continue;
     }
     if(p2Active&&!player2.dead&&player2.invTimer<=0&&player2.shieldT<=0&&rectsOvlp(bp.x-bp.r,bp.y-bp.r,bp.r*2,bp.r*2,...pHitBox(player2))){
       bossProjectiles.splice(i,1);player2.hp--;player2.invTimer=90;player2.shieldT=120;triggerShake(5,8);playSFX('hit');
       spawnParts(player2.x+player2.w/2,player2.y-player2.h/2,'#e84040',10,4,30);
-      if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}}
+      if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}}
     }
   }
   for(let i=bullets.length-1;i>=0;i--){
@@ -5641,12 +5704,17 @@ function mpJoinRoom(roomIndex){
         } else if(d.type==='owPos'){
           mpOwPositions[d.id]=d; // store remote position
         } else if(d.type==='loading'){
-          // Host says loading — show loading screen on client
-          mpShowLoadingScreen(d.total);
-          // Tell host we're ready after a short delay (simulating load)
+          // Host dice que va a empezar — inicializar estado del cliente
+          selectedBoss=d.selectedBoss||selectedBoss;
+          difficulty=d.difficulty||difficulty;
+          let skins=d.skins||[0,1,2,3];
+          p1SkinId=skins[mpMyIndex]||mpMyIndex;
+          player.skinId=p1SkinId;
+          mpPlayerCount=d.total||mpPlayerCount;
+          mpShowLoadingScreen(d.total||mpPlayerCount);
           setTimeout(()=>{
             if(mpHostConn)mpHostConn.send(JSON.stringify({type:'ready',id:mpMyIndex}));
-          },800);
+          },600);
         } else if(d.type==='allReady'){
           // Host says everyone loaded — dismiss loading and start intro
           mpDismissLoading();
@@ -5696,6 +5764,28 @@ function mpHandleIncoming(conn){
       if(d.type==='input'){cl.keys=d.keys||{};if(d.mx!==undefined)cl.mx=d.mx;if(d.my!==undefined)cl.my=d.my;}
       else if(d.type==='switchWeapon'){mpPlayerActiveSlot[cl.id]=d.slot%2;}
       else if(d.type==='setWeaponSlot'){if(mpPlayerSlots[cl.id]&&d.weaponId&&d.slot>=0&&d.slot<2){let opp=1-d.slot;if(mpPlayerSlots[cl.id][opp]!==d.weaponId)mpPlayerSlots[cl.id][d.slot]=d.weaponId;}}
+      else if(d.type==='reviveRequest'){
+        // Cliente pide revivir a otro jugador
+        let pid=d.pid;
+        if(pid>=0&&pid<mpPlayers.length){
+          // Encontrar el fantasma de ese jugador
+          let gi=ghosts.findIndex(g=>g.mpPlayerId===pid);
+          if(gi>=0){
+            let g=ghosts[gi];
+            let rp=mpPlayers[pid];
+            if(rp&&rp.dead){
+              ghosts.splice(gi,1);
+              rp.dead=false;rp.x=g.x-rp.w/2;rp.y=FLOOR;
+              rp.hp=REVIVE_HP;rp.invTimer=90;rp.shieldT=120;
+              if(pid===0){invTimer=90;shieldT=120;} // host globals
+              spawnParts(g.x,g.y,(ALL_SKINS[rp.skinId]||ALL_SKINS[0]).hatBand,18,6,40);
+              triggerShake(4,8);playSFX('heal');
+              mpBroadcast({type:'revived',pid,x:Math.round(rp.x),y:Math.round(rp.y)});
+              onGhostExpired();
+            }
+          }
+        }
+      }
       else if(d.type==='vote')mpReceiveVote(cl.id,d.boss,d.diff);
       else if(d.type==='owPos'){
         mpOwPositions[d.id]=d;
@@ -6032,6 +6122,19 @@ function mpHandleVoteMsg(d){
   } else if(d.type==='start'){
     mpPlayerCount=d.playerCount;selectedBoss=d.selectedBoss||d.boss||'inkboss';difficulty=d.difficulty||d.diff||'normal';
     mpLaunchGame(d);
+  } else if(d.type==='revived'){
+    // Host revivió a alguien — si soy yo, restaurar estado local
+    if(d.pid===mpMyIndex){
+      player.dead=false;
+      if(d.x!==undefined)player.x=d.x;
+      player.y=FLOOR;player.hp=REVIVE_HP;
+      invTimer=90;shieldT=120;
+      spawnParts(player.x+player.w/2,player.y-player.h/2,'#f8e840',18,6,40);
+      triggerShake(4,8);playSFX('heal');
+    }
+  } else if(d.type==='gameOverMP'){
+    // Todos muertos sin posibilidad de revival
+    stopMusic();showScreen('gameOver');gameState='end';
   }
 }
 
@@ -6127,6 +6230,7 @@ function mpBuildState(){
     bp:bossProjectiles.slice(0,50).map(b=>({x:Math.round(b.x),y:Math.round(b.y),vx:+(b.vx).toFixed(1),vy:+(b.vy).toFixed(1),r:b.r,col:b.col})),
     mn:minions.slice(0,20).map(m=>({x:Math.round(m.x),y:Math.round(m.y),vx:+(m.vx||0).toFixed(1),vy:+(m.vy||0).toFixed(1),t:m.type,hp:m.hp,f:m.facing||1,bt:+(m.bobT||0).toFixed(2),af:m.af||0,la:+(m.legAng||0).toFixed(2)})),
     bl:bullets.slice(0,60).map(b=>({x:Math.round(b.x),y:Math.round(b.y),vx:+(b.vx).toFixed(1),vy:+(b.vy).toFixed(1),col:b.col,w:b.w||14,h:b.h||8})),
+    gh:ghosts.map(g=>({x:Math.round(g.x),y:Math.round(g.y),sk:g.skinId||0,tm:g.timer,al:+(g.alpha).toFixed(2),pi:g.mpPlayerId!==undefined?g.mpPlayerId:-1})),
   });
 }
 
@@ -6206,6 +6310,16 @@ function mpDrawFromState(){
     bullets=s.bl.map(b=>({x:b.x,y:b.y,vx:b.vx||0,vy:b.vy||0,col:b.col||'#f8e840',w:b.w||14,h:b.h||8,owner:'player',life:99}));
   }
   drawBullets();
+  // Reconstruir fantasmas desde estado del host y dibujarlos
+  if(s.gh!==undefined){
+    ghosts=s.gh.map(g=>({
+      x:g.x,y:g.y,vy:-GHOST_RISE_SPD,
+      skinId:g.sk||0,isP2:(g.pi===1),
+      mpPlayerId:g.pi,
+      timer:g.tm||60,alpha:g.al||1
+    }));
+  }
+  drawGhosts();
   // Draw all MP players usando drawPlayerObj completo
   if(s.pl){
     let savedMX=mouseX,savedMY=mouseY;
