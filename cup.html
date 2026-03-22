@@ -6037,7 +6037,14 @@ function mpBuildState(){
   else bossState={x:boss.x,y:boss.y,hp:boss.hp,maxHp:boss.maxHp,ph:bossPhase,def:bossDefeated?1:0,bob:boss.bobOff};
   return JSON.stringify({
     type:'state',f:frameCount,gs:gameState,
-    pl:mpPlayers.map(p=>p?{x:Math.round(p.x),y:Math.round(p.y),hp:p.hp,f:p.facing,cr:p.crouching?1:0,d:p.dashing?1:0,dead:p.dead?1:0,af:p.af,sc:p.shootCD>0?1:0,sk:p.skinId,slow:p.slowTimer||0}:null),
+    pl:mpPlayers.map((p,i)=>{
+      if(!p)return null;
+      let cl=i>0?mpClients.find(c=>c.id===i):null;
+      return{x:Math.round(p.x),y:Math.round(p.y),hp:p.hp,f:p.facing,cr:p.crouching?1:0,d:p.dashing?1:0,dead:p.dead?1:0,af:p.af,sc:p.shootCD>0?1:0,sk:p.skinId,slow:p.slowTimer||0,
+        iv:p.invTimer||0,sh:p.shieldT||0,
+        mx:cl?Math.round(cl.mx||mouseX):Math.round(mouseX),
+        my:cl?Math.round(cl.my||mouseY):Math.round(mouseY)};
+    }),
     boss:bossState,
     bp:bossProjectiles.slice(0,50).map(b=>({x:Math.round(b.x),y:Math.round(b.y),vx:+(b.vx).toFixed(1),vy:+(b.vy).toFixed(1),r:b.r,col:b.col})),
     mn:minions.slice(0,20).map(m=>({x:Math.round(m.x),y:Math.round(m.y),t:m.type,hp:m.hp})),
@@ -6094,23 +6101,27 @@ function mpDrawFromState(){
   if(s.bp)for(let bp of s.bp){ctx.save();ctx.fillStyle=bp.col||'#ff4040';ctx.beginPath();ctx.arc(bp.x,bp.y,bp.r,0,Math.PI*2);ctx.fill();ctx.strokeStyle='rgba(0,0,0,0.5)';ctx.lineWidth=1.5;ctx.stroke();ctx.restore();}
   // Draw player bullets
   if(s.bl)for(let b of s.bl){ctx.save();ctx.fillStyle=b.col||'#f8e840';ctx.beginPath();ctx.arc(b.x,b.y,b.r||5,0,Math.PI*2);ctx.fill();ctx.restore();}
-  // Draw all MP players
-  if(s.pl)for(let i=0;i<s.pl.length;i++){
-    let pd=s.pl[i];if(!pd||pd.dead)continue;
-    let sk=ALL_SKINS[pd.sk||0];
-    let px=pd.x,py=pd.y,f=pd.f||1;
-    if(i===mpMyIndex){ctx.save();ctx.fillStyle=sk.hatBand;ctx.font='bold 11px Impact';ctx.textAlign='center';ctx.fillText('TÚ',px+14,py-84);ctx.restore();}
-    // Simple character draw
-    ctx.save();ctx.translate(px+14,py);let sc2=75/82;ctx.scale(f*sc2,sc2*(pd.cr?0.6:1));
-    ctx.fillStyle=sk.coat;ctx.beginPath();ctx.ellipse(0,-26,11,12,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#000';ctx.lineWidth=2.5;ctx.stroke();
-    ctx.fillStyle='#f8c840';ctx.beginPath();ctx.ellipse(0,-50,15,14,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#000';ctx.lineWidth=3;ctx.stroke();
-    ctx.fillStyle='#1a1a1a';ctx.beginPath();ctx.ellipse(0,-63,17,4,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#000';ctx.lineWidth=2;ctx.stroke();
-    ctx.beginPath();ctx.roundRect(-11,-82,22,20,3);ctx.fill();ctx.stroke();
-    ctx.fillStyle=sk.hatBand;ctx.fillRect(-11,-69,22,5);
-    ctx.restore();
-    // HP label
-    ctx.fillStyle=sk.hatBand;ctx.font='bold 9px Impact';ctx.textAlign='center';
-    ctx.fillText(`J${i+1} ❤${pd.hp}`,px+14,py-90);
+  // Draw all MP players usando drawPlayerObj completo
+  if(s.pl){
+    let savedMX=mouseX,savedMY=mouseY;
+    for(let i=0;i<s.pl.length;i++){
+      let pd=s.pl[i];if(!pd||pd.dead)continue;
+      let tmp={
+        x:pd.x,y:pd.y,vx:0,vy:0,w:28,h:75,
+        hp:pd.hp,maxHp:7,dead:false,
+        facing:pd.f||1,af:pd.af||0,at:0,
+        crouching:!!pd.cr,dashing:!!pd.d,dashT:pd.d?4:0,dashDir:pd.f||1,
+        onGround:true,skinId:pd.sk!==undefined?pd.sk:i,
+        invTimer:pd.iv||0,shieldT:pd.sh||0,
+        dashCD:0,shootCD:pd.sc?1:0,slowTimer:pd.slow||0,
+      };
+      let isMine=(i===mpMyIndex);
+      // Propio jugador usa mouse local; otros usan el reportado por el host
+      if(isMine){mouseX=savedMX;mouseY=savedMY;}
+      else{mouseX=pd.mx!==undefined?pd.mx:savedMX;mouseY=pd.my!==undefined?pd.my:savedMY;}
+      drawPlayerObj(tmp,isMine,isMine?undefined:'J'+(i+1));
+    }
+    mouseX=savedMX;mouseY=savedMY;
   }
   // HUD
   if(selectedBoss==='tempestina')drawHUDTemp();
