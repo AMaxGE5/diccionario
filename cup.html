@@ -3824,22 +3824,16 @@ function drawIntroPrepPlayers(progress){
 // ║              SISTEMA DE FANTASMAS                   ║
 // ╚══════════════════════════════════════════════════════╝
 let ghosts=[]; // {x,y,vy,owner,skinId,timer,alpha}
-const GHOST_RISE_SPD=1.6;
-const GHOST_LIFE=420; // 7s before disappears — rises high
+const GHOST_RISE_SPD=0.7;
+const GHOST_LIFE=360; // 6s before disappears
 const REVIVE_HP=4;    // HP on revival (half max)
 
 function spawnGhost(p){
-  // Find MP player index for revival
-  let mpIdx=-1;
-  if(mpMode){
-    for(let i=0;i<mpPlayers.length;i++){if(mpPlayers[i]===p){mpIdx=i;break;}}
-  }
   ghosts.push({
     x:p.x+p.w/2, y:p.y-p.h/2,
     vy:-GHOST_RISE_SPD,
     skinId:p.skinId||0,
     isP2:(p===player2),
-    mpPlayerId:mpIdx,
     timer:GHOST_LIFE, alpha:1
   });
 }
@@ -3849,45 +3843,41 @@ function updateGhosts(){
     let g=ghosts[i];
     g.y+=g.vy;
     g.timer--;
+    // Fade out in last 60 frames
     g.alpha=Math.min(1,g.timer/60);
+    // Wobble
     g.x+=Math.sin(g.timer*0.08)*0.5;
     if(g.timer<=0){ghosts.splice(i,1);continue;}
     // Check bullets hitting ghost
     for(let j=bullets.length-1;j>=0;j--){
       let b=bullets[j];
       if(b.owner!=='player')continue;
-      // In MP: any player can revive any OTHER player's ghost
-      let canRevive;
-      if(mpMode){
-        // bullet's shooter index vs ghost's player index
-        let shooterIdx=b.fromP2?1:0; // fromP2 is local, index 0=host
-        canRevive=(g.mpPlayerId!==shooterIdx&&g.mpPlayerId>=0);
-      } else {
-        canRevive=(g.isP2&&!b.fromP2)||((!g.isP2)&&b.fromP2);
-      }
+      // P1 bullet can revive P2 ghost, P2 bullet can revive P1 ghost
+      let canRevive=(g.isP2&&!b.fromP2)||((!g.isP2)&&b.fromP2);
       if(!canRevive)continue;
       let dx=b.x-g.x,dy=b.y-g.y;
       if(Math.sqrt(dx*dx+dy*dy)<22){
+        // REVIVE!
         bullets.splice(j,1);
         ghosts.splice(i,1);
-        if(mpMode){
-          // Host applies revival directly; broadcast event
-          let pid=g.mpPlayerId;
-          if(pid>=0&&pid<mpPlayers.length&&mpPlayers[pid]){
-            let rp=mpPlayers[pid];
-            rp.dead=false;rp.x=g.x-rp.w/2;rp.y=FLOOR;
-            rp.hp=REVIVE_HP;rp.invTimer=90;rp.shieldT=120;
-            spawnParts(g.x,g.y,'#f8e840',18,6,40);triggerShake(4,8);playSFX('heal');
-            mpBroadcast({type:'revived',pid});
-          }
-        } else if(g.isP2&&p2Active){
-          player2.dead=false;player2.x=g.x-player2.w/2;player2.y=FLOOR;
-          player2.hp=REVIVE_HP;player2.invTimer=90;player2.shieldT=120;
-          spawnParts(g.x,g.y,'#40c8ff',18,6,40);triggerShake(4,8);playSFX('heal');
+        if(g.isP2&&p2Active){
+          player2.dead=false;
+          player2.x=g.x-player2.w/2;
+          player2.y=FLOOR;
+          player2.hp=REVIVE_HP;
+          player2.invTimer=90;player2.shieldT=120;
+          spawnParts(g.x,g.y,'#40c8ff',18,6,40);
+          triggerShake(4,8);
+          playSFX('heal');
         } else if(!g.isP2){
-          player.dead=false;player.x=g.x-player.w/2;player.y=FLOOR;
-          player.hp=REVIVE_HP;invTimer=90;shieldT=120;
-          spawnParts(g.x,g.y,'#f8e840',18,6,40);triggerShake(4,8);playSFX('heal');
+          player.dead=false;
+          player.x=g.x-player.w/2;
+          player.y=FLOOR;
+          player.hp=REVIVE_HP;
+          invTimer=90;shieldT=120;
+          spawnParts(g.x,g.y,'#f8e840',18,6,40);
+          triggerShake(4,8);
+          playSFX('heal');
         }
         break;
       }
@@ -3897,7 +3887,7 @@ function updateGhosts(){
 
 function drawGhosts(){
   for(let g of ghosts){
-    let sk=ALL_SKINS[g.skinId]||SKINS[g.skinId]||SKINS[0];
+    let sk=SKINS[g.skinId||0];
     let float=Math.sin(frameCount*0.08)*4;
     ctx.save();ctx.globalAlpha=g.alpha*0.85;
     ctx.translate(g.x,g.y+float);
@@ -5579,13 +5569,6 @@ function mpJoinRoom(roomIndex){
           setMPStatus('Fuiste expulsado por el host.','#e84040');mpLeaveRoom();
         } else if(d.type==='hostLeft'){
           setMPStatus('El host se fue. Sala cerrada.','#e08040');setTimeout(()=>mpLeaveRoom(),2000);
-        } else if(d.type==='revived'){
-          // Host confirmed a revival — update local player state
-          if(d.pid===mpMyIndex){
-            player.dead=false;player.hp=REVIVE_HP;player.y=FLOOR;
-            invTimer=90;shieldT=120;
-          }
-          mpHandleVoteMsg(d); // pass through for any other handling
         } else {
           // Vote/game messages
           mpHandleVoteMsg(d);
@@ -5623,20 +5606,6 @@ function mpHandleIncoming(conn){
       if(!cl)return;
       if(d.type==='input'){cl.keys=d.keys||{};if(d.mx!==undefined)cl.mx=d.mx;if(d.my!==undefined)cl.my=d.my;}
       else if(d.type==='vote')mpReceiveVote(cl.id,d.boss,d.diff);
-      else if(d.type==='reviveRequest'){
-        let pid=d.pid;
-        if(pid>=0&&pid<mpPlayers.length&&mpPlayers[pid]&&mpPlayers[pid].dead){
-          let rp=mpPlayers[pid];
-          let g=ghosts.find(g2=>g2.mpPlayerId===pid);
-          if(g){
-            ghosts.splice(ghosts.indexOf(g),1);
-            rp.dead=false;rp.x=g.x-rp.w/2;rp.y=FLOOR;
-            rp.hp=REVIVE_HP;rp.invTimer=90;rp.shieldT=120;
-            spawnParts(g.x,g.y,'#f8e840',18,6,40);triggerShake(4,8);playSFX('heal');
-            mpBroadcast({type:'revived',pid});
-          }
-        }
-      }
       else if(d.type==='owPos'){
         mpOwPositions[d.id]=d;
         // Relay to other clients
@@ -6065,7 +6034,6 @@ function mpBuildState(){
     bp:bossProjectiles.slice(0,60).map(b=>({x:Math.round(b.x),y:+(b.y).toFixed(1),vx:+(b.vx).toFixed(1),vy:+(b.vy).toFixed(1),r:b.r,col:b.col||'#ff4040'})),
     bl:bullets.slice(0,80).map(b=>({x:Math.round(b.x),y:Math.round(b.y),vx:+(b.vx).toFixed(1),vy:+(b.vy).toFixed(1),col:b.col,w:b.w||14,h:b.h||8})),
     mn:minions.slice(0,20).map(m=>({x:Math.round(m.x),y:Math.round(m.y),t:m.type,hp:m.hp,f:m.facing||1,bt:+(m.bobT||0).toFixed(2),af:m.af||0,la:+(m.legAng||0).toFixed(2)})),
-    gh:ghosts.map(g=>({x:Math.round(g.x),y:Math.round(g.y),sk:g.skinId||0,tm:g.timer,al:+(g.alpha).toFixed(2),p2:g.isP2?1:0,pi:g.mpPlayerId!==undefined?g.mpPlayerId:-1})),
   });
 }
 
@@ -6109,28 +6077,12 @@ function drawMPAllPlayers(){
   mouseX=savedMX;mouseY=savedMY;
 }
 
-// ── Client: send local keys + mouse + ghost hits to host ──
+// ── Client: send local keys + mouse to host ──
 function mpSendInput(){
   if(!mpHostConn||mpIsHost)return;
   let relevant=['KeyA','KeyD','KeyW','KeyS','ShiftLeft','Space'];
   let k={};for(let r of relevant)if(keys[r])k[r]=true;
   try{mpHostConn.send(JSON.stringify({type:'input',keys:k,mx:Math.round(mouseX),my:Math.round(mouseY)}));}catch(e){}
-
-  // Check if any of our bullets hit a ghost — send revive request to host
-  let s=mpRemoteState;if(!s||!s.gh||!s.gh.length)return;
-  for(let j=bullets.length-1;j>=0;j--){
-    let b=bullets[j];if(b.owner!=='player')continue;
-    for(let gi=0;gi<s.gh.length;gi++){
-      let g=s.gh[gi];
-      if(g.pi===mpMyIndex)continue; // can't revive self
-      let dx=b.x-g.x,dy=b.y-g.y;
-      if(Math.sqrt(dx*dx+dy*dy)<22){
-        bullets.splice(j,1);
-        try{mpHostConn.send(JSON.stringify({type:'reviveRequest',ghostIdx:gi,pid:g.pi}));}catch(e){}
-        break;
-      }
-    }
-  }
 }
 
 // ── Client: draw from received state ──
@@ -6199,16 +6151,8 @@ function mpDrawFromState(){
   }
   drawBullets();
 
-  // ── Ghosts — rebuild and draw ──
-  if(s.gh){
-    // Rebuild ghosts array for visual (no collision on client — host handles it)
-    ghosts=s.gh.map(g=>({
-      x:g.x,y:g.y,vy:-GHOST_RISE_SPD,
-      skinId:g.sk||0,isP2:!!g.p2,mpPlayerId:g.pi,
-      timer:g.tm,alpha:g.al
-    }));
-  }
-  drawGhosts();
+  // ── Players ──
+  let savedMX=mouseX,savedMY=mouseY;
   if(s.pl)for(let i=0;i<s.pl.length;i++){
     let pd=s.pl[i];if(!pd||pd.dead)continue;
     let tmp={
