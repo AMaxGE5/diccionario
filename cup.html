@@ -5617,7 +5617,7 @@ function mpHandleIncoming(conn){
       if(d.type==='probe'){conn.send(JSON.stringify({type:'probeReply',count:mpPlayerCount}));return;}
       let cl=mpClients.find(c=>c.conn===conn);
       if(!cl)return;
-      if(d.type==='input')cl.keys=d.keys||{};
+      if(d.type==='input'){cl.keys=d.keys||{};if(d.mx!==undefined)cl.mx=d.mx;if(d.my!==undefined)cl.my=d.my;}
       else if(d.type==='vote')mpReceiveVote(cl.id,d.boss,d.diff);
       else if(d.type==='owPos'){
         mpOwPositions[d.id]=d;
