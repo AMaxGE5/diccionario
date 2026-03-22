@@ -5468,7 +5468,7 @@ function triggerVictoryScreen(bossId){
   gameState='end';
   // Notificar a clientes MP para que también muestren su pantalla de victoria
   if(mpMode&&mpIsHost){
-    mpBroadcast({type:'win',bossId,bossName:victoryScreen.bossName,bossCol:victoryScreen.bossCol,dmg:statDmgDealt,dmgPct,timeStr,kills:statKills,shots:statShots});
+    mpBroadcast({type:'winMP',bossId});
   }
 }
 
@@ -6198,6 +6198,12 @@ function mpHandleVoteMsg(d){
   } else if(d.type==='voteResult'){
     mpVoteUI.result={boss:d.boss,diff:d.diff};mpVoteUI.active=false;mpVoteUI.counts=d.counts;
     selectedBoss=d.boss;difficulty=d.diff;
+  } else if(d.type==='winMP'){
+    stopMusic();
+    // Actualizar subtítulo según el jefe
+    let sub=document.getElementById('winScreen').querySelector('.endSub');
+    if(sub) sub.textContent=d.bossId==='tempestina'?'¡TEMPESTINA FUE DERROTADA!':d.bossId==='kronos'?'¡KRONOS FUE DETENIDO!':'¡EL INKBOSS FUE DESTRUIDO!';
+    showScreen('winScreen');gameState='end';
   } else if(d.type==='returnIsland'||d.type==='goIsland'){
     gameState='overworld';startOverworld();
   } else if(d.type==='win'){
