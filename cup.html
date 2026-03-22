@@ -5556,8 +5556,10 @@ function mpJoinRoom(roomIndex){
           setMPStatus('Sala llena (4/4). Elige otra sala.','#e84040');
           p.destroy();mpPeer=null;mpHostConn=null;
         } else if(d.type==='start'){
-          mpPlayerCount=d.playerCount;selectedBoss=d.selectedBoss||d.boss||'inkboss';difficulty=d.difficulty||d.diff||'normal';
-          mpLaunchGame(d);
+          // Client: just update state vars — loading/allReady flow handles the actual start
+          mpPlayerCount=d.playerCount||mpPlayerCount;
+          selectedBoss=d.selectedBoss||d.boss||selectedBoss;
+          difficulty=d.difficulty||d.diff||difficulty;
         } else if(d.type==='goIsland'){
           mpGoIsland(d);
         } else if(d.type==='owPos'){
@@ -5997,8 +5999,10 @@ function mpHandleVoteMsg(d){
   } else if(d.type==='returnIsland'||d.type==='goIsland'){
     gameState='overworld';startOverworld();
   } else if(d.type==='start'){
-    mpPlayerCount=d.playerCount;selectedBoss=d.selectedBoss||d.boss||'inkboss';difficulty=d.difficulty||d.diff||'normal';
-    mpLaunchGame(d);
+    // Client receives start: just update vars — loading/allReady flow handles the rest
+    mpPlayerCount=d.playerCount||mpPlayerCount;
+    selectedBoss=d.selectedBoss||d.boss||selectedBoss;
+    difficulty=d.difficulty||d.diff||difficulty;
   }
 }
 
@@ -6178,14 +6182,24 @@ function mpDrawFromState(){
     if(selectedBoss==='tempestina'){
       tBoss.x=s.boss.x;tBoss.y=s.boss.y;tBoss.hp=s.boss.hp;tBoss.maxHp=s.boss.maxHp;
       tBoss.bobOff=s.boss.bob;tPhase=s.boss.ph;tDefeated=!!s.boss.def;
+      tBoss.bobT=(tBoss.bobT||0)+0.05;
+      tExitDir=0;tEntering=false;tInvT=0;
       drawTempestina();
     } else if(selectedBoss==='kronos'){
       kBoss.x=s.boss.x;kBoss.y=s.boss.y;kBoss.hp=s.boss.hp;kBoss.maxHp=s.boss.maxHp;
       kBoss.bobOff=s.boss.bob;kPhase=s.boss.ph;kDefeated=!!s.boss.def;
+      kBoss.bobT=(kBoss.bobT||0)+0.05;
+      kBoss.gear1Ang=(kBoss.gear1Ang||0)+0.04;
+      kBoss.gear2Ang=(kBoss.gear2Ang||0)-0.05;
+      kBoss.outerRingAng=(kBoss.outerRingAng||0)+0.01;
+      kEntering=false;kInvT=0;kExitDir=0;
       drawKronos();
     } else {
       boss.x=s.boss.x;boss.y=s.boss.y;boss.hp=s.boss.hp;boss.maxHp=s.boss.maxHp;
       boss.bobOff=s.boss.bob;bossPhase=s.boss.ph;bossDefeated=!!s.boss.def;
+      boss.bobT=(boss.bobT||0)+0.05;
+      boss.af=(boss.af||0)+1;if(boss.af>=8){boss.af=0;}
+      bossExitDir=0;bossEntering=false;bossInvT=0;bossDeathAnim=0;
       drawBoss();
     }
   }
