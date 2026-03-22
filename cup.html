@@ -5569,14 +5569,22 @@ function mpJoinRoom(roomIndex){
           let skins=d.skins||[0,1,2,3];
           p1SkinId=skins[mpMyIndex]||mpMyIndex;
           player.skinId=p1SkinId;player.hp=7;player.maxHp=7;player.dead=false;
-          // Init boss display objects so HUD doesn't crash
-          if(selectedBoss==='tempestina'&&!tBoss.maxHp)resetTempestina();
-          else if(selectedBoss==='kronos'&&!kBoss.maxHp)resetKronos();
-          else if(!boss.maxHp)resetBoss();
+          // Init minimal boss shell so HUD/draw won't crash (no full reset — host owns sim)
+          if(selectedBoss==='tempestina'){
+            if(!tBoss.maxHp)tBoss={x:W/2-90,y:50,w:180,h:160,hp:300,maxHp:300,bobT:0,bobOff:0,facing:-1};
+            tDefeated=false;tPhase=1;
+          } else if(selectedBoss==='kronos'){
+            if(!kBoss.maxHp)kBoss={x:W/2-90,y:50,w:180,h:140,hp:360,maxHp:360,bobT:0,bobOff:0,facing:-1,gear1Ang:0,gear2Ang:0,outerRingAng:0};
+            kDefeated=false;kPhase=1;
+          } else {
+            if(!boss.maxHp)boss={x:W-220,y:FLOOR-60,w:160,h:180,hp:400,maxHp:400,af:0,at:0,eyeX:0,eyeY:0,mouthOpen:0.3,bobT:0,bobOff:0};
+            bossDefeated=false;bossPhase=1;
+          }
+          bossProjectiles=[];bullets=[];minions=[];ghosts=[];particles=[];
           mpPlayerCount=d.total||mpPlayerCount;
           mpShowLoadingScreen(d.total||mpPlayerCount);
           gameState='loading';
-          // Tell host we're ready after a short delay
+          // Tell host we're ready
           setTimeout(()=>{
             if(mpHostConn)try{mpHostConn.send(JSON.stringify({type:'ready',id:mpMyIndex}));}catch(e){}
           },600);
