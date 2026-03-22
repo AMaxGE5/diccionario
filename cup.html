@@ -987,6 +987,20 @@ function drawPlayer(){
   if(p2Active&&!player2.dead)drawPlayerObj(player2,false);
 }
 
+// ── Dibuja todos los jugadores MP (host) ──
+function drawMPAllPlayers(){
+  let savedMX=mouseX,savedMY=mouseY;
+  for(let i=0;i<mpPlayers.length;i++){
+    let p=mpPlayers[i];
+    if(!p||p.dead)continue;
+    let isMine=(i===0);
+    if(isMine){mouseX=savedMX;mouseY=savedMY;}
+    else{let cl=mpClients.find(c=>c.id===i);mouseX=cl&&cl.mx!==undefined?cl.mx:savedMX;mouseY=cl&&cl.my!==undefined?cl.my:savedMY;}
+    drawPlayerObj(p,isMine,isMine?undefined:'J'+(i+1));
+  }
+  mouseX=savedMX;mouseY=savedMY;
+}
+
 // ===== MINIONS =====
 let minions=[],minionSpawnT=0,minionAlert={text:'',timer:0};
 function resetMinions(){minions=[];minionSpawnT=D(210,140);minionAlert={text:'',timer:0};}
@@ -1113,12 +1127,12 @@ function updateMinions(){
     if((invTimer<=0&&shieldT<=0)&&!player.dead&&rectsOvlp(mhx,mhy,mhw,mhh,...pHitBox(player))){
       player.hp--;invTimer=90;shieldT=100;triggerShake(4,8);
       spawnParts(player.x+player.w/2,player.y-player.h/2,'#e84040',8,4,30);
-      if(player.hp<=0){player.dead=true;spawnGhost(player);triggerShake(8,20);if(!p2Active||player2.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}}
+      if(player.hp<=0){player.dead=true;spawnGhost(player);triggerShake(8,20);if(!p2Active||player2.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}}
     }
     if(p2Active&&!player2.dead&&player2.invTimer<=0&&player2.shieldT<=0&&rectsOvlp(mhx,mhy,mhw,mhh,...pHitBox(player2))){
       player2.hp--;player2.invTimer=90;player2.shieldT=100;triggerShake(4,8);
       spawnParts(player2.x+player2.w/2,player2.y-player2.h/2,'#e84040',8,4,30);
-      if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}}
+      if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}}
     }
   }
 }
@@ -2289,7 +2303,7 @@ function checkCollisionsInk(){
         bossProjectiles.splice(i,1);player.hp--;invTimer=90;shieldT=120;
         triggerShake(5,8);playSFX('hit');spawnParts(player.x+player.w/2,player.y-player.h/2,'#e84040',10,4,30);
         if(player.hp<=0){player.dead=true;spawnGhost(player);spawnParts(player.x+player.w/2,player.y-player.h/2,'#f5c030',20,6,50);triggerShake(8,20);
-          if(!p2Active||player2.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+          if(!p2Active||player2.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
         }break;
       }
     }
@@ -2302,7 +2316,7 @@ function checkCollisionsInk(){
         bossProjectiles.splice(i,1);player2.hp--;player2.invTimer=90;player2.shieldT=120;
         triggerShake(5,8);playSFX('hit');spawnParts(player2.x+player2.w/2,player2.y-player2.h/2,'#e84040',10,4,30);
         if(player2.hp<=0){player2.dead=true;spawnGhost(player2);
-          if(player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+          if(player.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
         }break;
       }
     }
@@ -3579,7 +3593,7 @@ function checkCollisions(){
         if(rectsOvlp(bp.x-bp.r,bp.y-bp.r,bp.r*2,bp.r*2,...pHitBox(player))){
           bossProjectiles.splice(i,1);player.hp--;invTimer=90;shieldT=120;triggerShake(5,8);playSFX('hit');spawnParts(player.x+player.w/2,player.y-player.h/2,'#e84040',10,4,30);
           if(player.hp<=0){player.dead=true;spawnGhost(player);spawnParts(player.x+player.w/2,player.y-player.h/2,'#f5c030',20,6,50);triggerShake(8,20);
-            if(!p2Active||player2.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+            if(!p2Active||player2.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
           }break;
         }
       }
@@ -3590,7 +3604,7 @@ function checkCollisions(){
         let bp=bossProjectiles[i];if(bp.tornado)continue;
         if(rectsOvlp(bp.x-bp.r,bp.y-bp.r,bp.r*2,bp.r*2,...pHitBox(player2))){
           bossProjectiles.splice(i,1);player2.hp--;player2.invTimer=90;player2.shieldT=120;triggerShake(5,8);playSFX('hit');spawnParts(player2.x+player2.w/2,player2.y-player2.h/2,'#e84040',10,4,30);
-          if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}}break;
+          if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}}break;
         }
       }
     }
@@ -3606,7 +3620,7 @@ function checkCollisions(){
       if(!mpMode&&p2Active&&!player2.dead&&player2.invTimer<=0&&player2.shieldT<=0){
         if(Math.abs(bp.x-(player2.x+player2.w/2))<bp.r+10&&bp.y>player2.y-player2.h&&bp.y<player2.y+10){
           player2.hp--;player2.invTimer=90;player2.shieldT=100;triggerShake(5,8);playSFX('hit');
-          if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}}
+          if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}}
         }
       }
     }
@@ -4258,8 +4272,8 @@ function updateKronos(){
         p.hp--;setInv(90);p.shieldT=100;triggerShake(6,10);playSFX('hit');
         spawnParts(p.x+p.w/2,p.y-p.h/2,'#e84040',10,4,28);
         if(p.hp<=0){p.dead=true;spawnGhost(p);
-          if(p===player&&(!p2Active||player2.dead)){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
-          if(p===player2&&player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+          if(p===player&&(!p2Active||player2.dead)){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
+          if(p===player2&&player.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
         }
       }
     }
@@ -4314,8 +4328,8 @@ function updateKronos(){
             p.hp--;(p===player?invTimer=90:p.invTimer=90);p.shieldT=80;
             triggerShake(4,6);playSFX('hit');
             if(p.hp<=0){p.dead=true;spawnGhost(p);
-              if(p===player&&(!p2Active||player2.dead)){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
-              if(p===player2&&player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+              if(p===player&&(!p2Active||player2.dead)){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
+              if(p===player2&&player.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
             }
           }
         }
@@ -4333,8 +4347,8 @@ function updateKronos(){
           (p===player?invTimer=90:p.invTimer=90);p.shieldT=90;
           triggerShake(8,14);playSFX('hit');spawnParts(sg.x,sg.y,'#cc40ff',14,6,50);
           if(p.hp<=0){p.dead=true;spawnGhost(p);
-            if(p===player&&(!p2Active||player2.dead)){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
-            if(p===player2&&player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+            if(p===player&&(!p2Active||player2.dead)){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
+            if(p===player2&&player.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}
           }
         }
       }
@@ -4399,13 +4413,13 @@ function checkCollisionsKronos(){
     if(!mpMode&&invTimer<=0&&shieldT<=0&&!player.dead&&rectsOvlp(bp.x-bp.r,bp.y-bp.r,bp.r*2,bp.r*2,...pHitBox(player))){
       bossProjectiles.splice(i,1);player.hp--;invTimer=90;shieldT=120;triggerShake(5,8);playSFX('hit');
       spawnParts(player.x+player.w/2,player.y-player.h/2,'#e84040',10,4,30);
-      if(player.hp<=0){player.dead=true;spawnGhost(player);if(!p2Active||player2.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}}
+      if(player.hp<=0){player.dead=true;spawnGhost(player);if(!p2Active||player2.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}}
       continue;
     }
     if(!mpMode&&p2Active&&!player2.dead&&player2.invTimer<=0&&player2.shieldT<=0&&rectsOvlp(bp.x-bp.r,bp.y-bp.r,bp.r*2,bp.r*2,...pHitBox(player2))){
       bossProjectiles.splice(i,1);player2.hp--;player2.invTimer=90;player2.shieldT=120;triggerShake(5,8);playSFX('hit');
       spawnParts(player2.x+player2.w/2,player2.y-player2.h/2,'#e84040',10,4,30);
-      if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}}
+      if(player2.hp<=0){player2.dead=true;spawnGhost(player2);if(player.dead){if(mpMode&&mpIsHost){checkAllDeadMP();}else{stopMusic();setTimeout(()=>{showScreen('gameOver');gameState='end';},1500);}}}
     }
   }
   for(let i=bullets.length-1;i>=0;i--){
@@ -6295,13 +6309,13 @@ function gameLoop(){
       mpSendInput();
       mpDrawFromState();
     } else if(selectedBoss==='tempestina'){
-      drawBackgroundTemp();drawParts();drawTempestina();drawMinions();drawBullets();drawPlayer();drawGhosts();drawSpecials();drawHUDTemp();drawPost();
+      drawBackgroundTemp();drawParts();drawTempestina();drawMinions();drawBullets();if(mpMode&&mpIsHost)drawMPAllPlayers();else drawPlayer();drawGhosts();drawSpecials();drawHUDTemp();drawPost();
       if(gameState==='playing'){if(mpMode)mpUpdateHost();else updatePlayer();updateTempestina();updateMinions();updateParts();checkCollisions();updateGhosts();}
     } else if(selectedBoss==='kronos'){
-      drawBackgroundKronos();drawParts();drawKronos();drawMinions();drawBullets();drawPlayer();drawGhosts();drawSpecials();drawHUDKronos();
+      drawBackgroundKronos();drawParts();drawKronos();drawMinions();drawBullets();if(mpMode&&mpIsHost)drawMPAllPlayers();else drawPlayer();drawGhosts();drawSpecials();drawHUDKronos();
       if(gameState==='playing'){if(mpMode)mpUpdateHost();else updatePlayer();updateKronos();updateMinions();updateParts();checkCollisions();updateGhosts();}
     } else {
-      drawBackground();drawParts();drawBoss();drawMinions();drawBullets();drawPlayer();drawGhosts();drawSpecials();drawHUD();drawPost();
+      drawBackground();drawParts();drawBoss();drawMinions();drawBullets();if(mpMode&&mpIsHost)drawMPAllPlayers();else drawPlayer();drawGhosts();drawSpecials();drawHUD();drawPost();
       if(gameState==='playing'){if(mpMode)mpUpdateHost();else updatePlayer();updateBoss();updateMinions();updateParts();checkCollisions();updateGhosts();}
     }
     if(gameState==='end'&&victoryScreen)drawVictoryScreen();
