@@ -686,13 +686,30 @@ function drawOwWeaponMenu(){
     {id:'homing', name:'TELEDIRIGIDA', icon:'🎯', desc:'Sigue enemigos · Daño 0.35 · Largo alcance'},
     {id:'shotgun',name:'ESCOPETA',     icon:'💥', desc:'5 perdigones · Daño 1.4 · Solo corto alcance'},
   ];
-  let bw=680,bh=320,mx=W/2,my=H/2;
-  let bx=mx-bw/2,by=my-bh/2;
+
+  // En MP cada jugador solo ve y edita sus propias armas
+  let isMPClient=mpMode&&!mpIsHost;
+  let myIdx=mpMode?mpMyIndex:0;
+  // Slots y slot activo del jugador actual
+  let mySlots  = mpMode ? mpPlayerSlots[myIdx]         : p1Slots;
+  let myActive = mpMode ? mpPlayerActiveSlot[myIdx]    : p1ActiveSlot;
+  let myCol    = ALL_SKINS[myIdx]?.hatBand || '#f5d020';
+  let myLabel  = mpMode?`J${myIdx+1}  [ Q = cambiar slot ]`:'J1  [ Q = cambiar slot ]';
+
+  // Modo local sin MP: mostrar también J2 si está activo
+  let showJ2 = !mpMode && (p2Active || true); // siempre mostrar J2 en local
+
+  let bw = showJ2?680:380;
+  let bh = 320;
+  let mx=W/2, my=H/2;
+  let bx=mx-bw/2, by=my-bh/2;
+
   ctx.save();
   ctx.fillStyle='rgba(0,0,0,0.78)';ctx.fillRect(0,0,W,H);
   ctx.fillStyle='#08050c';ctx.strokeStyle='#c8a028';ctx.lineWidth=3;
   ctx.beginPath();ctx.roundRect(bx,by,bw,bh,12);ctx.fill();ctx.stroke();
-  // Title
+
+  // Título
   ctx.fillStyle='#f5d020';ctx.font='bold italic 20px Impact';ctx.textAlign='center';
   ctx.fillText('⚔  EQUIPAR ARMAS',mx,by+28);
   ctx.strokeStyle='rgba(200,160,40,0.3)';ctx.lineWidth=1;
@@ -700,68 +717,90 @@ function drawOwWeaponMenu(){
 
   owWpnClicks=[];
 
-  // Column headers
-  let col1x=bx+14, col2x=bx+bw/2+6;
-  ctx.fillStyle='#f5d020';ctx.font='bold 13px Impact';ctx.textAlign='left';
-  ctx.fillText('J1  [ Q = cambiar slot ]',col1x,by+56);
-  ctx.fillStyle='#40c8ff';
-  ctx.fillText('J2  [ I = cambiar slot ]'+(p2Active?'':' (sin J2)'),col2x,by+56);
+  if(showJ2){
+    // ── MODO LOCAL: dos columnas J1 y J2 ──
+    let col1x=bx+14, col2x=bx+bw/2+6;
+    ctx.fillStyle='#f5d020';ctx.font='bold 13px Impact';ctx.textAlign='left';
+    ctx.fillText('J1  [ Q = cambiar slot ]',col1x,by+56);
+    ctx.fillStyle='#40c8ff';
+    ctx.fillText('J2  [ I = cambiar slot ]'+(p2Active?'':' (sin J2)'),col2x,by+56);
 
-  // Weapon rows
-  WPNS.forEach((w,wi)=>{
-    let wy=by+66+wi*76;
-    let rowH=68;
+    WPNS.forEach((w,wi)=>{
+      let wy=by+66+wi*76, rowH=68;
+      // J1
+      let anyEq=p1Slots[0]===w.id||p1Slots[1]===w.id;
+      ctx.fillStyle=anyEq?'rgba(200,160,40,0.12)':'rgba(14,14,24,0.85)';
+      ctx.strokeStyle=anyEq?'#c8a028':'#2a2a3a';ctx.lineWidth=anyEq?2:1.2;
+      ctx.beginPath();ctx.roundRect(col1x,wy,bw/2-22,rowH-4,7);ctx.fill();ctx.stroke();
+      ctx.font='18px Arial';ctx.fillStyle='#fff';ctx.fillText(w.icon,col1x+8,wy+24);
+      ctx.fillStyle=anyEq?'#f5d020':'#ddd';ctx.font='bold 12px Impact';ctx.textAlign='left';
+      ctx.fillText(w.name,col1x+34,wy+20);
+      ctx.fillStyle='#777';ctx.font='9px Impact';ctx.fillText(w.desc,col1x+34,wy+34);
+      for(let si=0;si<2;si++){
+        let eq=p1Slots[si]===w.id;
+        let btnX=col1x+bw/2-22-94+si*50,btnY=wy+36;
+        ctx.fillStyle=eq?'#c8a028':'rgba(30,30,44,0.9)';
+        ctx.strokeStyle=eq?'#f5d020':'#444';ctx.lineWidth=eq?2:1.5;
+        ctx.beginPath();ctx.roundRect(btnX,btnY,42,24,5);ctx.fill();ctx.stroke();
+        ctx.fillStyle=eq?'#000':'#999';ctx.font='bold 11px Impact';ctx.textAlign='center';
+        ctx.fillText(`S${si+1}`,btnX+21,btnY+16);
+        owWpnClicks.push({x:btnX,y:btnY,w:42,h:24,isP2:false,slot:si,weaponId:w.id,mpIdx:0});
+      }
+      // J2
+      let anyEq2=p2Slots[0]===w.id||p2Slots[1]===w.id;
+      ctx.fillStyle=anyEq2?'rgba(64,200,255,0.10)':'rgba(14,14,24,0.85)';
+      ctx.strokeStyle=anyEq2?'#40c8ff':'#2a2a3a';ctx.lineWidth=anyEq2?2:1.2;
+      ctx.beginPath();ctx.roundRect(col2x,wy,bw/2-22,rowH-4,7);ctx.fill();ctx.stroke();
+      ctx.font='18px Arial';ctx.fillStyle='#fff';ctx.fillText(w.icon,col2x+8,wy+24);
+      ctx.fillStyle=anyEq2?'#40c8ff':'#ddd';ctx.font='bold 12px Impact';ctx.textAlign='left';
+      ctx.fillText(w.name,col2x+34,wy+20);
+      ctx.fillStyle='#777';ctx.font='9px Impact';ctx.fillText(w.desc,col2x+34,wy+34);
+      for(let si=0;si<2;si++){
+        let eq=p2Slots[si]===w.id;
+        let btnX=col2x+bw/2-22-94+si*50,btnY=wy+36;
+        ctx.fillStyle=eq?'#40c8ff':'rgba(30,30,44,0.9)';
+        ctx.strokeStyle=eq?'#80e8ff':'#444';ctx.lineWidth=eq?2:1.5;
+        ctx.beginPath();ctx.roundRect(btnX,btnY,42,24,5);ctx.fill();ctx.stroke();
+        ctx.fillStyle=eq?'#000':'#999';ctx.font='bold 11px Impact';ctx.textAlign='center';
+        ctx.fillText(`S${si+1}`,btnX+21,btnY+16);
+        owWpnClicks.push({x:btnX,y:btnY,w:42,h:24,isP2:true,slot:si,weaponId:w.id,mpIdx:1});
+      }
+    });
+    // Divider
+    ctx.strokeStyle='rgba(200,160,40,0.2)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(mx,by+42);ctx.lineTo(mx,by+bh-20);ctx.stroke();
 
-    // ── J1 weapon row ──
-    let s0eq=p1Slots[0]===w.id, s1eq=p1Slots[1]===w.id;
-    let anyEq=s0eq||s1eq;
-    ctx.fillStyle=anyEq?'rgba(200,160,40,0.12)':'rgba(14,14,24,0.85)';
-    ctx.strokeStyle=anyEq?'#c8a028':'#2a2a3a';ctx.lineWidth=anyEq?2:1.2;
-    ctx.beginPath();ctx.roundRect(col1x,wy,bw/2-22,rowH-4,7);ctx.fill();ctx.stroke();
-    // icon + name + desc
-    ctx.font='18px Arial';ctx.fillText(w.icon,col1x+8,wy+24);
-    ctx.fillStyle=anyEq?'#f5d020':'#ddd';ctx.font='bold 12px Impact';ctx.textAlign='left';
-    ctx.fillText(w.name,col1x+34,wy+20);
-    ctx.fillStyle='#777';ctx.font='9px Impact';ctx.fillText(w.desc,col1x+34,wy+34);
-    // Slot buttons S1 S2
-    for(let si=0;si<2;si++){
-      let eq=p1Slots[si]===w.id;
-      let btnX=col1x+bw/2-22-94+si*50,btnY=wy+36;
-      ctx.fillStyle=eq?'#c8a028':'rgba(30,30,44,0.9)';
-      ctx.strokeStyle=eq?'#f5d020':'#444';ctx.lineWidth=eq?2:1.5;
-      ctx.beginPath();ctx.roundRect(btnX,btnY,42,24,5);ctx.fill();ctx.stroke();
-      ctx.fillStyle=eq?'#000':'#999';ctx.font='bold 11px Impact';ctx.textAlign='center';
-      ctx.fillText(`S${si+1}`,btnX+21,btnY+16);
-      owWpnClicks.push({x:btnX,y:btnY,w:42,h:24,isP2:false,slot:si,weaponId:w.id});
-    }
+  } else {
+    // ── MODO MP: columna única centrada, solo tu jugador ──
+    let colx=bx+14, colw=bw-28;
+    ctx.fillStyle=myCol;ctx.font='bold 13px Impact';ctx.textAlign='left';
+    ctx.fillText(myLabel,colx,by+56);
 
-    // ── J2 weapon row ──
-    let s0eq2=p2Slots[0]===w.id, s1eq2=p2Slots[1]===w.id;
-    let anyEq2=s0eq2||s1eq2;
-    ctx.fillStyle=anyEq2?'rgba(64,200,255,0.10)':'rgba(14,14,24,0.85)';
-    ctx.strokeStyle=anyEq2?'#40c8ff':'#2a2a3a';ctx.lineWidth=anyEq2?2:1.2;
-    ctx.beginPath();ctx.roundRect(col2x,wy,bw/2-22,rowH-4,7);ctx.fill();ctx.stroke();
-    ctx.font='18px Arial';ctx.fillStyle='#fff';ctx.fillText(w.icon,col2x+8,wy+24);
-    ctx.fillStyle=anyEq2?'#40c8ff':'#ddd';ctx.font='bold 12px Impact';ctx.textAlign='left';
-    ctx.fillText(w.name,col2x+34,wy+20);
-    ctx.fillStyle='#777';ctx.font='9px Impact';ctx.fillText(w.desc,col2x+34,wy+34);
-    for(let si=0;si<2;si++){
-      let eq=p2Slots[si]===w.id;
-      let btnX=col2x+bw/2-22-94+si*50,btnY=wy+36;
-      ctx.fillStyle=eq?'#40c8ff':'rgba(30,30,44,0.9)';
-      ctx.strokeStyle=eq?'#80e8ff':'#444';ctx.lineWidth=eq?2:1.5;
-      ctx.beginPath();ctx.roundRect(btnX,btnY,42,24,5);ctx.fill();ctx.stroke();
-      ctx.fillStyle=eq?'#000':'#999';ctx.font='bold 11px Impact';ctx.textAlign='center';
-      ctx.fillText(`S${si+1}`,btnX+21,btnY+16);
-      owWpnClicks.push({x:btnX,y:btnY,w:42,h:24,isP2:true,slot:si,weaponId:w.id});
-    }
-  });
+    WPNS.forEach((w,wi)=>{
+      let wy=by+66+wi*76, rowH=68;
+      let anyEq=mySlots[0]===w.id||mySlots[1]===w.id;
+      ctx.fillStyle=anyEq?'rgba(200,160,40,0.14)':'rgba(14,14,24,0.85)';
+      ctx.strokeStyle=anyEq?myCol:'#2a2a3a';ctx.lineWidth=anyEq?2:1.2;
+      ctx.beginPath();ctx.roundRect(colx,wy,colw,rowH-4,7);ctx.fill();ctx.stroke();
+      ctx.font='22px Arial';ctx.fillStyle='#fff';ctx.fillText(w.icon,colx+12,wy+28);
+      ctx.fillStyle=anyEq?myCol:'#ddd';ctx.font='bold 14px Impact';ctx.textAlign='left';
+      ctx.fillText(w.name,colx+48,wy+22);
+      ctx.fillStyle='#777';ctx.font='10px Impact';ctx.fillText(w.desc,colx+48,wy+38);
+      // Botones S1 S2 centrados
+      for(let si=0;si<2;si++){
+        let eq=mySlots[si]===w.id;
+        let btnX=colx+colw-110+si*56, btnY=wy+36;
+        ctx.fillStyle=eq?myCol:'rgba(30,30,44,0.9)';
+        ctx.strokeStyle=eq?'#fff':'#444';ctx.lineWidth=eq?2:1.5;
+        ctx.beginPath();ctx.roundRect(btnX,btnY,48,26,5);ctx.fill();ctx.stroke();
+        ctx.fillStyle=eq?'#000':'#999';ctx.font='bold 12px Impact';ctx.textAlign='center';
+        ctx.fillText(`S${si+1}`,btnX+24,btnY+18);
+        if(eq){ctx.fillStyle=myCol;ctx.font='bold 8px Impact';ctx.fillText('●',btnX+24,btnY+10);}
+        owWpnClicks.push({x:btnX,y:btnY,w:48,h:26,isP2:false,slot:si,weaponId:w.id,mpIdx:myIdx,mpMenu:true});
+      }
+    });
+  }
 
-  // Divider between J1 and J2 columns
-  ctx.strokeStyle='rgba(200,160,40,0.2)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(mx,by+42);ctx.lineTo(mx,by+bh-20);ctx.stroke();
-
-  // Footer hint
   ctx.fillStyle='#555';ctx.font='10px Impact';ctx.textAlign='center';
   ctx.fillText('Clic en S1 o S2 para equipar · No puedes llevar el mismo arma en ambos slots · ESC · Cerrar',mx,by+bh-10);
   ctx.restore();
@@ -5171,10 +5210,24 @@ canvas.addEventListener('click',e=>{
   if(owWeaponMenu&&owWpnClicks){
     for(let btn of owWpnClicks){
       if(cx>=btn.x&&cx<=btn.x+btn.w&&cy>=btn.y&&cy<=btn.y+btn.h){
-        let slots=btn.isP2?p2Slots:p1Slots;
-        if(slots[1-btn.slot]===btn.weaponId)return;
-        if(btn.isP2)p2Slots[btn.slot]=btn.weaponId;
-        else p1Slots[btn.slot]=btn.weaponId;
+        if(btn.mpMenu){
+          // Modo MP: editar slots propios
+          let idx=btn.mpIdx;
+          let slots=mpPlayerSlots[idx];
+          if(slots[1-btn.slot]===btn.weaponId)return; // ya en el otro slot
+          slots[btn.slot]=btn.weaponId;
+          // Si soy cliente, notificar al host
+          if(!mpIsHost&&mpHostConn){
+            try{mpHostConn.send(JSON.stringify({type:'setWeaponSlot',slot:btn.slot,weaponId:btn.weaponId}));}catch(e2){}
+          }
+          // Si soy host, actualizar también mpPlayerSlots[0] (ya está hecho)
+        } else {
+          // Modo local
+          let slots=btn.isP2?p2Slots:p1Slots;
+          if(slots[1-btn.slot]===btn.weaponId)return;
+          if(btn.isP2)p2Slots[btn.slot]=btn.weaponId;
+          else p1Slots[btn.slot]=btn.weaponId;
+        }
         return;
       }
     }
@@ -5642,6 +5695,7 @@ function mpHandleIncoming(conn){
       if(!cl)return;
       if(d.type==='input'){cl.keys=d.keys||{};if(d.mx!==undefined)cl.mx=d.mx;if(d.my!==undefined)cl.my=d.my;}
       else if(d.type==='switchWeapon'){mpPlayerActiveSlot[cl.id]=d.slot%2;}
+      else if(d.type==='setWeaponSlot'){if(mpPlayerSlots[cl.id]&&d.weaponId&&d.slot>=0&&d.slot<2){let opp=1-d.slot;if(mpPlayerSlots[cl.id][opp]!==d.weaponId)mpPlayerSlots[cl.id][d.slot]=d.weaponId;}}
       else if(d.type==='vote')mpReceiveVote(cl.id,d.boss,d.diff);
       else if(d.type==='owPos'){
         mpOwPositions[d.id]=d;
@@ -6071,8 +6125,8 @@ function mpBuildState(){
     }),
     boss:bossState,
     bp:bossProjectiles.slice(0,50).map(b=>({x:Math.round(b.x),y:Math.round(b.y),vx:+(b.vx).toFixed(1),vy:+(b.vy).toFixed(1),r:b.r,col:b.col})),
-    mn:minions.slice(0,20).map(m=>({x:Math.round(m.x),y:Math.round(m.y),t:m.type,hp:m.hp})),
-    bl:bullets.slice(0,60).map(b=>({x:Math.round(b.x),y:Math.round(b.y),col:b.col,r:b.h/2})),
+    mn:minions.slice(0,20).map(m=>({x:Math.round(m.x),y:Math.round(m.y),vx:+(m.vx||0).toFixed(1),vy:+(m.vy||0).toFixed(1),t:m.type,hp:m.hp,f:m.facing||1,bt:+(m.bobT||0).toFixed(2),af:m.af||0,la:+(m.legAng||0).toFixed(2)})),
+    bl:bullets.slice(0,60).map(b=>({x:Math.round(b.x),y:Math.round(b.y),vx:+(b.vx).toFixed(1),vy:+(b.vy).toFixed(1),col:b.col,w:b.w||14,h:b.h||8})),
   });
 }
 
@@ -6118,13 +6172,40 @@ function mpDrawFromState(){
     else if(selectedBoss==='kronos'){kBoss.x=s.boss.x;kBoss.y=s.boss.y;kBoss.hp=s.boss.hp;kBoss.maxHp=s.boss.maxHp;kBoss.bobOff=s.boss.bob;kPhase=s.boss.ph;kDefeated=!!s.boss.def;drawKronos();}
     else{boss.x=s.boss.x;boss.y=s.boss.y;boss.hp=s.boss.hp;boss.maxHp=s.boss.maxHp;boss.bobOff=s.boss.bob;bossPhase=s.boss.ph;bossDefeated=!!s.boss.def;drawBoss();}
   }
-  // Draw minions
-  if(s.mn)for(let m of s.mn){let found=minions.find(mm=>mm.type===m.t&&Math.abs(mm.x-m.x)<2);if(!found)minions=minions.filter(mm=>!(mm.type===m.t&&Math.abs(mm.x-m.x)>100));}
+  // Reconstruir miniones con todos los campos que drawMinions necesita
+  if(s.mn){
+    minions=s.mn.map(m=>({
+      x:m.x,y:m.y,vx:m.vx||0,vy:m.vy||0,dead:false,
+      type:m.t,hp:m.hp,
+      w:m.t==='iceGolem'?44:m.t==='stormCloud'?50:m.t==='clockSpider'?30:32,
+      h:m.t==='iceGolem'?30:m.t==='stormCloud'?30:m.t==='clockSpider'?28:20,
+      facing:m.f||1,bobT:m.bt||0,af:m.af||0,at:0,
+      legAng:m.la||0,shootT:999,
+    }));
+  }
   drawMinions();
-  // Draw boss projectiles
-  if(s.bp)for(let bp of s.bp){ctx.save();ctx.fillStyle=bp.col||'#ff4040';ctx.beginPath();ctx.arc(bp.x,bp.y,bp.r,0,Math.PI*2);ctx.fill();ctx.strokeStyle='rgba(0,0,0,0.5)';ctx.lineWidth=1.5;ctx.stroke();ctx.restore();}
-  // Draw player bullets
-  if(s.bl)for(let b of s.bl){ctx.save();ctx.fillStyle=b.col||'#f8e840';ctx.beginPath();ctx.arc(b.x,b.y,b.r||5,0,Math.PI*2);ctx.fill();ctx.restore();}
+  // Reconstruir proyectiles del jefe y dibujarlos con estilo
+  if(s.bp){
+    bossProjectiles=s.bp.map(b=>({x:b.x,y:b.y,vx:b.vx||0,vy:b.vy||0,r:b.r||9,col:b.col||'#ff4040',dead:false}));
+  }
+  for(let bp of bossProjectiles){
+    if(bp.dead)continue;
+    ctx.save();ctx.translate(bp.x,bp.y);
+    let ang=Math.atan2(bp.vy||0,bp.vx||0);ctx.rotate(ang);
+    ctx.fillStyle=bp.col;
+    ctx.beginPath();ctx.ellipse(0,0,bp.r*1.3,bp.r*0.7,0,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,0.65)';ctx.lineWidth=2.5;ctx.stroke();
+    ctx.shadowColor=bp.col;ctx.shadowBlur=8;
+    ctx.strokeStyle=bp.col+'66';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.ellipse(0,0,bp.r*1.6,bp.r*0.9,0,0,Math.PI*2);ctx.stroke();
+    ctx.shadowBlur=0;
+    ctx.restore();
+  }
+  // Reconstruir balas del jugador y dibujarlas con estilo completo
+  if(s.bl){
+    bullets=s.bl.map(b=>({x:b.x,y:b.y,vx:b.vx||0,vy:b.vy||0,col:b.col||'#f8e840',w:b.w||14,h:b.h||8,owner:'player',life:99}));
+  }
+  drawBullets();
   // Draw all MP players usando drawPlayerObj completo
   if(s.pl){
     let savedMX=mouseX,savedMY=mouseY;
