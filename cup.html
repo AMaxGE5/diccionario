@@ -974,6 +974,26 @@ function drawPlayer(){
   if(p2Active&&!player2.dead)drawPlayerObj(player2,false);
 }
 
+// ── Dibuja todos los jugadores MP (solo host) ──
+function drawMPAllPlayers(){
+  let savedMX=mouseX,savedMY=mouseY;
+  for(let i=0;i<mpPlayers.length;i++){
+    let p=mpPlayers[i];
+    if(!p||p.dead)continue;
+    let isMine=(i===0);
+    // Restaurar mouse del cliente correspondiente para la línea de puntería
+    if(isMine){
+      mouseX=savedMX;mouseY=savedMY;
+    } else {
+      let cl=mpClients.find(c=>c.id===i);
+      mouseX=cl&&cl.mx!==undefined?cl.mx:savedMX;
+      mouseY=cl&&cl.my!==undefined?cl.my:savedMY;
+    }
+    drawPlayerObj(p,isMine,isMine?undefined:'J'+(i+1));
+  }
+  mouseX=savedMX;mouseY=savedMY;
+}
+
 // ===== MINIONS =====
 let minions=[],minionSpawnT=0,minionAlert={text:'',timer:0};
 function resetMinions(){minions=[];minionSpawnT=D(210,140);minionAlert={text:'',timer:0};}
@@ -6050,7 +6070,7 @@ function mpSendInput(){
   if(!mpHostConn||mpIsHost)return;
   let relevant=['KeyA','KeyD','KeyW','KeyS','ShiftLeft','Space'];
   let k={};for(let r of relevant)if(keys[r])k[r]=true;
-  mpHostConn.send(JSON.stringify({type:'input',keys:k}));
+  mpHostConn.send(JSON.stringify({type:'input',keys:k,mx:Math.round(mouseX),my:Math.round(mouseY)}));
 }
 
 // ── Client: draw from received state ──
@@ -6112,7 +6132,9 @@ function mpUpdateHost(){
     let p=mpPlayers[cl.id];
     if(!p||p.dead)continue;
     let savedKeys=keys;keys=cl.keys||{};
-    let s=updatePlayerObj(p,P1CFG,p.dashCD,p.shootCD,p.invTimer,p.shieldT,p.jumpHeld);
+    let cmx=cl.mx!==undefined?cl.mx:mouseX;
+    let cmy=cl.my!==undefined?cl.my:mouseY;
+    let s=updatePlayerObj(p,P1CFG,p.dashCD,p.shootCD,p.invTimer,p.shieldT,p.jumpHeld,cmx,cmy);
     keys=savedKeys;
     p.dashCD=s.dashCD;p.shootCD=s.shootCD;p.invTimer=s.invTimer;p.shieldT=s.shieldT;p.jumpHeld=s.jumpHeld;
   }
@@ -6149,13 +6171,13 @@ function gameLoop(){
       mpSendInput();
       mpDrawFromState();
     } else if(selectedBoss==='tempestina'){
-      drawBackgroundTemp();drawParts();drawTempestina();drawMinions();drawBullets();drawPlayer();drawGhosts();drawSpecials();drawHUDTemp();drawPost();
+      drawBackgroundTemp();drawParts();drawTempestina();drawMinions();drawBullets();if(mpMode&&mpIsHost)drawMPAllPlayers();else drawPlayer();drawGhosts();drawSpecials();drawHUDTemp();drawPost();
       if(gameState==='playing'){if(mpMode)mpUpdateHost();else updatePlayer();updateTempestina();updateMinions();updateParts();checkCollisions();updateGhosts();}
     } else if(selectedBoss==='kronos'){
-      drawBackgroundKronos();drawParts();drawKronos();drawMinions();drawBullets();drawPlayer();drawGhosts();drawSpecials();drawHUDKronos();
+      drawBackgroundKronos();drawParts();drawKronos();drawMinions();drawBullets();if(mpMode&&mpIsHost)drawMPAllPlayers();else drawPlayer();drawGhosts();drawSpecials();drawHUDKronos();
       if(gameState==='playing'){if(mpMode)mpUpdateHost();else updatePlayer();updateKronos();updateMinions();updateParts();checkCollisions();updateGhosts();}
     } else {
-      drawBackground();drawParts();drawBoss();drawMinions();drawBullets();drawPlayer();drawGhosts();drawSpecials();drawHUD();drawPost();
+      drawBackground();drawParts();drawBoss();drawMinions();drawBullets();if(mpMode&&mpIsHost)drawMPAllPlayers();else drawPlayer();drawGhosts();drawSpecials();drawHUD();drawPost();
       if(gameState==='playing'){if(mpMode)mpUpdateHost();else updatePlayer();updateBoss();updateMinions();updateParts();checkCollisions();updateGhosts();}
     }
     if(gameState==='end'&&victoryScreen)drawVictoryScreen();
