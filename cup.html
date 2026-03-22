@@ -5563,12 +5563,23 @@ function mpJoinRoom(roomIndex){
         } else if(d.type==='owPos'){
           mpOwPositions[d.id]=d; // store remote position
         } else if(d.type==='loading'){
-          // Host says loading — show loading screen on client
-          mpShowLoadingScreen(d.total);
-          // Tell host we're ready after a short delay (simulating load)
+          // Host says loading — initialize client-side data and show loading screen
+          selectedBoss=d.selectedBoss||selectedBoss;
+          difficulty=d.difficulty||difficulty;
+          let skins=d.skins||[0,1,2,3];
+          p1SkinId=skins[mpMyIndex]||mpMyIndex;
+          player.skinId=p1SkinId;player.hp=7;player.maxHp=7;player.dead=false;
+          // Init boss display objects so HUD doesn't crash
+          if(selectedBoss==='tempestina'&&!tBoss.maxHp)resetTempestina();
+          else if(selectedBoss==='kronos'&&!kBoss.maxHp)resetKronos();
+          else if(!boss.maxHp)resetBoss();
+          mpPlayerCount=d.total||mpPlayerCount;
+          mpShowLoadingScreen(d.total||mpPlayerCount);
+          gameState='loading';
+          // Tell host we're ready after a short delay
           setTimeout(()=>{
-            if(mpHostConn)mpHostConn.send(JSON.stringify({type:'ready',id:mpMyIndex}));
-          },800);
+            if(mpHostConn)try{mpHostConn.send(JSON.stringify({type:'ready',id:mpMyIndex}));}catch(e){}
+          },600);
         } else if(d.type==='allReady'){
           // Host says everyone loaded — dismiss loading and start intro
           mpDismissLoading();
@@ -5628,9 +5639,11 @@ function mpHandleIncoming(conn){
         let pid=d.pid;
         if(pid>=0&&pid<mpPlayers.length&&mpPlayers[pid]&&mpPlayers[pid].dead){
           let rp=mpPlayers[pid];
-          let g=ghosts.find(g2=>g2.mpPlayerId===pid);
-          if(g){
-            ghosts.splice(ghosts.indexOf(g),1);
+          // Find ghost by mpPlayerId (robust, doesn't depend on index)
+          let gi=ghosts.findIndex(g2=>g2.mpPlayerId===pid);
+          if(gi>=0){
+            let g=ghosts[gi];
+            ghosts.splice(gi,1);
             rp.dead=false;rp.x=g.x-rp.w/2;rp.y=FLOOR;
             rp.hp=REVIVE_HP;rp.invTimer=90;rp.shieldT=120;
             spawnParts(g.x,g.y,'#f8e840',18,6,40);triggerShake(4,8);playSFX('heal');
@@ -5776,10 +5789,15 @@ function mpShowLoadingScreen(total){
 
 function mpDismissLoading(){
   mpLoadingScreen=null;
-  // Now start the actual intro
-  introVariant=Math.ceil(Math.random()*3);p2IntroAnim=(introVariant%4)+1;
-  introTimer=INTRO_DUR;introDone=false;
-  gameState='intro';
+  if(mpIsHost){
+    // Host runs the full intro animation
+    introVariant=Math.ceil(Math.random()*3);p2IntroAnim=(introVariant%4)+1;
+    introTimer=INTRO_DUR;introDone=false;
+    gameState='intro';
+  } else {
+    // Clients skip intro — render directly from state
+    gameState='playing';
+  }
 }
 
 function updateMPLoadingScreen(){
@@ -6126,11 +6144,11 @@ function mpSendInput(){
     let b=bullets[j];if(b.owner!=='player')continue;
     for(let gi=0;gi<s.gh.length;gi++){
       let g=s.gh[gi];
-      if(g.pi===mpMyIndex)continue; // can't revive self
+      if(g.pi===mpMyIndex||g.pi<0)continue; // can't revive self or unknown
       let dx=b.x-g.x,dy=b.y-g.y;
-      if(Math.sqrt(dx*dx+dy*dy)<22){
+      if(Math.sqrt(dx*dx+dy*dy)<34){ // larger hitbox for lag compensation
         bullets.splice(j,1);
-        try{mpHostConn.send(JSON.stringify({type:'reviveRequest',ghostIdx:gi,pid:g.pi}));}catch(e){}
+        try{mpHostConn.send(JSON.stringify({type:'reviveRequest',pid:g.pi}));}catch(e){}
         break;
       }
     }
@@ -6284,8 +6302,14 @@ function gameLoop(){
     updateMPLoadingScreen();
     drawMPLoadingScreen();
   } else if(gameState==='intro'){
-    updateIntro();
-    drawIntro();
+    if(mpMode&&!mpIsHost){
+      // Client skips local intro — draw from state and send inputs
+      mpSendInput();
+      mpDrawFromState();
+    } else {
+      updateIntro();
+      drawIntro();
+    }
   } else if(gameState==='overworld'){
     updateOverworld();
     drawOverworld();
