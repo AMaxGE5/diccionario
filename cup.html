@@ -433,6 +433,11 @@ function kickP2(){
 }
 // Pick a random live player to target (50/50 when P2 active)
 function randTarget(){
+  // MP host: elige aleatoriamente entre todos los jugadores vivos
+  if(mpMode&&mpIsHost){
+    let alive=mpPlayers.filter(p=>p&&!p.dead);
+    if(alive.length>0) return alive[Math.floor(Math.random()*alive.length)];
+  }
   if(p2Active&&!player2.dead&&!player.dead) return Math.random()<0.5?player:player2;
   if(p2Active&&!player2.dead) return player2;
   return player;
@@ -1684,13 +1689,13 @@ function doBossAtk(p){
 
   if(p==='spread'){
     let cnt=Math.round(D(5,7));
-    let dx=player.x+player.w/2-cx,dy=player.y-player.h/2-cy,base=Math.atan2(dy,dx);
+    let _tgt0=randTarget();let dx=_tgt0.x+_tgt0.w/2-cx,dy=_tgt0.y-_tgt0.h/2-cy,base=Math.atan2(dy,dx);
     for(let a=-(cnt>>1);a<=(cnt>>1);a++){
       let ang=base+a*0.20;
       bossProjectiles.push({x:cx,y:cy,vx:Math.cos(ang)*3.5*hs,vy:Math.sin(ang)*3.5*hs,r:11,col:'#e84040'});
     }
     if(difficulty==='hard'){
-      setTimeout(()=>{if(gameState!=='playing')return;let bc2=getBossC();let dx2=player.x+player.w/2-bc2.x,dy2=player.y-player.h/2-bc2.y;let base2=Math.atan2(dy2,dx2);for(let a=-2;a<=2;a++){let ang=base2+a*0.22;bossProjectiles.push({x:bc2.x,y:bc2.y,vx:Math.cos(ang)*4*hs,vy:Math.sin(ang)*4*hs,r:10,col:'#ff6060'});}},1000);
+      setTimeout(()=>{if(gameState!=='playing')return;let bc2=getBossC();let _tgt2=randTarget();let dx2=_tgt2.x+_tgt2.w/2-bc2.x,dy2=_tgt2.y-_tgt2.h/2-bc2.y;let base2=Math.atan2(dy2,dx2);for(let a=-2;a<=2;a++){let ang=base2+a*0.22;bossProjectiles.push({x:bc2.x,y:bc2.y,vx:Math.cos(ang)*4*hs,vy:Math.sin(ang)*4*hs,r:10,col:'#ff6060'});}},1000);
     }
   } else if(p==='spiral'){
     let cnt=D(7,9),baseAng=frameCount*0.1;
@@ -1710,8 +1715,7 @@ function doBossAtk(p){
     let cnt=D(2,3);
     for(let i=0;i<cnt;i++){setTimeout(()=>{if(gameState!=='playing')return;
       let bc2=getBossC();
-      // Alternate targets: odd missiles → P2 if available, even → P1
-      let tgt=(i%2===1&&p2Active&&!player2.dead)?player2:player;
+      let tgt=randTarget();
       bossProjectiles.push({x:bc2.x,y:bc2.y,vx:(Math.random()-0.5)*2,vy:-1.5,r:14,col:'#ff60ff',homing:true,homingTarget:tgt});
     },i*800);}
   } else if(p==='burst'){
@@ -1723,7 +1727,7 @@ function doBossAtk(p){
     for(let i=0;i<cnt;i++){setTimeout(()=>{if(gameState!=='playing')return;let ang=(i/cnt)*Math.PI*2+(frameCount*0.12),ang2=ang+Math.PI;bossProjectiles.push({x:cx,y:cy,vx:Math.cos(ang)*3.2*hs,vy:Math.sin(ang)*3.2*hs,r:10,col:'#f03060'});bossProjectiles.push({x:cx,y:cy,vx:Math.cos(ang2)*3.2*hs,vy:Math.sin(ang2)*3.2*hs,r:10,col:'#60f030'});},i*120);}
   } else if(p==='shotgun'){
     let volleys=D(1,2);
-    for(let v=0;v<volleys;v++){setTimeout(()=>{if(gameState!=='playing')return;let bc2=getBossC(),px2=player.x+player.w/2,py2=player.y-player.h/2;let dx2=px2-bc2.x,dy2=py2-bc2.y;let cnt=D(5,7);for(let i=-(cnt>>1);i<=(cnt>>1);i++){let ang=Math.atan2(dy2,dx2)+i*0.16;bossProjectiles.push({x:bc2.x,y:bc2.y,vx:Math.cos(ang)*(3.5+Math.random())*hs,vy:Math.sin(ang)*(3.5+Math.random())*hs,r:8,col:'#ff8020'});}},v*1400);}
+    for(let v=0;v<volleys;v++){setTimeout(()=>{if(gameState!=='playing')return;let bc2=getBossC();let _tgtSG=randTarget();let px2=_tgtSG.x+_tgtSG.w/2,py2=_tgtSG.y-_tgtSG.h/2;let dx2=px2-bc2.x,dy2=py2-bc2.y;let cnt=D(5,7);for(let i=-(cnt>>1);i<=(cnt>>1);i++){let ang=Math.atan2(dy2,dx2)+i*0.16;bossProjectiles.push({x:bc2.x,y:bc2.y,vx:Math.cos(ang)*(3.5+Math.random())*hs,vy:Math.sin(ang)*(3.5+Math.random())*hs,r:8,col:'#ff8020'});}},v*1400);}
   } else if(p==='laserRain'){
     let cnt=D(4,6),spd=D(4.5,6.0);
     for(let i=0;i<cnt;i++){setTimeout(()=>{if(gameState!=='playing')return;bossProjectiles.push({x:80+Math.random()*(W-160),y:-20,vx:0,vy:spd,r:13,col:'#ffff20'});},i*280);}
@@ -1733,8 +1737,9 @@ function doBossAtk(p){
     for(let i=0;i<cnt;i++){
       setTimeout(()=>{if(gameState!=='playing')return;
         let bc2=getBossC();
-        // Always shoot toward player AND away — one will always chase
-        let dir=player.x+player.w/2<bc2.x?-1:1;
+        let _tgtGW=randTarget();
+        // Shoot toward target AND away — uno siempre persigue
+        let dir=_tgtGW.x+_tgtGW.w/2<bc2.x?-1:1;
         bossProjectiles.push({x:bc2.x,y:FLOOR-13,vx:dir*spd*hs,vy:0,r:14,col:'#f0e020',floorSlide:true});
         if(difficulty==='hard'){
           bossProjectiles.push({x:bc2.x,y:FLOOR-13,vx:-dir*spd*0.8*hs,vy:0,r:12,col:'#f08020',floorSlide:true});
@@ -1742,7 +1747,7 @@ function doBossAtk(p){
       },i*350);
     }
   } else if(p==='spiralAimed'){
-    let dx=player.x+player.w/2-cx,dy=player.y-player.h/2-cy,base=Math.atan2(dy,dx),cnt=D(10,13);
+    let _tgtSA=randTarget();let dx=_tgtSA.x+_tgtSA.w/2-cx,dy=_tgtSA.y-_tgtSA.h/2-cy,base=Math.atan2(dy,dx),cnt=D(10,13);
     for(let i=0;i<cnt;i++){setTimeout(()=>{if(gameState!=='playing')return;let ang=base+(i/cnt)*Math.PI*2;bossProjectiles.push({x:cx,y:cy,vx:Math.cos(ang)*3.2*hs,vy:Math.sin(ang)*3.2*hs,r:10,col:'#e060ff'});},i*60);}
   } else if(p==='deathRain'){
     let cnt=D(6,9),spd=D(4.0,5.5);
@@ -2710,7 +2715,7 @@ function updateTempestina(){
     }
     if(bp.bounce&&bp.y<=bp.r){
       bp.y=bp.r;bp.bounce=false;
-      let dx=player.x+player.w/2-bp.x,dy=player.y-bp.y;
+      let _tgtBounce=randTarget();let dx=_tgtBounce.x+_tgtBounce.w/2-bp.x,dy=_tgtBounce.y-bp.y;
       let d=Math.sqrt(dx*dx+dy*dy)||1;
       let spd=difficulty==='hard'?6.9:6;
       bp.vx=(dx/d)*spd;bp.vy=(dy/d)*spd;bp.grav=0;
@@ -6413,6 +6418,15 @@ function mpDrawFromState(){
       drawPlayerObj(tmp,isMine,isMine?undefined:'J'+(i+1));
     }
     mouseX=savedMX;mouseY=savedMY;
+  }
+  // Sincronizar estado del jugador local con los datos del host antes de dibujar el HUD
+  if(s.pl && s.pl[mpMyIndex]){
+    let pd=s.pl[mpMyIndex];
+    player.hp=pd.hp!==undefined?pd.hp:player.hp;
+    player.maxHp=7;
+    player.dead=!!pd.dead;
+    invTimer=pd.iv||0;
+    shieldT=pd.sh||0;
   }
   // HUD
   if(selectedBoss==='tempestina')drawHUDTemp();
