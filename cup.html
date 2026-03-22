@@ -5466,6 +5466,10 @@ function triggerVictoryScreen(bossId){
     diff:difficulty
   };
   gameState='end';
+  // Notificar a clientes MP para que también muestren su pantalla de victoria
+  if(mpMode&&mpIsHost){
+    mpBroadcast({type:'win',bossId,bossName:victoryScreen.bossName,bossCol:victoryScreen.bossCol,dmg:statDmgDealt,dmgPct,timeStr,kills:statKills,shots:statShots});
+  }
 }
 
 function drawVictoryScreen(){
@@ -6196,6 +6200,19 @@ function mpHandleVoteMsg(d){
     selectedBoss=d.boss;difficulty=d.diff;
   } else if(d.type==='returnIsland'||d.type==='goIsland'){
     gameState='overworld';startOverworld();
+  } else if(d.type==='win'){
+    // Mostrar pantalla de victoria en el cliente y regresar a la isla al terminar
+    gameState='end';
+    victoryScreen={
+      timer:VICTORY_DURATION,
+      bossName:d.bossName||'¡JEFE DERROTADO!',
+      bossCol:d.bossCol||'#f5d020',
+      dmg:d.dmg||0, dmgPct:d.dmgPct||0, bossMax:1,
+      p1hp:player.dead?0:player.hp, p2hp:null,
+      timeStr:d.timeStr||'', kills:d.kills||0, shots:d.shots||0,
+      starsNormal:false, starsHard:false, diff:difficulty,
+      isClient:true
+    };
   } else if(d.type==='start'){
     mpPlayerCount=d.playerCount;selectedBoss=d.selectedBoss||d.boss||'inkboss';difficulty=d.difficulty||d.diff||'normal';
     mpLaunchGame(d);
@@ -6486,6 +6503,7 @@ function gameLoop(){
       // CLIENT: just render from remote state, send inputs
       mpSendInput();
       mpDrawFromState();
+      if(gameState==='end'&&victoryScreen)drawVictoryScreen();
     } else if(selectedBoss==='tempestina'){
       drawBackgroundTemp();drawParts();drawTempestina();drawMinions();drawBullets();if(mpMode&&mpIsHost)drawMPAllPlayers();else drawPlayer();drawGhosts();drawSpecials();drawHUDTemp();drawPost();
       if(gameState==='playing'){if(mpMode)mpUpdateHost();else updatePlayer();updateTempestina();updateMinions();updateParts();checkCollisions();updateGhosts();}
