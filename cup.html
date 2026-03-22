@@ -3828,11 +3828,27 @@ const GHOST_RISE_SPD=1.6;
 const GHOST_LIFE=420; // 7s before disappears — rises high
 const REVIVE_HP=4;    // HP on revival (half max)
 
+// ── MP: check if all players are dead (used for game-over trigger) ──
+function allMPPlayersDead(){
+  if(mpMode){
+    // All mpPlayers must be dead (or null) with no live ghosts
+    let anyAlive=mpPlayers.some(p=>p&&!p.dead);
+    if(anyAlive)return false;
+    // Also check if any ghost can still be revived
+    let anyGhost=ghosts.length>0;
+    return !anyGhost;
+  }
+  // Local mode
+  if(!p2Active)return true;
+  return player.dead&&player2.dead;
+}
+
 function spawnGhost(p){
   // Find MP player index for revival
   let mpIdx=-1;
   if(mpMode){
-    for(let i=0;i<mpPlayers.length;i++){if(mpPlayers[i]===p){mpIdx=i;break;}}
+    if(p===player){mpIdx=0;}
+    else{for(let i=0;i<mpPlayers.length;i++){if(mpPlayers[i]===p){mpIdx=i;break;}}}
   }
   ghosts.push({
     x:p.x+p.w/2, y:p.y-p.h/2,
@@ -3849,9 +3865,11 @@ function updateGhosts(){
     let g=ghosts[i];
     g.y+=g.vy;
     g.timer--;
-    g.alpha=Math.min(1,g.timer/60);
+    // Fade when near top of screen or last 80 frames
+    let nearTop=g.y<80;
+    g.alpha=Math.min(1,Math.min(g.timer/80, nearTop?(g.y/80):1));
     g.x+=Math.sin(g.timer*0.08)*0.5;
-    if(g.timer<=0){ghosts.splice(i,1);continue;}
+    if(g.timer<=0||g.y<-60){ghosts.splice(i,1);continue;}
     // Check bullets hitting ghost
     for(let j=bullets.length-1;j>=0;j--){
       let b=bullets[j];
@@ -4175,8 +4193,8 @@ function updateKronos(){
         p.hp--;setInv(90);p.shieldT=100;triggerShake(6,10);playSFX('hit');
         spawnParts(p.x+p.w/2,p.y-p.h/2,'#e84040',10,4,28);
         if(p.hp<=0){p.dead=true;spawnGhost(p);
-          if(p===player&&(!p2Active||player2.dead)){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
-          if(p===player2&&player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+          if(allMPPlayersDead()){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+          // (covered by allMPPlayersDead above)
         }
       }
     }
@@ -4231,8 +4249,8 @@ function updateKronos(){
             p.hp--;(p===player?invTimer=90:p.invTimer=90);p.shieldT=80;
             triggerShake(4,6);playSFX('hit');
             if(p.hp<=0){p.dead=true;spawnGhost(p);
-              if(p===player&&(!p2Active||player2.dead)){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
-              if(p===player2&&player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+              if(allMPPlayersDead()){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+              // (covered by allMPPlayersDead above)
             }
           }
         }
@@ -4250,8 +4268,8 @@ function updateKronos(){
           (p===player?invTimer=90:p.invTimer=90);p.shieldT=90;
           triggerShake(8,14);playSFX('hit');spawnParts(sg.x,sg.y,'#cc40ff',14,6,50);
           if(p.hp<=0){p.dead=true;spawnGhost(p);
-            if(p===player&&(!p2Active||player2.dead)){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
-            if(p===player2&&player.dead){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+            if(allMPPlayersDead()){stopMusic();setTimeout(()=>{if(mpMode){mpBroadcast({type:'returnIsland'});gameState='end';startOverworld();}else{showScreen('gameOver');gameState='end';}},1500);}
+            // (covered by allMPPlayersDead above)
           }
         }
       }
@@ -5555,19 +5573,40 @@ function mpJoinRoom(roomIndex){
           setMPStatus('Sala llena (4/4). Elige otra sala.','#e84040');
           p.destroy();mpPeer=null;mpHostConn=null;
         } else if(d.type==='start'){
-          mpPlayerCount=d.playerCount;selectedBoss=d.selectedBoss||d.boss||'inkboss';difficulty=d.difficulty||d.diff||'normal';
-          mpLaunchGame(d);
+          // Client: just update state vars — loading/allReady flow handles the actual start
+          mpPlayerCount=d.playerCount||mpPlayerCount;
+          selectedBoss=d.selectedBoss||d.boss||selectedBoss;
+          difficulty=d.difficulty||d.diff||difficulty;
         } else if(d.type==='goIsland'){
           mpGoIsland(d);
         } else if(d.type==='owPos'){
           mpOwPositions[d.id]=d; // store remote position
         } else if(d.type==='loading'){
-          // Host says loading — show loading screen on client
-          mpShowLoadingScreen(d.total);
-          // Tell host we're ready after a short delay (simulating load)
+          // Host says loading — initialize client-side data and show loading screen
+          selectedBoss=d.selectedBoss||selectedBoss;
+          difficulty=d.difficulty||difficulty;
+          let skins=d.skins||[0,1,2,3];
+          p1SkinId=skins[mpMyIndex]||mpMyIndex;
+          player.skinId=p1SkinId;player.hp=7;player.maxHp=7;player.dead=false;
+          // Init minimal boss shell so HUD/draw won't crash (no full reset — host owns sim)
+          if(selectedBoss==='tempestina'){
+            if(!tBoss.maxHp)tBoss={x:W/2-90,y:50,w:180,h:160,hp:300,maxHp:300,bobT:0,bobOff:0,facing:-1};
+            tDefeated=false;tPhase=1;
+          } else if(selectedBoss==='kronos'){
+            if(!kBoss.maxHp)kBoss={x:W/2-90,y:50,w:180,h:140,hp:360,maxHp:360,bobT:0,bobOff:0,facing:-1,gear1Ang:0,gear2Ang:0,outerRingAng:0};
+            kDefeated=false;kPhase=1;
+          } else {
+            if(!boss.maxHp)boss={x:W-220,y:FLOOR-60,w:160,h:180,hp:400,maxHp:400,af:0,at:0,eyeX:0,eyeY:0,mouthOpen:0.3,bobT:0,bobOff:0};
+            bossDefeated=false;bossPhase=1;
+          }
+          bossProjectiles=[];bullets=[];minions=[];ghosts=[];particles=[];
+          mpPlayerCount=d.total||mpPlayerCount;
+          mpShowLoadingScreen(d.total||mpPlayerCount);
+          gameState='loading';
+          // Tell host we're ready
           setTimeout(()=>{
-            if(mpHostConn)mpHostConn.send(JSON.stringify({type:'ready',id:mpMyIndex}));
-          },800);
+            if(mpHostConn)try{mpHostConn.send(JSON.stringify({type:'ready',id:mpMyIndex}));}catch(e){}
+          },600);
         } else if(d.type==='allReady'){
           // Host says everyone loaded — dismiss loading and start intro
           mpDismissLoading();
@@ -5627,9 +5666,11 @@ function mpHandleIncoming(conn){
         let pid=d.pid;
         if(pid>=0&&pid<mpPlayers.length&&mpPlayers[pid]&&mpPlayers[pid].dead){
           let rp=mpPlayers[pid];
-          let g=ghosts.find(g2=>g2.mpPlayerId===pid);
-          if(g){
-            ghosts.splice(ghosts.indexOf(g),1);
+          // Find ghost by mpPlayerId (robust, doesn't depend on index)
+          let gi=ghosts.findIndex(g2=>g2.mpPlayerId===pid);
+          if(gi>=0){
+            let g=ghosts[gi];
+            ghosts.splice(gi,1);
             rp.dead=false;rp.x=g.x-rp.w/2;rp.y=FLOOR;
             rp.hp=REVIVE_HP;rp.invTimer=90;rp.shieldT=120;
             spawnParts(g.x,g.y,'#f8e840',18,6,40);triggerShake(4,8);playSFX('heal');
@@ -5775,10 +5816,15 @@ function mpShowLoadingScreen(total){
 
 function mpDismissLoading(){
   mpLoadingScreen=null;
-  // Now start the actual intro
-  introVariant=Math.ceil(Math.random()*3);p2IntroAnim=(introVariant%4)+1;
-  introTimer=INTRO_DUR;introDone=false;
-  gameState='intro';
+  if(mpIsHost){
+    // Host runs the full intro animation
+    introVariant=Math.ceil(Math.random()*3);p2IntroAnim=(introVariant%4)+1;
+    introTimer=INTRO_DUR;introDone=false;
+    gameState='intro';
+  } else {
+    // Clients skip intro — render directly from state
+    gameState='playing';
+  }
 }
 
 function updateMPLoadingScreen(){
@@ -5970,8 +6016,10 @@ function mpHandleVoteMsg(d){
   } else if(d.type==='returnIsland'||d.type==='goIsland'){
     gameState='overworld';startOverworld();
   } else if(d.type==='start'){
-    mpPlayerCount=d.playerCount;selectedBoss=d.selectedBoss||d.boss||'inkboss';difficulty=d.difficulty||d.diff||'normal';
-    mpLaunchGame(d);
+    // Client receives start: just update vars — loading/allReady flow handles the rest
+    mpPlayerCount=d.playerCount||mpPlayerCount;
+    selectedBoss=d.selectedBoss||d.boss||selectedBoss;
+    difficulty=d.difficulty||d.diff||difficulty;
   }
 }
 
@@ -6058,7 +6106,10 @@ function mpBuildState(){
     pl:mpPlayers.map((p,i)=>{
       if(!p)return null;
       let cl=i>0?mpClients.find(c=>c.id===i):null;
+      let pInvT=i===0?invTimer:(p.invTimer||0);
+      let pShT=i===0?shieldT:(p.shieldT||0);
       return{x:Math.round(p.x),y:Math.round(p.y),hp:p.hp,f:p.facing,cr:p.crouching?1:0,d:p.dashing?1:0,dead:p.dead?1:0,af:p.af,sc:p.shootCD>0?1:0,sk:p.skinId,slow:p.slowTimer||0,
+        sh:pShT>0?Math.round(pShT):0, iv:pInvT>0?Math.round(pInvT):0,
         mx:cl?cl.mx||mouseX:mouseX, my:cl?cl.my||mouseY:mouseY};
     }),
     boss:bossState,
@@ -6122,11 +6173,11 @@ function mpSendInput(){
     let b=bullets[j];if(b.owner!=='player')continue;
     for(let gi=0;gi<s.gh.length;gi++){
       let g=s.gh[gi];
-      if(g.pi===mpMyIndex)continue; // can't revive self
+      if(g.pi===mpMyIndex||g.pi<0)continue; // can't revive self or unknown
       let dx=b.x-g.x,dy=b.y-g.y;
-      if(Math.sqrt(dx*dx+dy*dy)<22){
+      if(Math.sqrt(dx*dx+dy*dy)<34){ // larger hitbox for lag compensation
         bullets.splice(j,1);
-        try{mpHostConn.send(JSON.stringify({type:'reviveRequest',ghostIdx:gi,pid:g.pi}));}catch(e){}
+        try{mpHostConn.send(JSON.stringify({type:'reviveRequest',pid:g.pi}));}catch(e){}
         break;
       }
     }
@@ -6148,14 +6199,24 @@ function mpDrawFromState(){
     if(selectedBoss==='tempestina'){
       tBoss.x=s.boss.x;tBoss.y=s.boss.y;tBoss.hp=s.boss.hp;tBoss.maxHp=s.boss.maxHp;
       tBoss.bobOff=s.boss.bob;tPhase=s.boss.ph;tDefeated=!!s.boss.def;
+      tBoss.bobT=(tBoss.bobT||0)+0.05;
+      tExitDir=0;tEntering=false;tInvT=0;
       drawTempestina();
     } else if(selectedBoss==='kronos'){
       kBoss.x=s.boss.x;kBoss.y=s.boss.y;kBoss.hp=s.boss.hp;kBoss.maxHp=s.boss.maxHp;
       kBoss.bobOff=s.boss.bob;kPhase=s.boss.ph;kDefeated=!!s.boss.def;
+      kBoss.bobT=(kBoss.bobT||0)+0.05;
+      kBoss.gear1Ang=(kBoss.gear1Ang||0)+0.04;
+      kBoss.gear2Ang=(kBoss.gear2Ang||0)-0.05;
+      kBoss.outerRingAng=(kBoss.outerRingAng||0)+0.01;
+      kEntering=false;kInvT=0;kExitDir=0;
       drawKronos();
     } else {
       boss.x=s.boss.x;boss.y=s.boss.y;boss.hp=s.boss.hp;boss.maxHp=s.boss.maxHp;
       boss.bobOff=s.boss.bob;bossPhase=s.boss.ph;bossDefeated=!!s.boss.def;
+      boss.bobT=(boss.bobT||0)+0.05;
+      boss.af=(boss.af||0)+1;if(boss.af>=8){boss.af=0;}
+      bossExitDir=0;bossEntering=false;bossInvT=0;bossDeathAnim=0;
       drawBoss();
     }
   }
@@ -6218,7 +6279,7 @@ function mpDrawFromState(){
       crouching:!!pd.cr,dashing:!!pd.d,dashT:pd.d?4:0,dashDir:pd.f||1,
       onGround:true,
       skinId:pd.sk!==undefined?pd.sk:i,
-      invTimer:0,shieldT:0,dashCD:0,shootCD:pd.sc?1:0,
+      invTimer:pd.iv||0,shieldT:pd.sh||0,dashCD:0,shootCD:pd.sc?1:0,
       slowTimer:pd.slow||0,
     };
     let isMine=(i===mpMyIndex);
@@ -6228,10 +6289,13 @@ function mpDrawFromState(){
   }
   mouseX=savedMX;mouseY=savedMY;
 
-  // ── HUD — sync local player HP from state ──
+  // ── HUD — sync local player HP/shield from state ──
   if(s.pl&&s.pl[mpMyIndex]){
     let me=s.pl[mpMyIndex];
     player.hp=me.hp||0;player.maxHp=7;
+    // Sync globals so shield and flicker show correctly for local player
+    invTimer=me.iv||0;
+    shieldT=me.sh||0;
   }
   if(selectedBoss==='tempestina')drawHUDTemp();
   else if(selectedBoss==='kronos')drawHUDKronos();
@@ -6280,8 +6344,14 @@ function gameLoop(){
     updateMPLoadingScreen();
     drawMPLoadingScreen();
   } else if(gameState==='intro'){
-    updateIntro();
-    drawIntro();
+    if(mpMode&&!mpIsHost){
+      // Client skips local intro — draw from state and send inputs
+      mpSendInput();
+      mpDrawFromState();
+    } else {
+      updateIntro();
+      drawIntro();
+    }
   } else if(gameState==='overworld'){
     updateOverworld();
     drawOverworld();
