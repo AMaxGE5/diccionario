@@ -461,7 +461,7 @@ function getWeapon(isP2){
 
 function shootWeapon(p,isP2){
   let wep=getWeapon(isP2);
-  let sk=SKINS[p.skinId||0];
+  let sk=ALL_SKINS[p.skinId]||SKINS[p.skinId]||SKINS[0];
   let bx=p.x+p.w/2;
   let by=p.y-(p.crouching?p.h*0.3:p.h*0.60);
   let dx=mouseX-bx, dy=mouseY-by;
@@ -856,7 +856,7 @@ function updatePlayer(){
   updateSpecials();
 }
 
-function drawPlayerObj(p,isMine){
+function drawPlayerObj(p,isMine,mpLabel){
   if(p.dead)return;
   let ownInvTimer=isMine?invTimer:p.invTimer;
   let ownShieldT=isMine?shieldT:p.shieldT;
@@ -908,7 +908,11 @@ function drawPlayerObj(p,isMine){
   }
 
   // P2 label above head
-  if(!isMine){
+  if(!isMine&&mpLabel!==undefined){
+    let lblCol=ALL_SKINS[p.skinId]?ALL_SKINS[p.skinId].hatBand:'#40c8ff';
+    ctx.save();ctx.fillStyle=lblCol;ctx.font='bold 11px Impact';ctx.textAlign='center';
+    ctx.fillText(mpLabel||'J?',px+w/2,py-h-8);ctx.restore();
+  } else if(!isMine&&mpLabel===undefined){
     ctx.save();ctx.fillStyle='#40c8ff';ctx.font='bold 11px Impact';ctx.textAlign='center';
     ctx.fillText('J2',px+w/2,py-h-8);ctx.restore();
   }
@@ -5597,7 +5601,7 @@ function mpHandleIncoming(conn){
       if(d.type==='probe'){conn.send(JSON.stringify({type:'probeReply',count:mpPlayerCount}));return;}
       let cl=mpClients.find(c=>c.conn===conn);
       if(!cl)return;
-      if(d.type==='input')cl.keys=d.keys||{};
+      if(d.type==='input'){cl.keys=d.keys||{};if(d.mx!==undefined)cl.mx=d.mx;if(d.my!==undefined)cl.my=d.my;}
       else if(d.type==='vote')mpReceiveVote(cl.id,d.boss,d.diff);
       else if(d.type==='owPos'){
         mpOwPositions[d.id]=d;
@@ -6017,7 +6021,12 @@ function mpBuildState(){
   else bossState={x:boss.x,y:boss.y,hp:boss.hp,maxHp:boss.maxHp,ph:bossPhase,def:bossDefeated?1:0,bob:boss.bobOff};
   return JSON.stringify({
     type:'state',f:frameCount,gs:gameState,
-    pl:mpPlayers.map(p=>p?{x:Math.round(p.x),y:Math.round(p.y),hp:p.hp,f:p.facing,cr:p.crouching?1:0,d:p.dashing?1:0,dead:p.dead?1:0,af:p.af,sc:p.shootCD>0?1:0,sk:p.skinId,slow:p.slowTimer||0}:null),
+    pl:mpPlayers.map((p,i)=>{
+      if(!p)return null;
+      let cl=i>0?mpClients.find(c=>c.id===i):null;
+      return{x:Math.round(p.x),y:Math.round(p.y),hp:p.hp,f:p.facing,cr:p.crouching?1:0,d:p.dashing?1:0,dead:p.dead?1:0,af:p.af,sc:p.shootCD>0?1:0,sk:p.skinId,slow:p.slowTimer||0,
+        mx:cl?cl.mx||mouseX:mouseX, my:cl?cl.my||mouseY:mouseY};
+    }),
     boss:bossState,
     bp:bossProjectiles.slice(0,50).map(b=>({x:Math.round(b.x),y:Math.round(b.y),vx:+(b.vx).toFixed(1),vy:+(b.vy).toFixed(1),r:b.r,col:b.col})),
     mn:minions.slice(0,20).map(m=>({x:Math.round(m.x),y:Math.round(m.y),t:m.type,hp:m.hp})),
@@ -6045,54 +6054,70 @@ function mpApplyClientInputs(){
   }
 }
 
-// ── Client: send local keys to host ──
+// ── Draw all MP players using full drawPlayerObj ──
+function drawMPAllPlayers(){
+  for(let i=0;i<mpPlayers.length;i++){
+    let p=mpPlayers[i];
+    if(!p||p.dead)continue;
+    let isMine=(i===0); // host is always index 0
+    let label='J'+(i+1);
+    drawPlayerObj(p,isMine,isMine?undefined:label);
+  }
+}
+
+// ── Client: send local keys + mouse to host ──
 function mpSendInput(){
   if(!mpHostConn||mpIsHost)return;
   let relevant=['KeyA','KeyD','KeyW','KeyS','ShiftLeft','Space'];
   let k={};for(let r of relevant)if(keys[r])k[r]=true;
-  mpHostConn.send(JSON.stringify({type:'input',keys:k}));
+  try{mpHostConn.send(JSON.stringify({type:'input',keys:k,mx:Math.round(mouseX),my:Math.round(mouseY)}));}catch(e){}
 }
 
 // ── Client: draw from received state ──
 function mpDrawFromState(){
   let s=mpRemoteState;if(!s)return;
-  // Draw background
   if(selectedBoss==='tempestina')drawBackgroundTemp();
   else if(selectedBoss==='kronos')drawBackgroundKronos();
   else drawBackground();
   drawParts();
-  // Draw boss from state
+  // Draw boss
   if(s.boss){
     if(selectedBoss==='tempestina'){tBoss.x=s.boss.x;tBoss.y=s.boss.y;tBoss.hp=s.boss.hp;tBoss.maxHp=s.boss.maxHp;tBoss.bobOff=s.boss.bob;tPhase=s.boss.ph;tDefeated=!!s.boss.def;drawTempestina();}
     else if(selectedBoss==='kronos'){kBoss.x=s.boss.x;kBoss.y=s.boss.y;kBoss.hp=s.boss.hp;kBoss.maxHp=s.boss.maxHp;kBoss.bobOff=s.boss.bob;kPhase=s.boss.ph;kDefeated=!!s.boss.def;drawKronos();}
     else{boss.x=s.boss.x;boss.y=s.boss.y;boss.hp=s.boss.hp;boss.maxHp=s.boss.maxHp;boss.bobOff=s.boss.bob;bossPhase=s.boss.ph;bossDefeated=!!s.boss.def;drawBoss();}
   }
-  // Draw minions
-  if(s.mn)for(let m of s.mn){let found=minions.find(mm=>mm.type===m.t&&Math.abs(mm.x-m.x)<2);if(!found)minions=minions.filter(mm=>!(mm.type===m.t&&Math.abs(mm.x-m.x)>100));}
   drawMinions();
-  // Draw boss projectiles
+  // Boss projectiles
   if(s.bp)for(let bp of s.bp){ctx.save();ctx.fillStyle=bp.col||'#ff4040';ctx.beginPath();ctx.arc(bp.x,bp.y,bp.r,0,Math.PI*2);ctx.fill();ctx.strokeStyle='rgba(0,0,0,0.5)';ctx.lineWidth=1.5;ctx.stroke();ctx.restore();}
-  // Draw player bullets
+  // Player bullets
   if(s.bl)for(let b of s.bl){ctx.save();ctx.fillStyle=b.col||'#f8e840';ctx.beginPath();ctx.arc(b.x,b.y,b.r||5,0,Math.PI*2);ctx.fill();ctx.restore();}
-  // Draw all MP players
+  // Draw all MP players with full sprites
   if(s.pl)for(let i=0;i<s.pl.length;i++){
     let pd=s.pl[i];if(!pd||pd.dead)continue;
-    let sk=ALL_SKINS[pd.sk||0];
-    let px=pd.x,py=pd.y,f=pd.f||1;
-    if(i===mpMyIndex){ctx.save();ctx.fillStyle=sk.hatBand;ctx.font='bold 11px Impact';ctx.textAlign='center';ctx.fillText('TÚ',px+14,py-84);ctx.restore();}
-    // Simple character draw
-    ctx.save();ctx.translate(px+14,py);let sc2=75/82;ctx.scale(f*sc2,sc2*(pd.cr?0.6:1));
-    ctx.fillStyle=sk.coat;ctx.beginPath();ctx.ellipse(0,-26,11,12,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#000';ctx.lineWidth=2.5;ctx.stroke();
-    ctx.fillStyle='#f8c840';ctx.beginPath();ctx.ellipse(0,-50,15,14,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#000';ctx.lineWidth=3;ctx.stroke();
-    ctx.fillStyle='#1a1a1a';ctx.beginPath();ctx.ellipse(0,-63,17,4,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#000';ctx.lineWidth=2;ctx.stroke();
-    ctx.beginPath();ctx.roundRect(-11,-82,22,20,3);ctx.fill();ctx.stroke();
-    ctx.fillStyle=sk.hatBand;ctx.fillRect(-11,-69,22,5);
-    ctx.restore();
-    // HP label
-    ctx.fillStyle=sk.hatBand;ctx.font='bold 9px Impact';ctx.textAlign='center';
-    ctx.fillText(`J${i+1} ❤${pd.hp}`,px+14,py-90);
+    // Build a temporary player object compatible with drawPlayerObj
+    let tmp={
+      x:pd.x,y:pd.y,vx:0,vy:0,w:28,h:75,
+      hp:pd.hp,maxHp:7,dead:false,
+      facing:pd.f||1,af:pd.af||0,at:0,
+      crouching:!!pd.cr,dashing:!!pd.d,dashT:pd.d?4:0,dashDir:pd.f||1,
+      onGround:true,
+      skinId:pd.sk||i,
+      invTimer:0,shieldT:0,dashCD:0,shootCD:pd.sc?1:0,
+      slowTimer:pd.slow||0,
+    };
+    let isMine=(i===mpMyIndex);
+    // Temporarily set mouseX/mouseY for this player's aim line
+    let savedMX=mouseX,savedMY=mouseY;
+    if(pd.mx!==undefined)mouseX=pd.mx;
+    if(pd.my!==undefined)mouseY=pd.my;
+    drawPlayerObj(tmp,isMine,isMine?undefined:'J'+(i+1));
+    mouseX=savedMX;mouseY=savedMY;
   }
-  // HUD
+  // HUD (show local player's HP etc from state)
+  if(s.pl&&s.pl[mpMyIndex]){
+    let me=s.pl[mpMyIndex];
+    player.hp=me.hp;player.maxHp=7;
+  }
   if(selectedBoss==='tempestina')drawHUDTemp();
   else if(selectedBoss==='kronos')drawHUDKronos();
   else drawHUD();
@@ -6149,13 +6174,19 @@ function gameLoop(){
       mpSendInput();
       mpDrawFromState();
     } else if(selectedBoss==='tempestina'){
-      drawBackgroundTemp();drawParts();drawTempestina();drawMinions();drawBullets();drawPlayer();drawGhosts();drawSpecials();drawHUDTemp();drawPost();
+      drawBackgroundTemp();drawParts();drawTempestina();drawMinions();drawBullets();
+      if(mpMode)drawMPAllPlayers();else drawPlayer();
+      drawGhosts();drawSpecials();drawHUDTemp();drawPost();
       if(gameState==='playing'){if(mpMode)mpUpdateHost();else updatePlayer();updateTempestina();updateMinions();updateParts();checkCollisions();updateGhosts();}
     } else if(selectedBoss==='kronos'){
-      drawBackgroundKronos();drawParts();drawKronos();drawMinions();drawBullets();drawPlayer();drawGhosts();drawSpecials();drawHUDKronos();
+      drawBackgroundKronos();drawParts();drawKronos();drawMinions();drawBullets();
+      if(mpMode)drawMPAllPlayers();else drawPlayer();
+      drawGhosts();drawSpecials();drawHUDKronos();
       if(gameState==='playing'){if(mpMode)mpUpdateHost();else updatePlayer();updateKronos();updateMinions();updateParts();checkCollisions();updateGhosts();}
     } else {
-      drawBackground();drawParts();drawBoss();drawMinions();drawBullets();drawPlayer();drawGhosts();drawSpecials();drawHUD();drawPost();
+      drawBackground();drawParts();drawBoss();drawMinions();drawBullets();
+      if(mpMode)drawMPAllPlayers();else drawPlayer();
+      drawGhosts();drawSpecials();drawHUD();drawPost();
       if(gameState==='playing'){if(mpMode)mpUpdateHost();else updatePlayer();updateBoss();updateMinions();updateParts();checkCollisions();updateGhosts();}
     }
     if(gameState==='end'&&victoryScreen)drawVictoryScreen();
