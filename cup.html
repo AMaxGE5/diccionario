@@ -5466,8 +5466,12 @@ function triggerVictoryScreen(bossId){
     diff:difficulty
   };
   gameState='end';
-  // Notificar a clientes MP para que también muestren su pantalla de victoria
+  // En MP: mostrar el mismo winScreen HTML para host y notificar a clientes
   if(mpMode&&mpIsHost){
+    let sub=document.getElementById('winScreen').querySelector('.endSub');
+    if(sub) sub.textContent=bossId==='tempestina'?'¡TEMPESTINA FUE DERROTADA!':bossId==='kronos'?'¡KRONOS FUE DETENIDO!':'¡EL INKBOSS FUE DESTRUIDO!';
+    victoryScreen=null; // no usar la pantalla canvas
+    showScreen('winScreen');
     mpBroadcast({type:'winMP',bossId});
   }
 }
