@@ -545,15 +545,54 @@ const SPECIAL_THRESHOLD=30;
 let p1SpecialCharge=0, p2SpecialCharge=0;
 let p1SpecialAnim=null; // null or {t,dur,beamY,dir}
 let p2SpecialAnim=null;
+// Arrays MP: cada jugador (0-3) tiene su propio slot, sin colisión
+let mpSpecialCharge=[0,0,0,0];
+let mpSpecialAnim=[null,null,null,null];
+
+// Obtener la animación especial del jugador p (funciona en modo local y MP)
+function getSpecialAnim(p){
+  if(mpMode&&mpIsHost){
+    let idx=mpGetPlayerIdx(p);
+    return idx>=0?mpSpecialAnim[idx]:null;
+  }
+  return p===player?p1SpecialAnim:p2SpecialAnim;
+}
+function setSpecialAnim(p,val){
+  if(mpMode&&mpIsHost){
+    let idx=mpGetPlayerIdx(p);
+    if(idx>=0)mpSpecialAnim[idx]=val;
+    return;
+  }
+  if(p===player)p1SpecialAnim=val; else p2SpecialAnim=val;
+}
+function mpGetPlayerIdx(p){
+  if(!mpMode)return -1;
+  for(let i=0;i<mpPlayers.length;i++){if(mpPlayers[i]===p)return i;}
+  return -1;
+}
 
 function addSpecialCharge(isP2,amt,mpIdx){
-  // En MP solo el host (mpIdx===0 o undefined) carga el especial
-  if(mpMode&&mpIdx!==undefined&&mpIdx!==0)return;
+  if(mpMode){
+    // En MP: cada jugador acumula su propio especial por su índice
+    let idx=mpIdx!==undefined?mpIdx:(isP2?1:0);
+    if(idx<0||idx>3)return;
+    mpSpecialCharge[idx]=Math.min(SPECIAL_THRESHOLD,(mpSpecialCharge[idx]||0)+(amt||1));
+    return;
+  }
   if(isP2) p2SpecialCharge=Math.min(SPECIAL_THRESHOLD,p2SpecialCharge+(amt||1));
   else p1SpecialCharge=Math.min(SPECIAL_THRESHOLD,p1SpecialCharge+(amt||1));
 }
 
 function activateSpecial(isP2){
+  if(mpMode&&mpIsHost){
+    // Host activa su especial (slot 0)
+    if(mpSpecialCharge[0]<SPECIAL_THRESHOLD)return;
+    if(!player||player.dead)return;
+    mpSpecialCharge[0]=0;
+    mpSpecialAnim[0]={t:0,dur:280,beamY:player.y-player.h*0.5,dir:player.facing};
+    triggerShake(5,12);spawnParts(player.x+player.w/2,player.y-player.h*0.5,'#f5d020',16,6,40);
+    return;
+  }
   let charge=isP2?p2SpecialCharge:p1SpecialCharge;
   if(charge<SPECIAL_THRESHOLD)return;
   let p=isP2?player2:player;
@@ -567,15 +606,12 @@ function updateSpecials(){
   function tickSpecial(anim,p,isP2){
     if(!anim)return null;
     anim.t++;
-    // Full invincibility for entire duration
     if(isP2){player2.invTimer=Math.max(player2.invTimer,anim.dur-anim.t+2);}
     else{invTimer=Math.max(invTimer,anim.dur-anim.t+2);}
-    // Beam active: frames 18 → dur-14 (enter/exit leave 14-frame ramp)
     const beamStart=18, beamEnd=anim.dur-14;
     if(anim.t>=beamStart&&anim.t<=beamEnd){
       let beamH=30;
       let by=anim.beamY;
-      // Destroy boss projectiles in beam path every frame
       for(let i=bossProjectiles.length-1;i>=0;i--){
         let bp=bossProjectiles[i];
         if(bp.y>by-beamH/2&&bp.y<by+beamH/2){
@@ -583,7 +619,6 @@ function updateSpecials(){
           bossProjectiles.splice(i,1);
         }
       }
-      // Continuous damage every 18 frames — small per-tick so it feels fair
       if((anim.t-beamStart)%18===0){
         let dmg=p2Active?1:2;
         if(selectedBoss==='tempestina'){if(!tDefeated){tBoss.hp-=dmg;tInvT=Math.max(tInvT,10);triggerShake(3,5);statDmgDealt+=dmg;}}
@@ -592,6 +627,38 @@ function updateSpecials(){
     }
     if(anim.t>=anim.dur)return null;
     return anim;
+  }
+  // Función tick para MP: usa el objeto jugador directamente, sin globals isP2
+  function tickSpecialMP(anim,p,idx){
+    if(!anim)return null;
+    anim.t++;
+    // Invencibilidad durante el especial (se almacena en el objeto)
+    if(idx===0) invTimer=Math.max(invTimer,anim.dur-anim.t+2);
+    else p.invTimer=Math.max(p.invTimer,anim.dur-anim.t+2);
+    const beamStart=18, beamEnd=anim.dur-14;
+    if(anim.t>=beamStart&&anim.t<=beamEnd){
+      let by=anim.beamY;
+      for(let i=bossProjectiles.length-1;i>=0;i--){
+        let bp=bossProjectiles[i];
+        if(bp.y>by-15&&bp.y<by+15){spawnParts(bp.x,bp.y,'#f5d020',4,3,12);bossProjectiles.splice(i,1);}
+      }
+      if((anim.t-beamStart)%18===0){
+        let dmg=mpPlayers.filter(p=>p&&!p.dead).length>1?1:2;
+        if(selectedBoss==='tempestina'){if(!tDefeated){tBoss.hp-=dmg;tInvT=Math.max(tInvT,10);triggerShake(3,5);statDmgDealt+=dmg;}}
+        else if(selectedBoss==='kronos'){if(!kDefeated){kBoss.hp-=dmg;kInvT=Math.max(kInvT,10);triggerShake(3,5);statDmgDealt+=dmg;}}
+        else{if(!bossDefeated){boss.hp-=dmg;bossInvT=Math.max(bossInvT,10);triggerShake(3,5);statDmgDealt+=dmg;}}
+      }
+    }
+    if(anim.t>=anim.dur)return null;
+    return anim;
+  }
+  if(mpMode&&mpIsHost){
+    // Tick independiente para cada jugador MP
+    for(let i=0;i<mpPlayers.length;i++){
+      if(mpPlayers[i]&&!mpPlayers[i].dead)
+        mpSpecialAnim[i]=tickSpecialMP(mpSpecialAnim[i],mpPlayers[i],i);
+    }
+    return;
   }
   p1SpecialAnim=tickSpecial(p1SpecialAnim,player,false);
   if(p2Active) p2SpecialAnim=tickSpecial(p2SpecialAnim,player2,true);
@@ -602,38 +669,31 @@ function drawSpecials(){
     if(!anim)return;
     const beamStart=18,beamEnd=anim.dur-14;
     if(anim.t<beamStart||anim.t>beamEnd)return;
-    let pct=(anim.t-beamStart)/(beamEnd-beamStart); // 0→1
+    let pct=(anim.t-beamStart)/(beamEnd-beamStart);
     let alpha=pct<0.1?pct/0.1:pct>0.9?(1-pct)/0.1:1;
-    // Pulse intensity on each damage tick (every 18 frames)
     let phasePulse=1+0.4*Math.pow(Math.cos(((anim.t-beamStart)%18/18)*Math.PI),2);
     let beamH=(24+Math.sin(anim.t*0.5)*5)*phasePulse;
     let by=anim.beamY;
     ctx.save();ctx.globalAlpha=alpha*0.9;
-    // Beam body
     let grad=ctx.createLinearGradient(0,by-beamH,0,by+beamH);
     grad.addColorStop(0,'transparent');grad.addColorStop(0.4,col+'cc');
     grad.addColorStop(0.5,col);grad.addColorStop(0.6,col+'cc');
     grad.addColorStop(1,'transparent');
     ctx.fillStyle=grad;ctx.fillRect(0,by-beamH,W,beamH*2);
-    // Glowing center line
     ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.shadowColor=col;ctx.shadowBlur=22;
     ctx.beginPath();ctx.moveTo(0,by);ctx.lineTo(W,by);ctx.stroke();
     ctx.shadowBlur=0;
-    // Character pose during special — lean forward
     if(p&&!p.dead){
       let sk=SKINS[p.skinId||0];
       ctx.globalAlpha=alpha;
       ctx.save();ctx.translate(p.x+p.w/2,p.y);ctx.scale(anim.dir*(75/82),75/82);
-      // Dramatic lean: scale x stretched, y compressed
       ctx.scale(1.3,0.8);
       ctx.fillStyle=sk.coat;ctx.beginPath();ctx.ellipse(0,-26,13,10,0,0,Math.PI*2);ctx.fill();
       ctx.strokeStyle='#000';ctx.lineWidth=2.5;ctx.stroke();
-      // Gun arm outstretched
       ctx.strokeStyle=sk.coat;ctx.lineWidth=7;ctx.lineCap='round';
       ctx.beginPath();ctx.moveTo(8,-28);ctx.lineTo(44,-26);ctx.stroke();
       ctx.fillStyle='#333';ctx.strokeStyle='#000';ctx.lineWidth=1.5;
       ctx.beginPath();ctx.roundRect(42,-31,14,8,2);ctx.fill();ctx.stroke();
-      // Muzzle flash
       let mf=1-Math.abs((anim.t-37)/18);mf=Math.max(0,mf);
       if(mf>0){ctx.fillStyle=`rgba(255,220,64,${mf*0.9})`;ctx.beginPath();ctx.arc(58,-26,10*mf,0,Math.PI*2);ctx.fill();}
       ctx.fillStyle='#f8c840';ctx.beginPath();ctx.ellipse(0,-50,15,13,0,0,Math.PI*2);ctx.fill();
@@ -644,6 +704,15 @@ function drawSpecials(){
       ctx.restore();
     }
     ctx.restore();
+  }
+  if(mpMode&&mpIsHost){
+    // Dibujar beam de cada jugador MP con su propio color
+    for(let i=0;i<mpPlayers.length;i++){
+      let p=mpPlayers[i];if(!p||p.dead)continue;
+      let sk=ALL_SKINS[p.skinId||i]||ALL_SKINS[0];
+      drawBeam(mpSpecialAnim[i],p,sk.bullet||'#f8e840');
+    }
+    return;
   }
   let col1=SKINS[player.skinId||0].bullet||'#f8e840';
   let col2=p2Active?SKINS[player2.skinId||0].bullet||'#80ffff':'#80ffff';
@@ -872,7 +941,7 @@ function updatePlayerObj(p,cfg,ownDashCD,ownShootCD,ownInvTimer,ownShieldT,ownJu
 
   // SHOOT — uses active weapon; autoShoot fires for both when 2P local
   let wantShoot=keys[cfg.shoot]||(autoShoot&&p2Active&&!mpMode);
-  if(wantShoot&&ownShootCD<=0&&!p.dashing&&!((p===player?p1SpecialAnim:p2SpecialAnim))){
+  if(wantShoot&&ownShootCD<=0&&!p.dashing&&!getSpecialAnim(p)){
     ownShootCD=shootWeapon(p,p===player2,tmx,tmy,_mpIdx);
   }
   if(ownShootCD>0)ownShootCD--;
@@ -2364,9 +2433,9 @@ function drawHUD(){
     ctx.fillText('⬇ AGACHADO · HITBOX REDUCIDA',18,97);
   }
   // Special charge bar
-  let sp1ready=p1SpecialCharge>=SPECIAL_THRESHOLD;
+  let sp1ready=(mpMode&&mpIsHost?mpSpecialCharge[0]:p1SpecialCharge)>=SPECIAL_THRESHOLD;let _sp1c=mpMode&&mpIsHost?mpSpecialCharge[0]:p1SpecialCharge;
   let sp1y=player.crouching?102:88;
-  drawSpecialBar(14,sp1y,164,p1SpecialCharge,sp1ready,'#f0a020');
+  drawSpecialBar(14,sp1y,164,_sp1c,sp1ready,'#f0a020');
   // Weapon slots J1
   drawWeaponSlots(14,sp1y+18,p1Slots,p1ActiveSlot,false);
   // Boss HP
@@ -3483,9 +3552,8 @@ function drawHUDTemp(){
     ctx.fillText('⬇ AGACHADO · HITBOX REDUCIDA',18,97);
   }
   // Special charge bar J1
-  let sp1rT=p1SpecialCharge>=SPECIAL_THRESHOLD;
   let sp1yT=player.crouching?102:88;
-  drawSpecialBar(14,sp1yT,164,p1SpecialCharge,sp1rT,'#60d8ff');
+  let _sp1cT=mpMode&&mpIsHost?mpSpecialCharge[0]:p1SpecialCharge;let sp1rT=_sp1cT>=SPECIAL_THRESHOLD;drawSpecialBar(14,sp1yT,164,_sp1cT,sp1rT,'#60d8ff');
   // Weapon slots J1
   drawWeaponSlots(14,sp1yT+18,p1Slots,p1ActiveSlot,false);
   // Minion alerts
@@ -3730,7 +3798,7 @@ function startGame(){
   statShots=0;statKills=0;statStartFrame=0;statDmgDealt=0;bossHpPool=0;
   victoryScreen=null;
   ghosts=[];
-  p1SpecialCharge=0;p2SpecialCharge=0;p1SpecialAnim=null;p2SpecialAnim=null;
+  p1SpecialCharge=0;p2SpecialCharge=0;p1SpecialAnim=null;p2SpecialAnim=null;mpSpecialCharge=[0,0,0,0];mpSpecialAnim=[null,null,null,null];
   p1ActiveSlot=0;p2ActiveSlot=0;
   // Pick random intro variant
   introVariant=Math.ceil(Math.random()*3);
@@ -4750,8 +4818,8 @@ function drawHUDKronos(){
   if(shieldT>0||player.dashing){ctx.fillStyle=`rgba(0,200,255,${(player.dashing?1:shieldT/120)*0.7})`;ctx.fillRect(14,70,164,14);ctx.strokeStyle='#40e8ff';ctx.lineWidth=1.5;ctx.strokeRect(14,70,164,14);ctx.fillStyle='#fff';ctx.font='bold 10px Impact';ctx.fillText(player.dashing?'⚡ INMUNE · DASH':'🛡 ESCUDO ACTIVO',18,81);}
   if(player.crouching){ctx.fillStyle='rgba(160,240,120,0.7)';ctx.fillRect(14,86,164,13);ctx.strokeStyle='#80e040';ctx.lineWidth=1.5;ctx.strokeRect(14,86,164,13);ctx.fillStyle='#000';ctx.font='bold 9px Impact';ctx.fillText('⬇ AGACHADO · HITBOX REDUCIDA',18,97);}
   let sp1y=player.crouching?102:88;
-  let sp1ready=p1SpecialCharge>=SPECIAL_THRESHOLD;
-  drawSpecialBar(14,sp1y,164,p1SpecialCharge,sp1ready,'#c8a028');
+  let sp1ready=(mpMode&&mpIsHost?mpSpecialCharge[0]:p1SpecialCharge)>=SPECIAL_THRESHOLD;let _sp1c=mpMode&&mpIsHost?mpSpecialCharge[0]:p1SpecialCharge;
+  drawSpecialBar(14,sp1y,164,_sp1c,sp1ready,'#c8a028');
   drawWeaponSlots(14,sp1y+18,p1Slots,p1ActiveSlot,false);
   // Boss HP
   let bHpW=(kBoss.hp/kBoss.maxHp)*350;
@@ -5964,7 +6032,7 @@ function mpLaunchGame(d){
   resetMinions();minionSpawnT=9999;
   mouseX=W/2;mouseY=H/2;bossWarning=null;
   statShots=0;statKills=0;statStartFrame=0;statDmgDealt=0;bossHpPool=0;
-  ghosts=[];p1SpecialCharge=0;p2SpecialCharge=0;p1SpecialAnim=null;p2SpecialAnim=null;
+  ghosts=[];p1SpecialCharge=0;p2SpecialCharge=0;p1SpecialAnim=null;p2SpecialAnim=null;mpSpecialCharge=[0,0,0,0];mpSpecialAnim=[null,null,null,null];
   p1ActiveSlot=0;p2ActiveSlot=0;victoryScreen=null;
   mpPlayers=[];
   for(let i=0;i<mpPlayerCount;i++){
@@ -6480,7 +6548,8 @@ function mpUpdateHost(){
   // Actualizar el jugador del host (mpPlayers[0] ya ES el objeto player)
   let s0=updatePlayerObj(player,P1CFG,dashCD,shootCD,invTimer,shieldT,jumpHeld);
   dashCD=s0.dashCD;shootCD=s0.shootCD;invTimer=s0.invTimer;shieldT=s0.shieldT;jumpHeld=s0.jumpHeld;
-  // mpPlayers[0] ya apunta al mismo objeto player, no hace falta reasignar
+  // Sincronizar globals del host al objeto player para que mpBuildState los transmita correctamente
+  player.invTimer=invTimer;player.shieldT=shieldT;player.dashCD=dashCD;
   // Actualizar cada slot de cliente por su índice (1..N-1)
   let globalKeys=keys;
   for(let pi=1;pi<mpPlayers.length;pi++){
