@@ -5969,9 +5969,15 @@ function mpLaunchGame(d){
   mpPlayers=[];
   for(let i=0;i<mpPlayerCount;i++){
     let spawnX=150+i*120;
-    mpPlayers.push({x:spawnX,y:FLOOR,vx:0,vy:0,w:28,h:75,hp:7,maxHp:7,
-      onGround:false,facing:1,af:0,at:0,crouching:false,dashing:false,dashT:0,dashDir:1,
-      dead:false,skinId:skins[i]||i,invTimer:0,shieldT:0,dashCD:0,shootCD:0,jumpHeld:false,slowTimer:0});
+    if(i===0){
+      // El slot 0 ES el objeto player del host, no una copia separada
+      player.x=spawnX;player.y=FLOOR;
+      mpPlayers.push(player);
+    } else {
+      mpPlayers.push({x:spawnX,y:FLOOR,vx:0,vy:0,w:28,h:75,hp:7,maxHp:7,
+        onGround:false,facing:1,af:0,at:0,crouching:false,dashing:false,dashT:0,dashDir:1,
+        dead:false,skinId:skins[i]||i,invTimer:0,shieldT:0,dashCD:0,shootCD:0,jumpHeld:false,slowTimer:0});
+    }
   }
   // Show loading screen — MUST set gameState before mpCheckAllReady
   mpShowLoadingScreen(mpPlayerCount);
@@ -6119,6 +6125,9 @@ function mpCastVote(boss,diff){
   if(mpIsHost){
     mpVote.votes[0]=vote;mpVoteUI.votes[0]=vote;
     mpBroadcast({type:'voteUpdate',voterId:0,boss:vote.boss,diff:vote.diff});
+    // Tallar inmediatamente si ya votaron todos
+    let totalVotes=Object.keys(mpVote.votes).length;
+    if(totalVotes>=mpPlayerCount&&!_mpTallying&&mpVote.active)mpTallyVotes();
   } else if(mpHostConn){
     try{mpHostConn.send(JSON.stringify({type:'vote',boss:vote.boss,diff:vote.diff}));}catch(e){}
   }
@@ -6129,7 +6138,11 @@ function mpReceiveVote(playerId,boss,diff){
   let vote={boss:boss||null,diff:diff||null};
   mpVote.votes[playerId]=vote;mpVoteUI.votes[playerId]=vote;
   mpBroadcast({type:'voteUpdate',voterId:playerId,boss:vote.boss,diff:vote.diff});
-  // NO tally here — only timer triggers tally
+  // Tallar inmediatamente si ya votaron todos (host incluido = mpPlayerCount votos)
+  let totalVotes=Object.keys(mpVote.votes).length;
+  if(totalVotes>=mpPlayerCount&&!_mpTallying&&mpVote.active){
+    mpTallyVotes();
+  }
 }
 
 let _mpTallying=false;
@@ -6464,23 +6477,24 @@ function mpDrawFromState(){
 
 // ── MP host game update: use mpPlayers instead of player/player2 ──
 function mpUpdateHost(){
-  // In MP: p2Active must be false — P2 is a separate remote client, not local
-  // We control only mpPlayers[0] (the host's character) with P1CFG
+  // Actualizar el jugador del host (mpPlayers[0] ya ES el objeto player)
   let s0=updatePlayerObj(player,P1CFG,dashCD,shootCD,invTimer,shieldT,jumpHeld);
   dashCD=s0.dashCD;shootCD=s0.shootCD;invTimer=s0.invTimer;shieldT=s0.shieldT;jumpHeld=s0.jumpHeld;
-  mpPlayers[0]=player; // sync
-  // Apply each client's inputs to their mpPlayer slot
-  for(let i=0;i<mpClients.length;i++){
-    let cl=mpClients[i];
-    let p=mpPlayers[cl.id];
+  // mpPlayers[0] ya apunta al mismo objeto player, no hace falta reasignar
+  // Actualizar cada slot de cliente por su índice (1..N-1)
+  let globalKeys=keys;
+  for(let pi=1;pi<mpPlayers.length;pi++){
+    let p=mpPlayers[pi];
     if(!p||p.dead)continue;
-    let savedKeys=keys;keys=cl.keys||{};
+    let cl=mpClients.find(c=>c.id===pi);
+    if(!cl)continue;
+    keys=cl.keys||{};
     let cmx=cl.mx!==undefined?cl.mx:mouseX;
     let cmy=cl.my!==undefined?cl.my:mouseY;
-    let s=updatePlayerObj(p,P1CFG,p.dashCD,p.shootCD,p.invTimer,p.shieldT,p.jumpHeld,cmx,cmy,cl.id);
-    keys=savedKeys;
+    let s=updatePlayerObj(p,P1CFG,p.dashCD,p.shootCD,p.invTimer,p.shieldT,p.jumpHeld,cmx,cmy,pi);
     p.dashCD=s.dashCD;p.shootCD=s.shootCD;p.invTimer=s.invTimer;p.shieldT=s.shieldT;p.jumpHeld=s.jumpHeld;
   }
+  keys=globalKeys;
   // Homing bullets
   let bc=selectedBoss==='tempestina'?getTBossC():selectedBoss==='kronos'?getKBossC():getBossC();
   for(let b of bullets){
