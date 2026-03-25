@@ -6399,8 +6399,17 @@ function drawMPVoteUI(){
 function mpBuildState(){
   let bossState={};
   if(selectedBoss==='tempestina') bossState={x:tBoss.x,y:tBoss.y,hp:tBoss.hp,maxHp:tBoss.maxHp,ph:tPhase,def:tDefeated?1:0,bob:tBoss.bobOff};
-  else if(selectedBoss==='kronos') bossState={x:kBoss.x,y:kBoss.y,hp:kBoss.hp,maxHp:kBoss.maxHp,ph:kPhase,def:kDefeated?1:0,bob:kBoss.bobOff};
+  else if(selectedBoss==='kronos') bossState={x:kBoss.x,y:kBoss.y,hp:kBoss.hp,maxHp:kBoss.maxHp,ph:kPhase,def:kDefeated?1:0,bob:kBoss.bobOff,singA:kBoss.singularityActive?1:0};
   else bossState={x:boss.x,y:boss.y,hp:boss.hp,maxHp:boss.maxHp,ph:bossPhase,def:bossDefeated?1:0,bob:boss.bobOff};
+  // Indicadores visuales de Tempestina
+  let tw=tWarning?{timer:tWarning.timer,dir:tWarning.dir,col:tWarning.col}:null;
+  let tlw=tLightningWarnings.map(lw=>({x:Math.round(lw.x),tm:lw.timer}));
+  // Indicadores visuales de Kronos
+  let krz=kReverseZone?{x:Math.round(kReverseZone.x),y:Math.round(kReverseZone.y),r:kReverseZone.r,tm:kReverseZone.timer}:null;
+  let kpd=kPendulum?{cx:Math.round(kPendulum.cx),cy:Math.round(kPendulum.cy),len:kPendulum.len,ang:+(kPendulum.angle).toFixed(3),bw:kPendulum.bladeW,bh:kPendulum.bladeH,lf:kPendulum.life}:null;
+  let ksg=kSingularity?{x:Math.round(kSingularity.x),y:Math.round(kSingularity.y),r:+(kSingularity.r).toFixed(1),ph:kSingularity.phase,tm:kSingularity.timer}:null;
+  let kch=kClockHands.map(h=>({cx:Math.round(h.cx),cy:Math.round(h.cy),len:h.len,ang:+(h.angle).toFixed(3),w:h.w,lf:h.life}));
+  let kg=kGears.map(g=>({cx:Math.round(g.cx),cy:Math.round(g.cy),r:g.r,ang:+(g.angle).toFixed(3),hp:g.hp,sp:g.spiral?1:0,or:+(g.orbitR||0).toFixed(1)}));
   return JSON.stringify({
     type:'state',f:frameCount,gs:gameState,
     pl:mpPlayers.map((p,i)=>{
@@ -6412,10 +6421,11 @@ function mpBuildState(){
         my:cl?Math.round(cl.my||mouseY):Math.round(mouseY)};
     }),
     boss:bossState,
-    bp:bossProjectiles.slice(0,50).map(b=>({x:Math.round(b.x),y:Math.round(b.y),vx:+(b.vx).toFixed(1),vy:+(b.vy).toFixed(1),r:b.r,col:b.col})),
+    bp:bossProjectiles.slice(0,50).map(b=>({x:Math.round(b.x),y:Math.round(b.y),vx:+(b.vx).toFixed(1),vy:+(b.vy).toFixed(1),r:b.r,col:b.col,tor:b.tornado?1:0,isBolt:b.isBolt?1:0})),
     mn:minions.slice(0,20).map(m=>({x:Math.round(m.x),y:Math.round(m.y),vx:+(m.vx||0).toFixed(1),vy:+(m.vy||0).toFixed(1),t:m.type,hp:m.hp,f:m.facing||1,bt:+(m.bobT||0).toFixed(2),af:m.af||0,la:+(m.legAng||0).toFixed(2)})),
     bl:bullets.slice(0,60).map(b=>({x:Math.round(b.x),y:Math.round(b.y),vx:+(b.vx).toFixed(1),vy:+(b.vy).toFixed(1),col:b.col,w:b.w||14,h:b.h||8})),
     gh:ghosts.map(g=>({x:Math.round(g.x),y:Math.round(g.y),sk:g.skinId||0,tm:g.timer,al:+(g.alpha).toFixed(2),pi:g.mpPlayerId!==undefined?g.mpPlayerId:-1})),
+    tw,tlw,krz,kpd,ksg,kch,kg,
   });
 }
 
@@ -6455,10 +6465,25 @@ function mpDrawFromState(){
   else if(selectedBoss==='kronos')drawBackgroundKronos();
   else drawBackground();
   drawParts();
-  // Draw boss from state
+  // Draw boss from state — reconstruir indicadores visuales primero
   if(s.boss){
-    if(selectedBoss==='tempestina'){tBoss.x=s.boss.x;tBoss.y=s.boss.y;tBoss.hp=s.boss.hp;tBoss.maxHp=s.boss.maxHp;tBoss.bobOff=s.boss.bob;tPhase=s.boss.ph;tDefeated=!!s.boss.def;drawTempestina();}
-    else if(selectedBoss==='kronos'){kBoss.x=s.boss.x;kBoss.y=s.boss.y;kBoss.hp=s.boss.hp;kBoss.maxHp=s.boss.maxHp;kBoss.bobOff=s.boss.bob;kPhase=s.boss.ph;kDefeated=!!s.boss.def;drawKronos();}
+    if(selectedBoss==='tempestina'){
+      tBoss.x=s.boss.x;tBoss.y=s.boss.y;tBoss.hp=s.boss.hp;tBoss.maxHp=s.boss.maxHp;tBoss.bobOff=s.boss.bob;tPhase=s.boss.ph;tDefeated=!!s.boss.def;
+      // Reconstruir indicadores de Tempestina
+      tWarning=s.tw||null;
+      tLightningWarnings=s.tlw?s.tlw.map(lw=>({x:lw.x,timer:lw.tm})):[];
+      drawTempestina();
+    }
+    else if(selectedBoss==='kronos'){
+      kBoss.x=s.boss.x;kBoss.y=s.boss.y;kBoss.hp=s.boss.hp;kBoss.maxHp=s.boss.maxHp;kBoss.bobOff=s.boss.bob;kPhase=s.boss.ph;kDefeated=!!s.boss.def;kBoss.singularityActive=!!s.boss.singA;
+      // Reconstruir indicadores de Kronos
+      kReverseZone=s.krz?{x:s.krz.x,y:s.krz.y,r:s.krz.r,timer:s.krz.tm}:null;
+      kPendulum=s.kpd?{cx:s.kpd.cx,cy:s.kpd.cy,len:s.kpd.len,angle:s.kpd.ang,angV:0,bladeW:s.kpd.bw,bladeH:s.kpd.bh,life:s.kpd.lf}:null;
+      kSingularity=s.ksg?{x:s.ksg.x,y:s.ksg.y,r:s.ksg.r,phase:s.ksg.ph,timer:s.ksg.tm}:null;
+      kClockHands=s.kch?s.kch.map(h=>({cx:h.cx,cy:h.cy,len:h.len,angle:h.ang,speed:0,w:h.w,life:h.lf})):[];
+      kGears=s.kg?s.kg.map(g=>({cx:g.cx,cy:g.cy,r:g.r,angle:g.ang,speed:0,hp:g.hp,spiral:!!g.sp,orbitR:g.or})):[];
+      drawKronos();
+    }
     else{boss.x=s.boss.x;boss.y=s.boss.y;boss.hp=s.boss.hp;boss.maxHp=s.boss.maxHp;boss.bobOff=s.boss.bob;bossPhase=s.boss.ph;bossDefeated=!!s.boss.def;drawBoss();}
   }
   // Reconstruir miniones con todos los campos que drawMinions necesita
@@ -6475,7 +6500,7 @@ function mpDrawFromState(){
   drawMinions();
   // Reconstruir proyectiles del jefe y dibujarlos con estilo
   if(s.bp){
-    bossProjectiles=s.bp.map(b=>({x:b.x,y:b.y,vx:b.vx||0,vy:b.vy||0,r:b.r||9,col:b.col||'#ff4040',dead:false}));
+    bossProjectiles=s.bp.map(b=>({x:b.x,y:b.y,vx:b.vx||0,vy:b.vy||0,r:b.r||9,col:b.col||'#ff4040',dead:false,tornado:!!b.tor,isBolt:!!b.isBolt}));
   }
   for(let bp of bossProjectiles){
     if(bp.dead)continue;
