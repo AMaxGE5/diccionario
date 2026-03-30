@@ -32,8 +32,16 @@
 
         #game-container { position: relative; width: 900px; height: 600px; margin-top: 15px; border: 8px solid #3e2723; border-radius: 15px; display: none; }
         canvas { display: block; background: #4caf50; }
+        
+        /* Textos y Overlays */
         #announcement { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); color: #ffeb3b; font-size: 40px; text-shadow: 4px 4px #000; display: none; pointer-events: none; z-index: 50; text-align: center; width: 100%; }
+        #wave-panel { position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.85); padding: 10px; border-radius: 10px; width: 200px; text-align: center; border: 2px solid #ffeb3b; pointer-events: none; }
+        #wave-text { font-size: 14px; color: #ffeb3b; font-weight: bold; margin-bottom: 5px; }
+        .wave-bar-bg { background: #222; border-radius: 6px; overflow: hidden; height: 12px; }
+        #wave-bar { height: 100%; background: #f44336; width: 0%; border-radius: 5px; transition: width 0.3s; }
+        
         #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; }
+        #pause-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 90; }
     </style>
 </head>
 <body>
@@ -52,16 +60,28 @@
     <div id="sun-counter">☀️ 150</div>
     <div class="seed-packets" id="seeds"></div>
     <div id="shovel" class="control-btn" title="Pala">🧹</div>
-    <div id="speed-btn" class="control-btn">x1</div>
-    <div id="pause-btn" class="control-btn">⏸️</div>
+    <div id="speed-btn" class="control-btn" title="Velocidad">x1</div>
+    <div id="pause-btn" class="control-btn" title="Pausar">⏸️</div>
 </div>
 
 <div id="game-container">
     <canvas id="gameCanvas" width="900" height="600"></canvas>
+    
     <div id="announcement">¡UNA GRAN HORDA SE APROXIMA!</div>
+    
+    <div id="wave-panel">
+        <div id="wave-text">OLEADA 1 / 10</div>
+        <div class="wave-bar-bg"><div id="wave-bar"></div></div>
+    </div>
+
+    <div id="pause-overlay">
+        <h1 style="font-size: 50px; color: #fff; text-shadow: 4px 4px #000; margin-bottom: 30px;">JUEGO PAUSADO</h1>
+        <button style="padding: 15px 50px; font-size: 24px; cursor: pointer; background: #0288d1; color: white; border: 3px solid #fff; border-radius: 10px; font-family: 'Arial Black';" onclick="togglePause()">CONTINUAR</button>
+    </div>
+
     <div id="overlay">
         <h1 id="status-text" style="font-size: 45px; color: #f44336; margin-bottom: 20px;"></h1>
-        <button style="padding: 15px 40px; font-size: 24px; cursor: pointer; background: #4caf50; color: white; border: none; border-radius: 10px;" onclick="location.reload()">VOLVER AL MENÚ</button>
+        <button style="padding: 15px 40px; font-size: 24px; cursor: pointer; background: #4caf50; color: white; border: none; border-radius: 10px; font-family: 'Arial Black';" onclick="location.reload()">VOLVER AL MENÚ</button>
     </div>
 </div>
 
@@ -82,7 +102,7 @@ const plantTypes = {
     'lanzaguisantes': { cost: 100, hp: 100, color: '#4caf50', cooldown: 300 },
     'girasol': { cost: 50, hp: 80, color: '#ffeb3b', cooldown: 300 },
     'nuez': { cost: 50, hp: 2000, color: '#a1887f', cooldown: 900 },
-    'repetidora': { cost: 250, hp: 100, color: '#1b5e20', cooldown: 400 },
+    'repetidora': { cost: 250, hp: 100, color: '#1b5e20', cooldown: 400, lockWave: 2 },
     'papapum': { cost: 25, hp: 100, color: '#795548', cooldown: 800 },
     'hielaguisantes': { cost: 175, hp: 100, color: '#4fc3f7', cooldown: 500 },
     'plantorcha': { cost: 175, hp: 150, color: '#ff9800', cooldown: 400, lockWave: 3 },
@@ -95,7 +115,7 @@ function drawStrokeCircle(c, x, y, r) {
     c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill(); c.stroke();
 }
 
-// MANTENIENDO TUS TEXTURAS ORIGINALES
+// Texturas originales
 function drawPlant(c, type, x, y, size, angle = 0, scale = 1, ready = true) {
     c.save();
     c.translate(x + size/2, y + size/2);
@@ -161,7 +181,7 @@ function drawZombie(z) {
     ctx.restore();
 }
 
-// LOGICA DE INTERFACES
+// LOGICA DE INTERFACES Y CONTROLES
 function startGame(lvl) {
     document.getElementById('menu-container').style.display = 'none';
     document.getElementById('ui-panel').style.display = 'flex';
@@ -170,10 +190,21 @@ function startGame(lvl) {
     loop();
 }
 
-document.getElementById('pause-btn').onclick = () => {
+function togglePause() {
+    if (gameOver || gameWon) return; // No pausar si el juego ya terminó
     isPaused = !isPaused;
     document.getElementById('pause-btn').innerText = isPaused ? "▶️" : "⏸️";
-};
+    document.getElementById('pause-overlay').style.display = isPaused ? 'flex' : 'none';
+}
+
+document.getElementById('pause-btn').onclick = togglePause;
+
+// Detectar tecla Escape para pausar
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        togglePause();
+    }
+});
 
 document.getElementById('speed-btn').onclick = () => { gameSpeed = (gameSpeed % 3) + 1; updateUI(); };
 document.getElementById('shovel').onclick = () => { shovelActive = !shovelActive; selectedPlant = null; updateUI(); };
@@ -193,20 +224,26 @@ function updateUI() {
             div.innerHTML = `<canvas id="c-${key}" width="65" height="65"></canvas><span>${p.cost}</span><div class="cooldown-overlay" style="height: ${(cooldowns[key]/p.cooldown)*100}%"></div>`;
             div.onclick = (e) => { 
                 e.stopPropagation();
-                if (resources >= p.cost && cooldowns[key] <= 0) { selectedPlant = key; shovelActive = false; updateUI(); } 
+                if (resources >= p.cost && cooldowns[key] <= 0 && !isPaused) { selectedPlant = key; shovelActive = false; updateUI(); } 
             };
         }
         container.appendChild(div);
         if (!isLocked) { const ictx = document.getElementById(`c-${key}`).getContext('2d'); drawPlant(ictx, key, 0, 0, 65, 0, 0.7); }
     });
+    
     document.getElementById('sun-counter').innerText = `☀️ ${resources}`;
     document.getElementById('speed-btn').innerText = `x${gameSpeed}`;
     document.getElementById('shovel').className = `control-btn ${shovelActive ? 'selected' : ''}`;
+    
+    // Actualizar indicador de Oleadas
+    document.getElementById('wave-text').innerText = `OLEADA ${wave} / ${maxWaves}`;
+    document.getElementById('wave-bar').style.width = `${waveProgress}%`;
 }
 
-// SISTEMA DE CLICKS CORREGIDO
+// SISTEMA DE CLICKS EN EL LIENZO
 canvas.addEventListener('mousedown', (e) => {
-    if (isPaused) return;
+    if (isPaused || gameOver || gameWon) return;
+    
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
@@ -256,10 +293,23 @@ function loop() {
             frame++;
             Object.keys(cooldowns).forEach(k => { if (cooldowns[k] > 0) cooldowns[k]--; });
             
-            if (frame % 800 === 0 && waveProgress < 100) {
-                waveProgress += 10;
-                spawnZombie(wave);
-                if (waveProgress >= 100 && wave < maxWaves) { wave++; waveProgress = 0; updateUI(); }
+            // Lógica de progreso de oleadas
+            if (frame % 250 === 0 && waveProgress < 100) {
+                waveProgress += 5;
+                spawnZombie(wave); // Genera la dificultad de la horda en base al número de oleada
+                
+                if (waveProgress >= 100 && wave < maxWaves) {
+                    wave++;
+                    waveProgress = 0;
+                    
+                    // Anuncio en oleadas múltiplo de 3 (horda grande)
+                    if (wave % 3 === 0) {
+                        document.getElementById('announcement').style.display = 'block';
+                        setTimeout(() => document.getElementById('announcement').style.display = 'none', 3000);
+                        spawnZombie(wave * 2); 
+                    }
+                }
+                updateUI();
             }
 
             if (frame % 400 === 0) suns.push({x: Math.random()*800+50, y: 0, targetY: Math.random()*400+100, t: 500});
@@ -298,7 +348,9 @@ function loop() {
             mowers.forEach(m => { if (m.active) { m.x += 10; zombies.forEach(z => { if(z.y === m.y && z.x < m.x + 40) z.hp = 0; }); } else if (zombies.some(z => z.y === m.y && z.x < 50)) m.active = true; });
             suns.forEach((s, i) => { if (s.y < s.targetY) s.y += 2; s.t--; if (s.t <= 0) suns.splice(i, 1); });
             plants.forEach((p, i) => { if (p.hp <= 0) plants.splice(i, 1); });
-            if (wave === maxWaves && waveProgress === 100 && zombies.length === 0) gameWon = true;
+            
+            // Lógica de victoria ajustada: Estar en la última ola, progreso 100 y 0 zombies
+            if (wave === maxWaves && waveProgress >= 100 && zombies.length === 0) gameWon = true;
         }
     }
 
@@ -316,7 +368,7 @@ function loop() {
         document.getElementById('overlay').style.display = 'flex';
     }
     
-    if (frame % 30 === 0) updateUI();
+    if (!isPaused && frame % 30 === 0) updateUI();
     requestAnimationFrame(loop);
 }
 
