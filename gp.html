@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PvZ: Extreme Speed - Fixed Edition</title>
+    <title>PvZ: Extreme Speed - Selector Edition</title>
     <style>
         body { background: #121212; color: white; font-family: 'Arial Black', sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; overflow: hidden; user-select: none; }
         
@@ -13,18 +13,28 @@
         .level-btn.locked { background: #333; border-color: #000; cursor: not-allowed; opacity: 0.6; }
         .level-btn:not(.locked):hover { background: #a1887f; transform: scale(1.05); }
 
+        /* Selector de Semillas */
+        #seed-selection-screen { position: absolute; width: 100%; height: 100%; background: #241a12; z-index: 150; display: none; flex-direction: column; align-items: center; justify-content: center; border: 10px solid #3e2723; box-sizing: border-box; }
+        #seed-selection-screen h1 { font-size: 40px; text-shadow: 3px 3px #000; margin-top: 0; margin-bottom: 20px; color: #ffeb3b; }
+        .slot-container { display: flex; gap: 8px; background: #3e2723; padding: 15px; border-radius: 10px; border: 4px solid #795548; margin-bottom: 30px; min-height: 100px; min-width: 615px; justify-content: center; }
+        .pool-container { display: flex; gap: 10px; flex-wrap: wrap; background: #4d3a29; padding: 20px; border-radius: 10px; border: 4px solid #3e2723; width: 615px; justify-content: center; margin-bottom: 30px; }
+        .seed-empty-slot { width: 75px; height: 95px; background: #1a120c; border: 3px dashed #5d4037; border-radius: 5px; box-sizing: border-box; }
+        
         /* UI de Juego */
         #ui-panel { width: 1000px; height: 110px; background: #4d3a29; display: none; align-items: center; padding: 0 15px; box-sizing: border-box; border-bottom: 5px solid #241a12; gap: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
         #sun-counter { background: #ffd54f; color: #332; padding: 8px; border-radius: 10px; font-weight: bold; font-size: 22px; border: 4px solid #f57f17; min-width: 85px; text-align: center; }
         .seed-packets { display: flex; gap: 5px; }
-        .seed { width: 75px; height: 95px; background: #795548; border: 3px solid #3e2723; cursor: pointer; display: flex; flex-direction: column; align-items: center; position: relative; border-radius: 5px; overflow: hidden; }
+        .seed { width: 75px; height: 95px; background: #795548; border: 3px solid #3e2723; cursor: pointer; display: flex; flex-direction: column; align-items: center; position: relative; border-radius: 5px; overflow: hidden; box-sizing: border-box; }
         .seed.selected { border-color: #fff; background: #a1887f; box-shadow: 0 0 15px #fff; transform: translateY(-3px); }
-        .seed.disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
-        .seed.locked { background: #222; border-color: #000; cursor: not-allowed; justify-content: center; text-align: center; font-size: 10px; color: #ff5252; }
+        .seed.disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(1); }
         .seed .cooldown-overlay { position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; background: rgba(0,0,0,0.75); pointer-events: none; }
         .seed span { font-size: 11px; z-index: 2; font-weight: bold; text-shadow: 1px 1px #000; margin-top: 2px; }
         
         .control-btn { padding: 10px; border-radius: 8px; cursor: pointer; border: 3px solid #37474f; font-size: 20px; display: flex; align-items: center; justify-content: center; min-width: 55px; }
+        .action-btn { padding: 15px 40px; font-size: 24px; cursor: pointer; background: #4caf50; color: white; border: 4px solid #1b5e20; border-radius: 10px; font-family: 'Arial Black'; transition: transform 0.1s; }
+        .action-btn:hover:not(:disabled) { transform: scale(1.05); }
+        .action-btn:disabled { background: #555; border-color: #333; cursor: not-allowed; color: #888; }
+        
         #shovel { background: #607d8b; }
         #shovel.selected { background: #cfd8dc; border-color: white; }
         #speed-btn { background: #ff5722; color: white; font-weight: bold; }
@@ -49,11 +59,18 @@
 <div id="menu-container">
     <h1 style="font-size: 60px; text-shadow: 5px 5px #000; margin-bottom: 20px;">SELECCIONAR NIVEL</h1>
     <div class="level-grid">
-        <button class="level-btn" onclick="startGame(1)">NIVEL 1</button>
+        <button class="level-btn" onclick="prepareLevel()">NIVEL 1</button>
         <button class="level-btn locked">NIVEL 2<br>🔒</button>
         <button class="level-btn locked">NIVEL 3<br>🔒</button>
         <button class="level-btn locked">NIVEL 4<br>🔒</button>
     </div>
+</div>
+
+<div id="seed-selection-screen">
+    <h1>ELIGE TUS PLANTAS (MÁX 7)</h1>
+    <div class="slot-container" id="chosen-seeds-container"></div>
+    <div class="pool-container" id="available-seeds-container"></div>
+    <button class="action-btn" id="start-level-btn" onclick="startLevel()" disabled>LISTO</button>
 </div>
 
 <div id="ui-panel">
@@ -66,22 +83,18 @@
 
 <div id="game-container">
     <canvas id="gameCanvas" width="900" height="600"></canvas>
-    
     <div id="announcement">¡UNA GRAN HORDA SE APROXIMA!</div>
-    
     <div id="wave-panel">
         <div id="wave-text">OLEADA 1 / 10</div>
         <div class="wave-bar-bg"><div id="wave-bar"></div></div>
     </div>
-
     <div id="pause-overlay">
         <h1 style="font-size: 50px; color: #fff; text-shadow: 4px 4px #000; margin-bottom: 30px;">JUEGO PAUSADO</h1>
-        <button style="padding: 15px 50px; font-size: 24px; cursor: pointer; background: #0288d1; color: white; border: 3px solid #fff; border-radius: 10px; font-family: 'Arial Black';" onclick="togglePause()">CONTINUAR</button>
+        <button class="action-btn" onclick="togglePause()">CONTINUAR</button>
     </div>
-
     <div id="overlay">
         <h1 id="status-text" style="font-size: 45px; color: #f44336; margin-bottom: 20px;"></h1>
-        <button style="padding: 15px 40px; font-size: 24px; cursor: pointer; background: #4caf50; color: white; border: none; border-radius: 10px; font-family: 'Arial Black';" onclick="location.reload()">VOLVER AL MENÚ</button>
+        <button class="action-btn" onclick="location.reload()">VOLVER AL MENÚ</button>
     </div>
 </div>
 
@@ -97,25 +110,28 @@ let selectedPlant = null, shovelActive = false, mouse = { x: 0, y: 0 };
 
 const plants = [], zombies = [], projectiles = [], suns = [], mowers = [], explosions = [];
 
-// Base de datos de plantas con texturas originales
+// Base de datos de plantas sin bloqueos de nivel
 const plantTypes = {
     'lanzaguisantes': { cost: 100, hp: 100, color: '#4caf50', cooldown: 300 },
     'girasol': { cost: 50, hp: 80, color: '#ffeb3b', cooldown: 300 },
     'nuez': { cost: 50, hp: 2000, color: '#a1887f', cooldown: 900 },
-    'repetidora': { cost: 250, hp: 100, color: '#1b5e20', cooldown: 400, lockWave: 2 },
+    'repetidora': { cost: 250, hp: 100, color: '#1b5e20', cooldown: 400 },
     'papapum': { cost: 25, hp: 100, color: '#795548', cooldown: 800 },
     'hielaguisantes': { cost: 175, hp: 100, color: '#4fc3f7', cooldown: 500 },
-    'plantorcha': { cost: 175, hp: 150, color: '#ff9800', cooldown: 400, lockWave: 3 },
+    'plantorcha': { cost: 175, hp: 150, color: '#ff9800', cooldown: 400 },
     'petacereza': { cost: 150, hp: 100, color: '#f44336', cooldown: 1800 }
 };
 
 const cooldowns = { 'lanzaguisantes': 0, 'girasol': 0, 'nuez': 0, 'repetidora': 0, 'papapum': 0, 'hielaguisantes': 0, 'plantorcha': 0, 'petacereza': 0 };
 
+let playerDeck = [];
+const MAX_DECK_SIZE = 7;
+
 function drawStrokeCircle(c, x, y, r) {
     c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill(); c.stroke();
 }
 
-// Texturas originales
+// Texturas de plantas y zombis
 function drawPlant(c, type, x, y, size, angle = 0, scale = 1, ready = true) {
     c.save();
     c.translate(x + size/2, y + size/2);
@@ -181,9 +197,62 @@ function drawZombie(z) {
     ctx.restore();
 }
 
-// LOGICA DE INTERFACES Y CONTROLES
-function startGame(lvl) {
+// LOGICA DE SELECTOR DE SEMILLAS
+function prepareLevel() {
     document.getElementById('menu-container').style.display = 'none';
+    document.getElementById('seed-selection-screen').style.display = 'flex';
+    renderSeedSelection();
+}
+
+function renderSeedSelection() {
+    const chosenContainer = document.getElementById('chosen-seeds-container');
+    const poolContainer = document.getElementById('available-seeds-container');
+    chosenContainer.innerHTML = '';
+    poolContainer.innerHTML = '';
+
+    // Dibujar los 7 espacios seleccionados
+    for (let i = 0; i < MAX_DECK_SIZE; i++) {
+        const div = document.createElement('div');
+        if (playerDeck[i]) {
+            const key = playerDeck[i];
+            div.className = 'seed';
+            div.innerHTML = `<canvas id="cs-${i}" width="65" height="65"></canvas><span>${plantTypes[key].cost}</span>`;
+            div.onclick = () => { playerDeck.splice(i, 1); renderSeedSelection(); };
+            chosenContainer.appendChild(div);
+            const ictx = document.getElementById(`cs-${i}`).getContext('2d');
+            drawPlant(ictx, key, 0, 0, 65, 0, 0.7);
+        } else {
+            div.className = 'seed-empty-slot';
+            chosenContainer.appendChild(div);
+        }
+    }
+
+    // Dibujar plantas disponibles
+    Object.keys(plantTypes).forEach(key => {
+        const p = plantTypes[key];
+        const isChosen = playerDeck.includes(key);
+        const div = document.createElement('div');
+        div.className = `seed ${isChosen ? 'disabled' : ''}`;
+        div.innerHTML = `<canvas id="pool-${key}" width="65" height="65"></canvas><span>${p.cost}</span>`;
+        if (!isChosen) {
+            div.onclick = () => {
+                if (playerDeck.length < MAX_DECK_SIZE) {
+                    playerDeck.push(key);
+                    renderSeedSelection();
+                }
+            };
+        }
+        poolContainer.appendChild(div);
+        const ictx = document.getElementById(`pool-${key}`).getContext('2d');
+        drawPlant(ictx, key, 0, 0, 65, 0, 0.7);
+    });
+
+    document.getElementById('start-level-btn').disabled = playerDeck.length === 0;
+}
+
+// INICIAR EL NIVEL DEFINITIVO
+function startLevel() {
+    document.getElementById('seed-selection-screen').style.display = 'none';
     document.getElementById('ui-panel').style.display = 'flex';
     document.getElementById('game-container').style.display = 'block';
     updateUI();
@@ -191,20 +260,14 @@ function startGame(lvl) {
 }
 
 function togglePause() {
-    if (gameOver || gameWon) return; // No pausar si el juego ya terminó
+    if (gameOver || gameWon) return;
     isPaused = !isPaused;
     document.getElementById('pause-btn').innerText = isPaused ? "▶️" : "⏸️";
     document.getElementById('pause-overlay').style.display = isPaused ? 'flex' : 'none';
 }
 
 document.getElementById('pause-btn').onclick = togglePause;
-
-// Detectar tecla Escape para pausar
-window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-        togglePause();
-    }
-});
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape') togglePause(); });
 
 document.getElementById('speed-btn').onclick = () => { gameSpeed = (gameSpeed % 3) + 1; updateUI(); };
 document.getElementById('shovel').onclick = () => { shovelActive = !shovelActive; selectedPlant = null; updateUI(); };
@@ -212,43 +275,36 @@ document.getElementById('shovel').onclick = () => { shovelActive = !shovelActive
 function updateUI() {
     const container = document.getElementById('seeds');
     container.innerHTML = '';
-    Object.keys(plantTypes).forEach(key => {
+    
+    // Solo mostramos las plantas que el jugador eligió en el Deck
+    playerDeck.forEach(key => {
         const p = plantTypes[key];
-        const isLocked = p.lockWave && wave < p.lockWave;
         const div = document.createElement('div');
-        div.className = `seed ${isLocked ? 'locked' : (resources < p.cost || cooldowns[key] > 0 ? 'disabled' : '')} ${selectedPlant === key ? 'selected' : ''}`;
-        
-        if(isLocked) {
-            div.innerHTML = `🔒<br>OLA ${p.lockWave}`;
-        } else {
-            div.innerHTML = `<canvas id="c-${key}" width="65" height="65"></canvas><span>${p.cost}</span><div class="cooldown-overlay" style="height: ${(cooldowns[key]/p.cooldown)*100}%"></div>`;
-            div.onclick = (e) => { 
-                e.stopPropagation();
-                if (resources >= p.cost && cooldowns[key] <= 0 && !isPaused) { selectedPlant = key; shovelActive = false; updateUI(); } 
-            };
-        }
+        div.className = `seed ${resources < p.cost || cooldowns[key] > 0 ? 'disabled' : ''} ${selectedPlant === key ? 'selected' : ''}`;
+        div.innerHTML = `<canvas id="c-${key}" width="65" height="65"></canvas><span>${p.cost}</span><div class="cooldown-overlay" style="height: ${(cooldowns[key]/p.cooldown)*100}%"></div>`;
+        div.onclick = (e) => { 
+            e.stopPropagation();
+            if (resources >= p.cost && cooldowns[key] <= 0 && !isPaused) { selectedPlant = key; shovelActive = false; updateUI(); } 
+        };
         container.appendChild(div);
-        if (!isLocked) { const ictx = document.getElementById(`c-${key}`).getContext('2d'); drawPlant(ictx, key, 0, 0, 65, 0, 0.7); }
+        const ictx = document.getElementById(`c-${key}`).getContext('2d'); drawPlant(ictx, key, 0, 0, 65, 0, 0.7);
     });
     
     document.getElementById('sun-counter').innerText = `☀️ ${resources}`;
     document.getElementById('speed-btn').innerText = `x${gameSpeed}`;
     document.getElementById('shovel').className = `control-btn ${shovelActive ? 'selected' : ''}`;
     
-    // Actualizar indicador de Oleadas
     document.getElementById('wave-text').innerText = `OLEADA ${wave} / ${maxWaves}`;
     document.getElementById('wave-bar').style.width = `${waveProgress}%`;
 }
 
-// SISTEMA DE CLICKS EN EL LIENZO
+// CLICKS EN EL JUEGO
 canvas.addEventListener('mousedown', (e) => {
     if (isPaused || gameOver || gameWon) return;
-    
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
 
-    // 1. Prioridad: Recoger Soles
     for (let i = suns.length - 1; i >= 0; i--) {
         if (Math.hypot(mx - suns[i].x, my - suns[i].y) < 50) {
             resources += 25; suns.splice(i, 1); updateUI(); return;
@@ -258,14 +314,12 @@ canvas.addEventListener('mousedown', (e) => {
     const gx = Math.floor(mx/100)*100;
     const gy = Math.floor(my/100)*100;
 
-    // 2. Pala
     if (shovelActive) {
         const idx = plants.findIndex(p => p.x === gx && p.y === gy);
         if (idx !== -1) plants.splice(idx, 1);
         shovelActive = false; updateUI(); return;
     }
 
-    // 3. Colocar Planta
     if (selectedPlant && gx < 900) {
         if (resources >= plantTypes[selectedPlant].cost && !plants.some(p => p.x === gx && p.y === gy)) {
             if (selectedPlant === 'petacereza') {
@@ -282,7 +336,9 @@ canvas.addEventListener('mousedown', (e) => {
 });
 
 function spawnZombie(count) {
-    for (let i = 0; i < count; i++) {
+    // Reducimos un 30% la cantidad de zombis inicial (siempre garantizando al menos 1 si count > 0)
+    let reducedCount = Math.max(1, Math.round(count * 0.7)); 
+    for (let i = 0; i < reducedCount; i++) {
         zombies.push({x: 1000 + (i * 50), y: Math.floor(Math.random()*6)*cellSize, hp: 100 + (wave * 50), speed: 0.35, freeze: 0});
     }
 }
@@ -293,16 +349,13 @@ function loop() {
             frame++;
             Object.keys(cooldowns).forEach(k => { if (cooldowns[k] > 0) cooldowns[k]--; });
             
-            // Lógica de progreso de oleadas
             if (frame % 250 === 0 && waveProgress < 100) {
                 waveProgress += 5;
-                spawnZombie(wave); // Genera la dificultad de la horda en base al número de oleada
+                spawnZombie(wave);
                 
                 if (waveProgress >= 100 && wave < maxWaves) {
                     wave++;
                     waveProgress = 0;
-                    
-                    // Anuncio en oleadas múltiplo de 3 (horda grande)
                     if (wave % 3 === 0) {
                         document.getElementById('announcement').style.display = 'block';
                         setTimeout(() => document.getElementById('announcement').style.display = 'none', 3000);
@@ -348,8 +401,6 @@ function loop() {
             mowers.forEach(m => { if (m.active) { m.x += 10; zombies.forEach(z => { if(z.y === m.y && z.x < m.x + 40) z.hp = 0; }); } else if (zombies.some(z => z.y === m.y && z.x < 50)) m.active = true; });
             suns.forEach((s, i) => { if (s.y < s.targetY) s.y += 2; s.t--; if (s.t <= 0) suns.splice(i, 1); });
             plants.forEach((p, i) => { if (p.hp <= 0) plants.splice(i, 1); });
-            
-            // Lógica de victoria ajustada: Estar en la última ola, progreso 100 y 0 zombies
             if (wave === maxWaves && waveProgress >= 100 && zombies.length === 0) gameWon = true;
         }
     }
