@@ -6276,19 +6276,37 @@ loadSave(); // run immediately on script start
 // ══ END SAVE SYSTEM ══
 
 
-const OW_ISLAND_CX=500, OW_ISLAND_CY=290, OW_ISLAND_RX=325, OW_ISLAND_RY=195;
+// ── OVERWORLD WORLD SIZE (isla grande, cámara sigue al jugador) ──
+const OW_W=2000, OW_H=1200; // tamaño total del mundo overworld
+const OW_ISLAND_CX=1000, OW_ISLAND_CY=600, OW_ISLAND_RX=700, OW_ISLAND_RY=480;
+// Cámara overworld
+let owCamX=0, owCamY=0; // esquina superior izquierda del viewport en coordenadas mundo
 const OW_BOSSES=[
-  {id:'inkboss',  x:228,y:265, label:'INKBOSS',    battleName:'¡EL CABALLERO DE TINTA!', col:'#0a0830', acol:'#c8a028', icon:'🎩', phases:'3 FASES'},
-  {id:'tempestina',x:772,y:265,label:'TEMPESTINA', battleName:'¡FURIA DE LA TORMENTA!',  col:'#081828', acol:'#60d8ff', icon:'⚡', phases:'3 FASES'},
-  {id:'kronos',   x:500,y:165, label:'KRONOS',     battleName:'¡EL RELOJERO SOBERANO!',  col:'#120c08', acol:'#c8a028', icon:'⚙',  phases:'3 FASES'},
-  {id:'narrator', x:500,y:380, label:'NARRATOR',   battleName:'¡EL OSCURO PRESENTADOR!', col:'#08000a', acol:'#cc40ff', icon:'🎭', phases:'SOL0 DIFÍCIL · 4 FASES'},
+  {id:'inkboss',   x:340, y:540,  label:'INKBOSS',    battleName:'¡EL CABALLERO DE TINTA!', col:'#0a0830', acol:'#c8a028', icon:'🎩', phases:'3 FASES'},
+  {id:'tempestina',x:1660,y:540,  label:'TEMPESTINA', battleName:'¡FURIA DE LA TORMENTA!',  col:'#081828', acol:'#60d8ff', icon:'⚡', phases:'3 FASES'},
+  {id:'kronos',    x:1000,y:240,  label:'KRONOS',     battleName:'¡EL RELOJERO SOBERANO!',  col:'#120c08', acol:'#c8a028', icon:'⚙',  phases:'3 FASES'},
+  {id:'narrator',  x:1000,y:860,  label:'NARRATOR',   battleName:'¡EL OSCURO PRESENTADOR!', col:'#08000a', acol:'#cc40ff', icon:'🎭', phases:'SOL0 DIFÍCIL · 4 FASES'},
 ];
 const OW_TREES=[
-  {x:370,y:155},{x:458,y:138},{x:542,y:138},{x:630,y:155},
-  {x:318,y:195},{x:682,y:195},{x:290,y:345},{x:710,y:345},
-  {x:358,y:408},{x:500,y:448},{x:642,y:408},{x:440,y:145},{x:560,y:145},
+  // Grupo norte
+  {x:820,y:310},{x:920,y:270},{x:1000,y:255},{x:1080,y:270},{x:1180,y:310},
+  {x:860,y:355},{x:1140,y:355},
+  // Grupo oeste
+  {x:450,y:440},{x:430,y:560},{x:450,y:680},
+  {x:530,y:380},{x:520,y:750},
+  // Grupo este
+  {x:1550,y:440},{x:1570,y:560},{x:1550,y:680},
+  {x:1470,y:380},{x:1480,y:750},
+  // Grupo sur
+  {x:820,y:870},{x:920,y:910},{x:1000,y:925},{x:1080,y:910},{x:1180,y:870},
+  {x:860,y:820},{x:1140,y:820},
+  // Centro
+  {x:750,y:580},{x:1250,y:580},{x:1000,y:480},{x:1000,y:720},
+  // Extra dispersos
+  {x:650,y:480},{x:650,y:700},{x:1350,y:480},{x:1350,y:700},
+  {x:700,y:620},{x:1300,y:620},
 ];
-let owPlayer={x:500,y:418,facing:1,walkT:0,bobT:0};
+let owPlayer={x:1000,y:820,facing:1,walkT:0,bobT:0};
 let owInteract=null;  // {bossId, menu, diff}
 let owMenuDiff='normal';
 
@@ -6305,12 +6323,13 @@ function startOverworld(){
     _mpTallying=false;
     mpVoteUI={active:false,votes:{},timer:0,myVote:null,myDiff:null,result:null,counts:null};
   }
-  owPlayer={x:500,y:418,facing:1,walkT:0,bobT:0};
+  owPlayer={x:1000,y:820,facing:1,walkT:0,bobT:0};
   owPlayer2={x:owPlayer.x+20,y:owPlayer.y+8,facing:-1,walkT:0,bobT:1.5};
+  owCamX=owPlayer.x-W/2; owCamY=owPlayer.y-H/2;
   owInteract=null; owMenuDiff='normal'; owPauseMenu=false;
 }
 let owPauseMenu=false; // separate from battle menu
-let owPlayer2={x:520,y:418,facing:-1,walkT:0,bobT:1.5}; // P2 overworld position
+let owPlayer2={x:1020,y:820,facing:-1,walkT:0,bobT:1.5}; // P2 overworld position
 
 function owHandleE(){
   if(mpMode&&!mpIsHost)return; // only host can open boss menu in MP
@@ -6340,7 +6359,7 @@ function updateOverworld(){
   if(owPauseMenu)return;
   if(owWeaponMenu)return;
   if(owInteract&&owInteract.menu)return;
-  let spd=3;
+  let spd=3.5;
   let nx=owPlayer.x, ny=owPlayer.y;
   let moving=false;
   if(keys['KeyA']) {nx-=spd;owPlayer.facing=-1;moving=true;}
@@ -6352,6 +6371,15 @@ function updateOverworld(){
   if(moving)owPlayer.walkT++;
   owPlayer.bobT+=0.07;
   if(mpMode){mpOwBroadcastPos();}
+
+  // ── CÁMARA: sigue suavemente al J1 / host ──
+  let targetCamX=owPlayer.x-W/2;
+  let targetCamY=owPlayer.y-H/2;
+  // Clamp para no salir del mundo
+  targetCamX=Math.max(0,Math.min(OW_W-W,targetCamX));
+  targetCamY=Math.max(0,Math.min(OW_H-H,targetCamY));
+  owCamX+=(targetCamX-owCamX)*0.12;
+  owCamY+=(targetCamY-owCamY)*0.12;
 
   // P2 movement on island — uses P2CFG keys, can't interact
   if(p2Active){
@@ -6378,11 +6406,11 @@ function updateOverworld(){
 }
 
 function drawOverworld(){
-  // ─── WATER ───
+  // ─── WATER (fondo, siempre cubre la pantalla completa) ───
   let waterGrad=ctx.createLinearGradient(0,0,0,H);
   waterGrad.addColorStop(0,'#0e2d5a');waterGrad.addColorStop(1,'#1a4a8a');
   ctx.fillStyle=waterGrad;ctx.fillRect(0,0,W,H);
-  // Animated wave rings
+  // Animated wave rings (en coordenadas de pantalla)
   ctx.save();
   for(let i=0;i<28;i++){
     let wx=(i*137+frameCount*0.6)%W, wy=(i*83+frameCount*0.3)%H;
@@ -6390,55 +6418,68 @@ function drawOverworld(){
     ctx.strokeStyle=`rgba(80,150,220,${alpha})`;ctx.lineWidth=1.5;
     ctx.beginPath();ctx.arc(wx,wy,18+Math.sin(frameCount*0.06+i)*5,0,Math.PI);ctx.stroke();
   }
+  ctx.restore();
+
+  // ── Aplicar transformación de cámara a todo el mundo ──
+  ctx.save();
+  ctx.translate(-Math.round(owCamX),-Math.round(owCamY));
+
   // Foam dots near island edge
-  for(let a=0;a<32;a++){
-    let ang=a/32*Math.PI*2;
-    let foam=OW_ISLAND_CX+Math.cos(ang)*(OW_ISLAND_RX+18+Math.sin(frameCount*0.05+a)*6);
-    let foamy=OW_ISLAND_CY+Math.sin(ang)*(OW_ISLAND_RY+14+Math.sin(frameCount*0.07+a)*4);
+  for(let a=0;a<48;a++){
+    let ang=a/48*Math.PI*2;
+    let foam=OW_ISLAND_CX+Math.cos(ang)*(OW_ISLAND_RX+28+Math.sin(frameCount*0.05+a)*8);
+    let foamy=OW_ISLAND_CY+Math.sin(ang)*(OW_ISLAND_RY+20+Math.sin(frameCount*0.07+a)*6);
     let fa=0.2+0.3*Math.abs(Math.sin(frameCount*0.08+a));
     ctx.fillStyle=`rgba(180,210,255,${fa})`;
     ctx.beginPath();ctx.arc(foam,foamy,3+Math.sin(frameCount*0.1+a),0,Math.PI*2);ctx.fill();
   }
-  ctx.restore();
 
   // ─── SAND BORDER ───
-  ctx.fillStyle='#d4a85a';ctx.strokeStyle='#b8902a';ctx.lineWidth=3;
-  ctx.beginPath();ctx.ellipse(OW_ISLAND_CX,OW_ISLAND_CY,OW_ISLAND_RX+18,OW_ISLAND_RY+14,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#d4a85a';ctx.strokeStyle='#b8902a';ctx.lineWidth=5;
+  ctx.beginPath();ctx.ellipse(OW_ISLAND_CX,OW_ISLAND_CY,OW_ISLAND_RX+28,OW_ISLAND_RY+20,0,0,Math.PI*2);ctx.fill();ctx.stroke();
 
   // ─── GRASS ───
-  let gGrad=ctx.createRadialGradient(OW_ISLAND_CX,OW_ISLAND_CY-40,10,OW_ISLAND_CX,OW_ISLAND_CY,OW_ISLAND_RX);
+  let gGrad=ctx.createRadialGradient(OW_ISLAND_CX,OW_ISLAND_CY-60,20,OW_ISLAND_CX,OW_ISLAND_CY,OW_ISLAND_RX);
   gGrad.addColorStop(0,'#5faa2e');gGrad.addColorStop(0.55,'#4d9222');gGrad.addColorStop(1,'#3a7515');
   ctx.fillStyle=gGrad;
   ctx.beginPath();ctx.ellipse(OW_ISLAND_CX,OW_ISLAND_CY,OW_ISLAND_RX,OW_ISLAND_RY,0,0,Math.PI*2);ctx.fill();
 
   // Grass texture tufts
   ctx.fillStyle='rgba(60,100,20,0.18)';
-  for(let g=0;g<60;g++){
-    let gx=OW_ISLAND_CX+Math.cos(g*2.4)*(g%5)*55, gy=OW_ISLAND_CY+Math.sin(g*1.7)*(g%4)*44;
-    if(isOnIsland(gx,gy)){ctx.beginPath();ctx.arc(gx,gy,4+g%4,0,Math.PI*2);ctx.fill();}
+  for(let g=0;g<120;g++){
+    let gx=OW_ISLAND_CX+Math.cos(g*2.4)*(g%7)*80, gy=OW_ISLAND_CY+Math.sin(g*1.7)*(g%6)*70;
+    if(isOnIsland(gx,gy)){ctx.beginPath();ctx.arc(gx,gy,4+g%5,0,Math.PI*2);ctx.fill();}
   }
 
-  // ─── DIRT PATH ───
+  // ─── DIRT PATHS — cruces entre los 4 jefes ───
   ctx.save();
-  ctx.strokeStyle='#7a5828';ctx.lineWidth=26;ctx.lineCap='round';
-  ctx.beginPath();ctx.moveTo(228,265);ctx.bezierCurveTo(340,355,660,355,772,265);ctx.stroke();
-  ctx.strokeStyle='#9a7240';ctx.lineWidth=18;
-  ctx.beginPath();ctx.moveTo(228,265);ctx.bezierCurveTo(340,355,660,355,772,265);ctx.stroke();
-  // Pebbles on path
+  ctx.strokeStyle='#7a5828';ctx.lineWidth=32;ctx.lineCap='round';
+  // Horizontal: inkboss ↔ tempestina
+  ctx.beginPath();ctx.moveTo(340,540);ctx.bezierCurveTo(600,620,1400,620,1660,540);ctx.stroke();
+  // Vertical: kronos ↔ narrator
+  ctx.beginPath();ctx.moveTo(1000,240);ctx.bezierCurveTo(940,500,1060,700,1000,860);ctx.stroke();
+  ctx.strokeStyle='#9a7240';ctx.lineWidth=22;
+  ctx.beginPath();ctx.moveTo(340,540);ctx.bezierCurveTo(600,620,1400,620,1660,540);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(1000,240);ctx.bezierCurveTo(940,500,1060,700,1000,860);ctx.stroke();
+  // Pebbles
   ctx.fillStyle='#b89060';
-  for(let p=0;p<16;p++){
-    let t=p/15;
-    let px=228+t*(772-228), py=265+Math.sin(t*Math.PI)*90;
-    ctx.beginPath();ctx.arc(px+(p%3-1)*5,py+3+(p%2)*2,2+p%2,0,Math.PI*2);ctx.fill();
+  for(let p=0;p<30;p++){
+    let t=p/29;
+    let px=340+t*(1660-340), py=540+Math.sin(t*Math.PI)*80;
+    ctx.beginPath();ctx.arc(px+(p%3-1)*6,py+4+(p%2)*3,2+p%3,0,Math.PI*2);ctx.fill();
   }
   ctx.restore();
 
   // ─── DECORATIVE FLOWERS ───
-  let flowers=[{x:420,y:310},{x:500,y:385},{x:580,y:310},{x:460,y:355},{x:540,y:355}];
+  let flowers=[
+    {x:800,y:580},{x:1000,y:680},{x:1200,y:580},
+    {x:900,y:530},{x:1100,y:530},{x:1000,y:500},
+    {x:850,y:650},{x:1150,y:650},{x:1000,y:760},
+  ];
   for(let fl of flowers){
-    ctx.fillStyle='#f5d020';ctx.beginPath();ctx.arc(fl.x,fl.y,4,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#f5d020';ctx.beginPath();ctx.arc(fl.x,fl.y,5,0,Math.PI*2);ctx.fill();
     ctx.fillStyle='#ff6080';
-    for(let p=0;p<5;p++){let pa=p/5*Math.PI*2;ctx.beginPath();ctx.arc(fl.x+Math.cos(pa)*6,fl.y+Math.sin(pa)*6,3,0,Math.PI*2);ctx.fill();}
+    for(let p=0;p<5;p++){let pa=p/5*Math.PI*2;ctx.beginPath();ctx.arc(fl.x+Math.cos(pa)*8,fl.y+Math.sin(pa)*8,4,0,Math.PI*2);ctx.fill();}
   }
 
   // ─── TREES ───
@@ -6447,7 +6488,7 @@ function drawOverworld(){
   // ─── BOSS NODES ───
   for(let b of OW_BOSSES)drawOwBossNode(b);
 
-  // ─── PLAYER ───
+  // ─── PLAYER (en coordenadas mundo) ───
   drawOwPlayer();
 
   // ─── E PROMPT ───
@@ -6463,7 +6504,12 @@ function drawOverworld(){
     ctx.restore();
   }
 
-  // ─── BATTLE MENU ───
+  ctx.restore(); // fin transformación cámara
+
+  // ─── MINIMAPA ───
+  drawOwMinimap();
+
+  // ─── BATTLE MENU (en pantalla, sin cámara) ───
   if(owInteract&&owInteract.menu)drawOwMenu();
 
   // ─── WEAPON MENU ───
@@ -6476,6 +6522,47 @@ function drawOverworld(){
   ctx.fillStyle='#a09050';ctx.font='bold 10px Impact';ctx.textAlign='center';
   if(mpMode) ctx.fillText('WASD · Mover   |   E · Interactuar (solo host)   |   ESC · Menú sala',W/2,H-9);
   else ctx.fillText('WASD · Mover   |   E · Interactuar   |   ESC · Opciones',W/2,H-9);
+}
+
+function drawOwMinimap(){
+  // Minimapa en esquina inferior derecha
+  const MM_W=140, MM_H=90, MM_X=W-MM_W-10, MM_Y=H-MM_H-34;
+  const scaleX=MM_W/OW_W, scaleY=MM_H/OW_H;
+  ctx.save();
+  // Fondo
+  ctx.fillStyle='rgba(0,0,0,0.65)';ctx.strokeStyle='#c8a028';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.roundRect(MM_X,MM_Y,MM_W,MM_H,4);ctx.fill();ctx.stroke();
+  // Isla
+  ctx.fillStyle='#3a7515';
+  ctx.beginPath();ctx.ellipse(MM_X+OW_ISLAND_CX*scaleX,MM_Y+OW_ISLAND_CY*scaleY,OW_ISLAND_RX*scaleX,OW_ISLAND_RY*scaleY,0,0,Math.PI*2);ctx.fill();
+  // Jefes
+  for(let b of OW_BOSSES){
+    ctx.fillStyle=b.acol;
+    ctx.beginPath();ctx.arc(MM_X+b.x*scaleX,MM_Y+b.y*scaleY,4,0,Math.PI*2);ctx.fill();
+  }
+  // Jugador J1
+  ctx.fillStyle='#fff';ctx.strokeStyle='#000';ctx.lineWidth=1;
+  ctx.beginPath();ctx.arc(MM_X+owPlayer.x*scaleX,MM_Y+owPlayer.y*scaleY,3.5,0,Math.PI*2);ctx.fill();ctx.stroke();
+  // Jugadores remotos MP
+  if(mpMode){
+    for(let [idStr,pos] of Object.entries(mpOwPositions)){
+      if(parseInt(idStr)===mpMyIndex)continue;
+      let sk=ALL_SKINS[pos.sk||0]||ALL_SKINS[0];
+      ctx.fillStyle=sk.bullet||'#40c8ff';
+      ctx.beginPath();ctx.arc(MM_X+pos.x*scaleX,MM_Y+pos.y*scaleY,3,0,Math.PI*2);ctx.fill();
+    }
+  }
+  if(p2Active){
+    ctx.fillStyle='#40c8ff';
+    ctx.beginPath();ctx.arc(MM_X+owPlayer2.x*scaleX,MM_Y+owPlayer2.y*scaleY,3,0,Math.PI*2);ctx.fill();
+  }
+  // Viewport rect
+  ctx.strokeStyle='rgba(255,255,255,0.4)';ctx.lineWidth=1;
+  ctx.strokeRect(MM_X+owCamX*scaleX,MM_Y+owCamY*scaleY,W*scaleX,H*scaleY);
+  // Label
+  ctx.fillStyle='#c8a028';ctx.font='bold 7px Impact';ctx.textAlign='left';
+  ctx.fillText('MAPA',MM_X+3,MM_Y+8);
+  ctx.restore();
 }
 
 function drawOwTree(x,y){
