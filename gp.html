@@ -110,7 +110,6 @@ let selectedPlant = null, shovelActive = false, mouse = { x: 0, y: 0 };
 
 const plants = [], zombies = [], projectiles = [], suns = [], mowers = [], explosions = [];
 
-// Base de datos de plantas sin bloqueos de nivel
 const plantTypes = {
     'lanzaguisantes': { cost: 100, hp: 100, color: '#4caf50', cooldown: 300 },
     'girasol': { cost: 50, hp: 80, color: '#ffeb3b', cooldown: 300 },
@@ -131,7 +130,7 @@ function drawStrokeCircle(c, x, y, r) {
     c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill(); c.stroke();
 }
 
-// Texturas de plantas y zombis
+// Texturas
 function drawPlant(c, type, x, y, size, angle = 0, scale = 1, ready = true) {
     c.save();
     c.translate(x + size/2, y + size/2);
@@ -197,7 +196,6 @@ function drawZombie(z) {
     ctx.restore();
 }
 
-// LOGICA DE SELECTOR DE SEMILLAS
 function prepareLevel() {
     document.getElementById('menu-container').style.display = 'none';
     document.getElementById('seed-selection-screen').style.display = 'flex';
@@ -210,7 +208,6 @@ function renderSeedSelection() {
     chosenContainer.innerHTML = '';
     poolContainer.innerHTML = '';
 
-    // Dibujar los 7 espacios seleccionados
     for (let i = 0; i < MAX_DECK_SIZE; i++) {
         const div = document.createElement('div');
         if (playerDeck[i]) {
@@ -227,7 +224,6 @@ function renderSeedSelection() {
         }
     }
 
-    // Dibujar plantas disponibles
     Object.keys(plantTypes).forEach(key => {
         const p = plantTypes[key];
         const isChosen = playerDeck.includes(key);
@@ -250,7 +246,6 @@ function renderSeedSelection() {
     document.getElementById('start-level-btn').disabled = playerDeck.length === 0;
 }
 
-// INICIAR EL NIVEL DEFINITIVO
 function startLevel() {
     document.getElementById('seed-selection-screen').style.display = 'none';
     document.getElementById('ui-panel').style.display = 'flex';
@@ -276,7 +271,6 @@ function updateUI() {
     const container = document.getElementById('seeds');
     container.innerHTML = '';
     
-    // Solo mostramos las plantas que el jugador eligió en el Deck
     playerDeck.forEach(key => {
         const p = plantTypes[key];
         const div = document.createElement('div');
@@ -298,7 +292,6 @@ function updateUI() {
     document.getElementById('wave-bar').style.width = `${waveProgress}%`;
 }
 
-// CLICKS EN EL JUEGO
 canvas.addEventListener('mousedown', (e) => {
     if (isPaused || gameOver || gameWon) return;
     const rect = canvas.getBoundingClientRect();
@@ -336,10 +329,11 @@ canvas.addEventListener('mousedown', (e) => {
 });
 
 function spawnZombie(count) {
-    // Reducimos un 30% la cantidad de zombis inicial (siempre garantizando al menos 1 si count > 0)
     let reducedCount = Math.max(1, Math.round(count * 0.7)); 
     for (let i = 0; i < reducedCount; i++) {
-        zombies.push({x: 1000 + (i * 50), y: Math.floor(Math.random()*6)*cellSize, hp: 100 + (wave * 50), speed: 0.35, freeze: 0});
+        let nerfedHp = (100 + (wave * 50)) * 0.8; // 20% menos de vida base
+        // Velocidad reducida 5% (de 0.35 a 0.33)
+        zombies.push({x: 1000 + (i * 50), y: Math.floor(Math.random()*6)*cellSize, hp: nerfedHp, speed: 0.33, freeze: 0});
     }
 }
 
@@ -367,40 +361,104 @@ function loop() {
 
             if (frame % 400 === 0) suns.push({x: Math.random()*800+50, y: 0, targetY: Math.random()*400+100, t: 500});
 
-            plants.forEach(p => {
+            // Plantas (usando for reverso para evitar bugs al borrar)
+            for (let i = plants.length - 1; i >= 0; i--) {
+                let p = plants[i];
                 p.t++;
                 if (p.type === 'girasol' && p.t % 600 === 0) suns.push({x: p.x+20, y: p.y+20, targetY: p.y+20, t: 500});
+                
                 if (['lanzaguisantes', 'hielaguisantes', 'repetidora'].includes(p.type) && p.t % 100 === 0) {
                     if (zombies.some(z => z.y === p.y && z.x > p.x)) {
-                        projectiles.push({x: p.x+80, y: p.y+35, ice: p.type === 'hielaguisantes'});
+                        projectiles.push({x: p.x+80, y: p.y+35, ice: p.type === 'hielaguisantes', fire: false});
                         if (p.type === 'repetidora') p.ráfaga = 15;
                     }
                 }
-                if (p.ráfaga > 0) { p.ráfaga--; if (p.ráfaga === 0) projectiles.push({x: p.x+80, y: p.y+35, ice: false}); }
+                if (p.ráfaga > 0) { 
+                    p.ráfaga--; 
+                    if (p.ráfaga === 0) projectiles.push({x: p.x+80, y: p.y+35, ice: false, fire: false}); 
+                }
                 if (p.type === 'papapum' && !p.ready && p.t > 400) p.ready = true;
-            });
 
-            zombies.forEach((z, i) => {
+                if (p.hp <= 0) plants.splice(i, 1);
+            }
+
+            // Zombis
+            for (let i = zombies.length - 1; i >= 0; i--) {
+                let z = zombies[i];
                 let eating = false;
                 plants.forEach(p => {
                     if (z.y === p.y && z.x < p.x + 60 && z.x > p.x - 20) {
-                        eating = true; p.hp -= 1;
-                        if (p.type === 'papapum' && p.ready) { z.hp = 0; p.hp = 0; explosions.push({x:p.x+50,y:p.y+50,r:120,t:10}); }
+                        if (p.type === 'papapum' && p.ready) { 
+                            p.hp = 0; 
+                            explosions.push({x: p.x + 50, y: p.y + 50, r: 60, t: 15}); 
+                            zombies.forEach(z2 => {
+                                if (Math.abs(z2.x - p.x) < 80 && Math.abs(z2.y - p.y) < 80) z2.hp = 0; 
+                            });
+                        } else {
+                            eating = true; 
+                            p.hp -= 1;
+                        }
                     }
                 });
+                
                 if (!eating) z.x -= (z.freeze > 0 ? z.speed * 0.5 : z.speed);
                 if (z.x < -60) gameOver = true;
                 if (z.hp <= 0) zombies.splice(i, 1);
-            });
+            }
 
-            projectiles.forEach((pr, i) => {
+            // Proyectiles e interacción con Plantorcha
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                let pr = projectiles[i];
                 pr.x += 8;
-                zombies.forEach(z => { if (pr.x > z.x && pr.x < z.x+70 && pr.y > z.y && pr.y < z.y+100) { z.hp -= 20; if(pr.ice) z.freeze = 200; projectiles.splice(i, 1); } });
+                let hit = false;
+                
+                // Efecto Plantorcha: convierte guisantes normales o de hielo en fuego
+                plants.forEach(p => {
+                    if (p.type === 'plantorcha' && pr.y === p.y && pr.x > p.x && pr.x < p.x + 60) {
+                        pr.fire = true;
+                        pr.ice = false; 
+                    }
+                });
+
+                // Impacto con zombies
+                for (let j = zombies.length - 1; j >= 0; j--) {
+                    let z = zombies[j];
+                    if (pr.x > z.x && pr.x < z.x+70 && pr.y > z.y && pr.y < z.y+100) {
+                        z.hp -= pr.fire ? 40 : 20; // El fuego hace el doble de daño (40)
+                        if(pr.ice) z.freeze = 200; 
+                        projectiles.splice(i, 1); 
+                        hit = true;
+                        break; 
+                    }
+                }
+            }
+
+            // Podadoras
+            mowers.forEach(m => { 
+                if (m.active) { 
+                    m.x += 10; 
+                    zombies.forEach(z => { if(z.y === m.y && z.x < m.x + 40) z.hp = 0; }); 
+                } else if (zombies.some(z => z.y === m.y && z.x < 50)) {
+                    m.active = true; 
+                }
             });
 
-            mowers.forEach(m => { if (m.active) { m.x += 10; zombies.forEach(z => { if(z.y === m.y && z.x < m.x + 40) z.hp = 0; }); } else if (zombies.some(z => z.y === m.y && z.x < 50)) m.active = true; });
-            suns.forEach((s, i) => { if (s.y < s.targetY) s.y += 2; s.t--; if (s.t <= 0) suns.splice(i, 1); });
-            plants.forEach((p, i) => { if (p.hp <= 0) plants.splice(i, 1); });
+            // Soles
+            for (let i = suns.length - 1; i >= 0; i--) {
+                let s = suns[i];
+                if (s.y < s.targetY) s.y += 2; 
+                s.t--; 
+                if (s.t <= 0) suns.splice(i, 1);
+            }
+
+            // Limpieza robusta de explosiones para evitar que se queden en pantalla
+            for (let i = explosions.length - 1; i >= 0; i--) {
+                explosions[i].t--;
+                if (explosions[i].t <= 0) {
+                    explosions.splice(i, 1);
+                }
+            }
+            
             if (wave === maxWaves && waveProgress >= 100 && zombies.length === 0) gameWon = true;
         }
     }
@@ -410,7 +468,13 @@ function loop() {
     mowers.forEach(m => { ctx.fillStyle = '#c62828'; ctx.fillRect(m.x, m.y+35, 55, 35); });
     plants.forEach(p => drawPlant(ctx, p.type, p.x, p.y, 100, Math.sin(frame*0.05)*0.04, 1, p.ready));
     zombies.forEach(z => drawZombie(z));
-    projectiles.forEach(pr => { ctx.fillStyle = pr.ice ? '#4fc3f7' : '#76ff03'; drawStrokeCircle(ctx, pr.x, pr.y, 10); });
+    
+    // Dibujo de proyectiles (color dinámico)
+    projectiles.forEach(pr => { 
+        ctx.fillStyle = pr.ice ? '#4fc3f7' : (pr.fire ? '#ff3d00' : '#76ff03'); 
+        drawStrokeCircle(ctx, pr.x, pr.y, pr.fire ? 12 : 10); 
+    });
+    
     suns.forEach(s => { ctx.fillStyle = '#fff176'; drawStrokeCircle(ctx, s.x, s.y, 20); });
     explosions.forEach(ex => { ctx.fillStyle = 'rgba(255, 100, 0, 0.7)'; drawStrokeCircle(ctx, ex.x, ex.y, ex.r); });
 
