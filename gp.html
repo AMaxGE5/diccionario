@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PvZ: Extreme Speed - Sleeping Plants</title>
+    <title>PvZ: Extreme Speed - Curva de Dificultad</title>
     <style>
         body { background: #121212; color: white; font-family: 'Arial Black', sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; overflow: hidden; user-select: none; }
         
@@ -137,32 +137,26 @@ function drawStrokeCircle(c, x, y, r) {
     c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill(); c.stroke();
 }
 
-// Dibujo central de la planta con soporte para estado "dormido"
 function drawPlant(c, type, x, y, size, angle = 0, scale = 1, ready = true, grown = false, sleeping = false) {
     c.save();
     
-    // Si duerme, se inclina y se aplasta un poco hacia abajo
     if (sleeping && type !== 'granodecafe') {
         angle += 0.2; 
         scale *= 0.9; 
     }
     
     c.translate(x + size/2, y + size/2);
-    if (sleeping && type !== 'granodecafe') c.translate(0, 8); // Cae por peso de sueño
+    if (sleeping && type !== 'granodecafe') c.translate(0, 8); 
     
     c.rotate(angle);
     c.scale(scale, scale);
     c.strokeStyle = '#000'; c.lineWidth = 3;
 
-    // Función interna para dibujar las caras/ojos
     const drawFace = (ex, ey) => {
         if (sleeping) {
             c.strokeStyle = '#000'; c.lineWidth = 2.5;
-            // Ojos cerrados (curva hacia abajo)
             c.beginPath(); c.moveTo(ex-8, ey); c.quadraticCurveTo(ex-4, ey+4, ex, ey); c.stroke();
             c.beginPath(); c.moveTo(ex+2, ey); c.quadraticCurveTo(ex+6, ey+4, ex+10, ey); c.stroke();
-            
-            // La pequeña Zzz en el dibujo
             c.fillStyle = '#fff'; c.font = 'bold 12px Arial'; c.fillText('Z', ex+10, ey-10);
         } else {
             c.fillStyle = '#000';
@@ -276,7 +270,6 @@ function renderSeedSelection() {
             div.innerHTML = `<canvas id="cs-${i}" width="65" height="65"></canvas><span>${plantTypes[key].cost}</span>`;
             div.onclick = () => { playerDeck.splice(i, 1); renderSeedSelection(); };
             chosenContainer.appendChild(div);
-            // Dibuja en selector (siempre despiertas para ver el diseño bien)
             drawPlant(document.getElementById(`cs-${i}`).getContext('2d'), key, 0, 0, 65, 0, 0.7, true, true, false);
         } else {
             div.className = 'seed-empty-slot'; chosenContainer.appendChild(div);
@@ -302,7 +295,7 @@ function startLevel() {
     resources = 150; frame = 0; wave = 1; waveProgress = 0;
     gameOver = false; gameWon = false; isPaused = false;
     plants = []; zombies = []; projectiles = []; suns = []; mowers = []; explosions = [];
-    isNight = false; // Siempre inicia de día
+    isNight = false; 
     
     Object.keys(cooldowns).forEach(k => cooldowns[k] = 0);
     for (let i = 0; i < 6; i++) mowers.push({x: 10, y: i * cellSize, active: false});
@@ -373,7 +366,7 @@ canvas.addEventListener('mousedown', (e) => {
         if (selectedPlant === 'granodecafe') {
             let targetPlant = plants.find(p => p.x === gx && p.y === gy && p.sleeping);
             if (targetPlant && resources >= plantTypes['granodecafe'].cost) {
-                targetPlant.sleeping = false; // ¡Despierta!
+                targetPlant.sleeping = false; 
                 resources -= plantTypes['granodecafe'].cost;
                 cooldowns['granodecafe'] = plantTypes['granodecafe'].cooldown;
                 selectedPlant = null; updateUI();
@@ -404,10 +397,10 @@ canvas.addEventListener('mousedown', (e) => {
 });
 
 function spawnZombie(count) {
-    let reducedCount = Math.max(1, Math.round(count * 0.7)); 
-    for (let i = 0; i < reducedCount; i++) {
-        let nerfedHp = (100 + (wave * 50)) * 0.8; 
-        zombies.push({x: 1000 + (i * 50), y: Math.floor(Math.random()*6)*cellSize, hp: nerfedHp, speed: 0.33, freeze: 0, mode: 1});
+    for (let i = 0; i < count; i++) {
+        let hpEscalada = 100 + (wave * 25); 
+        let offsetX = i * 40 + (Math.random() * 20); 
+        zombies.push({x: 1000 + offsetX, y: Math.floor(Math.random()*6)*cellSize, hp: hpEscalada, speed: 0.33, freeze: 0, mode: 1});
     }
 }
 
@@ -419,8 +412,29 @@ function loop() {
             
             if (frame % 250 === 0 && waveProgress < 100) {
                 waveProgress += 5;
-                spawnZombie(wave);
                 
+                // SISTEMA DE APARICIÓN ESCALONADO
+                let zombiesToSpawn = 0;
+
+                if (wave === 1) {
+                    // Oleada 1: Muy lenta. 1 zombie al 30%, 1 al 65% y 2 al 95%
+                    if (waveProgress === 30 || waveProgress === 65) zombiesToSpawn = 1;
+                    if (waveProgress === 95) zombiesToSpawn = 2;
+                } else if (wave === 2) {
+                    // Oleada 2: Acelera un poco pero sigue tranquilo
+                    if (waveProgress === 20 || waveProgress === 50 || waveProgress === 75) zombiesToSpawn = 1;
+                    if (waveProgress === 95) zombiesToSpawn = 2;
+                } else {
+                    // Oleadas 3 en adelante: Dificultad progresiva matemática
+                    if (waveProgress % 20 === 0) zombiesToSpawn = Math.floor(wave / 2);
+                    if (waveProgress % 35 === 0) zombiesToSpawn = Math.floor(wave / 1.5) || 1;
+                }
+
+                if (zombiesToSpawn > 0) {
+                    spawnZombie(zombiesToSpawn);
+                }
+                
+                // Cierre y avance de oleada
                 if (waveProgress >= 100 && wave < maxWaves) {
                     wave++; waveProgress = 0;
                     
@@ -430,11 +444,10 @@ function loop() {
                         document.getElementById('announcement').style.display = 'block';
                         setTimeout(() => document.getElementById('announcement').style.display = 'none', 3000);
                         
-                        // Cambio Dinámico de Sueño
                         plants.forEach(p => {
                             let timeType = plantTypes[p.type].time;
-                            if (timeType === 'diurna') p.sleeping = true; // Diurnas a dormir
-                            if (timeType === 'nocturna') p.sleeping = false; // Setas despiertan
+                            if (timeType === 'diurna') p.sleeping = true; 
+                            if (timeType === 'nocturna') p.sleeping = false; 
                         });
                     }
 
@@ -448,7 +461,6 @@ function loop() {
                 updateUI();
             }
 
-            // Soles del cielo: Caen menos de noche
             let sunInterval = isNight ? 1200 : 400;
             if (frame % sunInterval === 0) {
                 suns.push({x: Math.random()*800+50, y: 0, targetY: Math.random()*400+100, t: 500, amount: 25});
@@ -581,7 +593,6 @@ function loop() {
 
     ctx.clearRect(0,0,900,600);
     
-    // Tonos mucho más oscuros para la noche (Verde Azulado / Azabache oscuro)
     let c1 = isNight ? '#0b2611' : '#4caf50';
     let c2 = isNight ? '#07170a' : '#43a047';
     for(let i=0; i<9; i++) for(let j=0; j<6; j++) { ctx.fillStyle = (i+j)%2==0 ? c1 : c2; ctx.fillRect(i*100, j*100, 100, 100); }
