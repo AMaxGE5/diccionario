@@ -184,15 +184,7 @@ canvas { display:block;image-rendering:pixelated;cursor:crosshair; }
           <b style="color:#f5d020">⚔ ARMAS</b><br>
           · Escopeta: +20% daño · +15% alcance<br>
           · Teledirigida: nunca desaparece · puede destruir proyectiles enemigos · apunta a fantasmas y misiles hostiles<br><br>
-          <b style="color:#f5d020">🎭 NARRATOR — MODO INFERNAL (ACTUALIZACIÓN)</b><br>
-          · Proyectiles 75% más pequeños (más difíciles de esquivar)<br>
-          · Puede usar 2 ataques SIMULTÁNEOS en todo momento<br>
-          · Al llegar al último tercio de vida: 3 ataques a la vez<br>
-          · Esbirros 65% más rápidos + disparan un 45% más rápido<br>
-          · Stage 4: spawn de esbirros 40% más frecuente, hasta 10 en pantalla<br>
-          · Pools de esbirros por sombra mucho más agresivos<br>
-          · Curación al derrotar sombras: +2HP (era 1HP, +25%)<br>
-          · Spotlight fallida cura +10% HP del Narrator (era 8%)<br><br>
+          <b style="color:#f5d020">🎭 NARRATOR — NUEVO JEFE</b><br>
           · Solo disponible en DIFÍCIL<br>
           · 5 fases: Oscuridad → Sombra Tinta → Sombra Tormenta → Sombra Kronos → Narrator<br>
           · Cortinas de teatro entre transiciones<br>
@@ -1200,19 +1192,19 @@ function spawnMinion(forcedType){
   let side=Math.random()<0.5?1:-1;
   let types;
   if(selectedBoss==='narrator'){
-    // Narrator: cada sombra usa los esbirros de su jefe correspondiente (modo difícil siempre)
+    // Narrator: cada sombra usa los esbirros de su jefe correspondiente
     if(nStage===1){
-      // Sombra de Tinta → esbirros del inkboss, versión difícil
-      types=['crawler','crawler','floater','bomber','bomber'];
+      // Sombra de Tinta → esbirros del inkboss
+      types=difficulty==='hard'?['crawler','crawler','floater','bomber']:['crawler','crawler','floater'];
     } else if(nStage===2){
-      // Sombra de Tormenta → esbirros de Tempestina, versión difícil
-      types=['stormCloud','iceGolem','windSprite','windSprite'];
+      // Sombra de Tormenta → esbirros de Tempestina
+      types=difficulty==='hard'?['stormCloud','iceGolem','windSprite']:['stormCloud','iceGolem'];
     } else if(nStage===3){
-      // Sombra del Tiempo → esbirros de Kronos, versión difícil
-      types=['clockSpider','clockSpider','clockSpider','floater'];
+      // Sombra del Tiempo → esbirros de Kronos
+      types=['clockSpider','clockSpider','floater'];
     } else {
-      // Stage 4 Narrator final → mezcla de todos, versión difícil
-      types=['crawler','floater','bomber','stormCloud','iceGolem','windSprite','clockSpider','bomber','clockSpider'];
+      // Stage 4 Narrator final → mezcla de todos
+      types=['crawler','floater','bomber','stormCloud','iceGolem','windSprite','clockSpider'];
     }
   } else if(selectedBoss==='tempestina'){
     if(difficulty==='hard'){
@@ -1231,9 +1223,7 @@ function spawnMinion(forcedType){
     }
   }
   let type=forcedType||types[Math.floor(Math.random()*types.length)];
-  // Hard mode narrator: minions go 65% faster
-  let spdMult=(selectedBoss==='narrator')?1.65:1.0;
-  let spd=(D(1.5,2.2)+Math.random()*0.5)*spdMult;
+  let spd=D(1.5,2.2)+Math.random()*0.5;
   let alertMsgs={
     crawler:'⚠ ¡CAMINANTES!',floater:'⚠ ¡VOLADORES!',bomber:'⚠ ¡BOMBARDERO!',
     stormCloud:'⚡ ¡NUBES TORMENTOSAS!',iceGolem:'❄ ¡GOLEMS DE HIELO!',windSprite:'💨 ¡ESPÍRITUS DEL VIENTO!'
@@ -1250,7 +1240,7 @@ function spawnMinion(forcedType){
     h:type==='iceGolem'?30:type==='stormCloud'?30:20,
     hp:type==='iceGolem'?D(3,4):D(2,2),
     type,af:0,at:0,bobT:Math.random()*Math.PI*2,dead:false,
-    shootT:Math.floor((D(130,90)+Math.floor(Math.random()*50))*(selectedBoss==='narrator'?0.55:1.0))
+    shootT:D(130,90)+Math.floor(Math.random()*50)
   });
 }
 function updateMinions(){
@@ -1272,9 +1262,7 @@ function updateMinions(){
       ? (curPhase===3?130:curPhase===2?160:210)
       : (curPhase===3?210:280);
   }
-  // Narrator stage 4: spawn faster and allow more minions
-  if(selectedBoss==='narrator'&&nStage===4){rate=Math.floor(rate*0.6);}
-  let maxMinions=(selectedBoss==='narrator'&&nStage===4)?D(8,10):D(5,7);
+  let maxMinions=D(5,7);
   if(minionSpawnT<=0&&canSpawn&&!curDefeated&&minions.length<maxMinions){
     spawnMinion();minionSpawnT=rate;
   }
@@ -5134,8 +5122,8 @@ let nSpotActiveThreshold1=false,nSpotActiveThreshold2=false; // 1/3 and 2/3 trig
 let nGloveLeft=null,nGloveRight=null; // {x,y,vy,phase:'enter'|'squeeze'|'exit',t}
 let nBossMoving=null; // {targetX,targetY} or null
 let nShadowType='ink'; // which shadow is currently shown
-const N_SHADOW_HP=280; // 233 * 1.20 (+20% vida)
-const N_FINAL_HP=1350;  // 1125 * 1.20 (+20% vida)
+const N_SHADOW_HP=233; // 155 * 1.5
+const N_FINAL_HP=1125;  // 750 * 1.5
 const N_SPOT_TIME=960; // ~16s
 const N_SPOT_R=48; // bigger spotlights
 
@@ -5148,8 +5136,8 @@ function _syncNarratorMusic(stage){
 
 function resetNarrator(){
   // Dark intro phase — silhouette center stage
-  nBoss={x:W/2-70,y:FLOOR-200,w:140,h:200,hp:72,maxHp:72,bobT:0,bobOff:0};
-  nStage=0; nInvT=0; nDefeated=false; nAttackT=150; nCurrentAtk=null;
+  nBoss={x:W/2-70,y:FLOOR-200,w:140,h:200,hp:60,maxHp:60,bobT:0,bobOff:0};
+  nStage=0; nInvT=0; nDefeated=false; nAttackT=180; nCurrentAtk=null;
   nCurtain=null; nSpot1=null; nSpot2=null;
   nSpotActiveThreshold1=false; nSpotActiveThreshold2=false;
   nGloveLeft=null; nGloveRight=null; nBossMoving=null; nShadowType='ink';
@@ -5192,7 +5180,7 @@ function updateSpotlights(){
   // Timer expired → boss heals a bit
   nSpot1.timer--;
   if(nSpot1.timer<=0){
-    let heal=Math.round(nBoss.maxHp*0.10); // era 0.08, +25% = 0.10
+    let heal=Math.round(nBoss.maxHp*0.08);
     nBoss.hp=Math.min(nBoss.maxHp,nBoss.hp+heal);
     nSpot1=null;nSpot2=null; nInvT=30;
     triggerShake(3,8);
@@ -5323,66 +5311,65 @@ function drawNarratorProjectiles(){
 function doNarratorAtk(p){
   let nc=getNBossC(),cx=nc.x,cy=nc.y;
   const hs=1.1; // fixed hard
-  // Projectile size restored to original
-  const bp=(obj)=>{bossProjectiles.push(obj);return obj;};
-  const bpa=(arr)=>{bossProjectiles.push(...arr);};
 
   if(p==='n_spread'){
     let tgt=randTarget();let dx=tgt.x+tgt.w/2-cx,dy=tgt.y-tgt.h/2-cy,base=Math.atan2(dy,dx);
-    for(let a=-3;a<=3;a++) bp({x:cx,y:cy,vx:Math.cos(base+a*0.18)*3.8,vy:Math.sin(base+a*0.18)*3.8,r:11,col:'#cc40ff'});
+    for(let a=-3;a<=3;a++) bossProjectiles.push({x:cx,y:cy,vx:Math.cos(base+a*0.18)*3.8,vy:Math.sin(base+a*0.18)*3.8,r:11,col:'#cc40ff'});
   }
   else if(p==='n_aimed'){
     let cnt=3;
-    for(let i=0;i<cnt;i++) setTimeout(()=>{if(gameState!=='playing')return;let nc2=getNBossC();let tgt=randTarget();let tc=targetCenter(tgt);let dx=tc.x-nc2.x,dy=tc.y-nc2.y,d=Math.sqrt(dx*dx+dy*dy)||1;bp({x:nc2.x,y:nc2.y,vx:(dx/d)*4.2,vy:(dy/d)*4.2,r:12,col:'#ff40ff'});},i*500);
+    for(let i=0;i<cnt;i++) setTimeout(()=>{if(gameState!=='playing')return;let nc2=getNBossC();let tgt=randTarget();let tc=targetCenter(tgt);let dx=tc.x-nc2.x,dy=tc.y-nc2.y,d=Math.sqrt(dx*dx+dy*dy)||1;bossProjectiles.push({x:nc2.x,y:nc2.y,vx:(dx/d)*4.2,vy:(dy/d)*4.2,r:12,col:'#ff40ff'});},i*500);
   }
   else if(p==='n_hailBurst'){
-    let cnt=8;for(let i=0;i<cnt;i++) bp({x:cx,y:cy,vx:Math.cos(i/cnt*Math.PI*2)*4*hs,vy:Math.sin(i/cnt*Math.PI*2)*4*hs,r:10,col:'#a0e8ff'});
+    let cnt=8;for(let i=0;i<cnt;i++) bossProjectiles.push({x:cx,y:cy,vx:Math.cos(i/cnt*Math.PI*2)*4*hs,vy:Math.sin(i/cnt*Math.PI*2)*4*hs,r:10,col:'#a0e8ff'});
   }
   else if(p==='n_tickBurst'){
-    let cnt=10;for(let i=0;i<cnt;i++) bp({x:cx,y:cy,vx:Math.cos(i/cnt*Math.PI*2)*4.5*hs,vy:Math.sin(i/cnt*Math.PI*2)*4.5*hs,r:10,col:'#ff4040'});
-    setTimeout(()=>{if(gameState!=='playing')return;let nc2=getNBossC();for(let i=0;i<6;i++){let ang=i/6*Math.PI*2+Math.PI/6;bp({x:nc2.x,y:nc2.y,vx:Math.cos(ang)*3,vy:Math.sin(ang)*3,r:9,col:'#ff8040'});}},700);
+    let cnt=10;for(let i=0;i<cnt;i++) bossProjectiles.push({x:cx,y:cy,vx:Math.cos(i/cnt*Math.PI*2)*4.5*hs,vy:Math.sin(i/cnt*Math.PI*2)*4.5*hs,r:10,col:'#ff4040'});
+    setTimeout(()=>{if(gameState!=='playing')return;let nc2=getNBossC();for(let i=0;i<6;i++){let ang=i/6*Math.PI*2+Math.PI/6;bossProjectiles.push({x:nc2.x,y:nc2.y,vx:Math.cos(ang)*3,vy:Math.sin(ang)*3,r:9,col:'#ff8040'});}},700);
   }
   else if(p==='n_shotgun'){
     let tgt=randTarget();let dx=tgt.x+tgt.w/2-cx,dy=tgt.y-tgt.h/2-cy,base=Math.atan2(dy,dx);
-    for(let i=-2;i<=2;i++) bp({x:cx,y:cy,vx:Math.cos(base+i*0.18)*(4+Math.random()),vy:Math.sin(base+i*0.18)*(4+Math.random()),r:9,col:'#ff8020'});
+    for(let i=-2;i<=2;i++) bossProjectiles.push({x:cx,y:cy,vx:Math.cos(base+i*0.18)*(4+Math.random()),vy:Math.sin(base+i*0.18)*(4+Math.random()),r:9,col:'#ff8020'});
   }
   else if(p==='n_groundWave'){
     let tgt=randTarget();let dir=tgt.x+tgt.w/2<cx?-1:1;
-    bp({x:cx,y:FLOOR-13,vx:dir*5.5,vy:0,r:14,col:'#cc40ff',floorSlide:true});
-    bp({x:cx,y:FLOOR-13,vx:-dir*4.5,vy:0,r:12,col:'#9020c0',floorSlide:true});
+    bossProjectiles.push({x:cx,y:FLOOR-13,vx:dir*5.5,vy:0,r:14,col:'#cc40ff',floorSlide:true});
+    bossProjectiles.push({x:cx,y:FLOOR-13,vx:-dir*4.5,vy:0,r:12,col:'#9020c0',floorSlide:true});
   }
   else if(p==='n_crossfire'){
     let streams=[{x:0,y:H/2,vx:4.5,vy:0,col:'#cc40ff'},{x:W,y:H/2,vx:-4.5,vy:0,col:'#cc40ff'}];
-    for(let s=0;s<streams.length;s++) setTimeout(()=>{if(gameState!=='playing')return;let pp=streams[s];bp({x:pp.x,y:pp.y,vx:pp.vx,vy:0,r:12,col:pp.col});},s*400);
+    for(let s=0;s<streams.length;s++) setTimeout(()=>{if(gameState!=='playing')return;let pp=streams[s];bossProjectiles.push({x:pp.x,y:pp.y,vx:pp.vx,vy:0,r:12,col:pp.col});},s*400);
   }
   else if(p==='n_deathRain'){
     let cnt=7,spd=4.5;
-    for(let i=0;i<cnt;i++) setTimeout(()=>{if(gameState!=='playing')return;bp({x:80+Math.random()*(W-160),y:-15,vx:(Math.random()-0.5)*1.5,vy:spd+Math.random()*1.5,r:12,col:'#ff40ff',grav:0.03});},i*220);
+    for(let i=0;i<cnt;i++) setTimeout(()=>{if(gameState!=='playing')return;bossProjectiles.push({x:80+Math.random()*(W-160),y:-15,vx:(Math.random()-0.5)*1.5,vy:spd+Math.random()*1.5,r:12,col:'#ff40ff',grav:0.03});},i*220);
   }
   else if(p==='n_laserRain'){
     let cnt=5;
-    for(let i=0;i<cnt;i++) setTimeout(()=>{if(gameState!=='playing')return;let tgt=randTarget();bp({x:tgt.x+tgt.w/2+(Math.random()-0.5)*60,y:-20,vx:0,vy:5.5,r:13,col:'#ffffa0'});},i*300);
+    for(let i=0;i<cnt;i++) setTimeout(()=>{if(gameState!=='playing')return;let tgt=randTarget();bossProjectiles.push({x:tgt.x+tgt.w/2+(Math.random()-0.5)*60,y:-20,vx:0,vy:5.5,r:13,col:'#ffffa0'});},i*300);
   }
   else if(p==='n_gloveClap'){
+    // Boss exits screen, gloves enter from sides and clap in middle
     nGloveLeft={x:-120,y:FLOOR-160,vy:0,phase:'enter',t:0};
     nGloveRight={x:W+120,y:FLOOR-160,vy:0,phase:'enter',t:0};
+    // Warn player
     let el=document.getElementById('phaseAnnounce');
     el.style.color='#cc40ff';el.textContent='⬅ ¡APLAUSOS! ➡';el.style.display='block';
     setTimeout(()=>{if(el)el.style.display='none';},2000);
   }
   else if(p==='n_homing'){
-    for(let i=0;i<2;i++) setTimeout(()=>{if(gameState!=='playing')return;let nc2=getNBossC();let tgt=randTarget();bp({x:nc2.x,y:nc2.y,vx:(Math.random()-0.5)*2,vy:-1.5,r:13,col:'#ff40ff',homing:true,homingTarget:tgt});},i*700);
+    for(let i=0;i<2;i++) setTimeout(()=>{if(gameState!=='playing')return;let nc2=getNBossC();let tgt=randTarget();bossProjectiles.push({x:nc2.x,y:nc2.y,vx:(Math.random()-0.5)*2,vy:-1.5,r:13,col:'#ff40ff',homing:true,homingTarget:tgt});},i*700);
   }
   else if(p==='n_burst'){
-    let cnt=12;for(let i=0;i<cnt;i++) bp({x:cx,y:cy,vx:Math.cos(i/cnt*Math.PI*2)*3.8,vy:Math.sin(i/cnt*Math.PI*2)*3.8,r:9,col:'#cc40ff'});
-    setTimeout(()=>{if(gameState!=='playing')return;let nc2=getNBossC();for(let i=0;i<9;i++) bp({x:nc2.x,y:nc2.y,vx:Math.cos(i/9*Math.PI*2+Math.PI/9)*2.8,vy:Math.sin(i/9*Math.PI*2+Math.PI/9)*2.8,r:8,col:'#aa30ff'});},800);
+    let cnt=12;for(let i=0;i<cnt;i++) bossProjectiles.push({x:cx,y:cy,vx:Math.cos(i/cnt*Math.PI*2)*3.8,vy:Math.sin(i/cnt*Math.PI*2)*3.8,r:9,col:'#cc40ff'});
+    setTimeout(()=>{if(gameState!=='playing')return;let nc2=getNBossC();for(let i=0;i<9;i++) bossProjectiles.push({x:nc2.x,y:nc2.y,vx:Math.cos(i/9*Math.PI*2+Math.PI/9)*2.8,vy:Math.sin(i/9*Math.PI*2+Math.PI/9)*2.8,r:8,col:'#aa30ff'});},800);
   }
   else if(p==='n_spiralAimed'){
     let tgt=randTarget();let dx=tgt.x+tgt.w/2-cx,dy=tgt.y-tgt.h/2-cy,base=Math.atan2(dy,dx),cnt=10;
-    for(let i=0;i<cnt;i++) setTimeout(()=>{if(gameState!=='playing')return;let nc2=getNBossC();let ang=base+i/cnt*Math.PI*2;bp({x:nc2.x,y:nc2.y,vx:Math.cos(ang)*3.2,vy:Math.sin(ang)*3.2,r:10,col:'#e060ff'});},i*60);
+    for(let i=0;i<cnt;i++) setTimeout(()=>{if(gameState!=='playing')return;let nc2=getNBossC();let ang=base+i/cnt*Math.PI*2;bossProjectiles.push({x:nc2.x,y:nc2.y,vx:Math.cos(ang)*3.2,vy:Math.sin(ang)*3.2,r:10,col:'#e060ff'});},i*60);
   }
   else if(p==='n_thunderOrbs'){
-    let cnt=5;for(let i=0;i<cnt;i++) setTimeout(()=>{if(gameState!=='playing')return;let nc2=getNBossC();let tgt=randTarget();let tc=targetCenter(tgt);let dx=tc.x-nc2.x,dy=tc.y-nc2.y,d=Math.sqrt(dx*dx+dy*dy)||1;bp({x:nc2.x,y:nc2.y,vx:(dx/d)*3.5,vy:(dy/d)*3.5,r:12,col:'#6080e0',homing:true,homingTarget:tgt});},i*300);
+    let cnt=5;for(let i=0;i<cnt;i++) setTimeout(()=>{if(gameState!=='playing')return;let nc2=getNBossC();let tgt=randTarget();let tc=targetCenter(tgt);let dx=tc.x-nc2.x,dy=tc.y-nc2.y,d=Math.sqrt(dx*dx+dy*dy)||1;bossProjectiles.push({x:nc2.x,y:nc2.y,vx:(dx/d)*3.5,vy:(dy/d)*3.5,r:12,col:'#6080e0',homing:true,homingTarget:tgt});},i*300);
   }
   else if(p==='n_k_gearWall'){
     kGears=[{cx:W/2-130,cy:FLOOR-130,r:50,angle:0,speed:0.04,hp:3,shootT:0},{cx:W/2+130,cy:FLOOR-130,r:50,angle:Math.PI,speed:-0.05,hp:3,shootT:0}];
@@ -5391,8 +5378,8 @@ function doNarratorAtk(p){
     kClockHands=[{cx:W/2,cy:FLOOR,len:W*0.6,angle:-Math.PI,speed:0.025,w:18,life:180}];
   }
   else if(p==='n_k_tickBurst'){
-    let cnt=10;for(let i=0;i<cnt;i++) bp({x:cx,y:cy,vx:Math.cos(i/cnt*Math.PI*2)*4.5,vy:Math.sin(i/cnt*Math.PI*2)*4.5,r:10,col:'#d04020'});
-    setTimeout(()=>{if(gameState!=='playing')return;let nc2=getNBossC();for(let i=0;i<6;i++){let ang=i/6*Math.PI*2+Math.PI/6;bp({x:nc2.x,y:nc2.y,vx:Math.cos(ang)*3,vy:Math.sin(ang)*3,r:9,col:'#e06030'});}},700);
+    let cnt=10;for(let i=0;i<cnt;i++) bossProjectiles.push({x:cx,y:cy,vx:Math.cos(i/cnt*Math.PI*2)*4.5,vy:Math.sin(i/cnt*Math.PI*2)*4.5,r:10,col:'#d04020'});
+    setTimeout(()=>{if(gameState!=='playing')return;let nc2=getNBossC();for(let i=0;i<6;i++){let ang=i/6*Math.PI*2+Math.PI/6;bossProjectiles.push({x:nc2.x,y:nc2.y,vx:Math.cos(ang)*3,vy:Math.sin(ang)*3,r:9,col:'#e06030'});}},700);
   }
   else if(p==='n_k_pendulum'){
     kPendulum={cx:W/2,cy:-20,len:340,angle:-1.1,angV:0.015,bladeW:80,bladeH:24,life:220};
@@ -5401,6 +5388,7 @@ function doNarratorAtk(p){
     kClockHands=[{cx:0,cy:FLOOR,len:W*0.7,angle:-Math.PI*0.6,speed:0.025,w:14,life:180},{cx:W,cy:FLOOR,len:W*0.7,angle:-Math.PI*0.4,speed:-0.025,w:14,life:180}];
   }
   else if(p==='n_move'){
+    // Boss teleports to a random position on stage
     let targets=[
       {x:W*0.12,y:FLOOR-220},{x:W*0.82-nBoss.w,y:FLOOR-220},
       {x:W/2-nBoss.w/2,y:60},{x:W*0.12,y:FLOOR-120},
@@ -5411,10 +5399,9 @@ function doNarratorAtk(p){
     triggerShake(2,6);
   }
   else if(p==='n_summon'){
+    // Narrator summons a random minion type
     spawnParts(getNBossC().x,getNBossC().y,'#cc40ff',12,5,35);
-    // Hard mode: summon 2 minions at once
     setTimeout(()=>{if(gameState!=='playing')return;spawnMinion();},600);
-    setTimeout(()=>{if(gameState!=='playing')return;spawnMinion();},1100);
   }
 }
 
@@ -5495,7 +5482,7 @@ function updateNarrator(){
   if(nStage===0){
     nAttackT--;
     if(nAttackT<=0){
-      nAttackT=166;
+      nAttackT=200;
       let tgt=randTarget();let tc=targetCenter(tgt);let nc=getNBossC();
       let dx=tc.x-nc.x,dy=tc.y-nc.y,d=Math.sqrt(dx*dx+dy*dy)||1;
       bossProjectiles.push({x:nc.x,y:nc.y,vx:(dx/d)*2.2,vy:(dy/d)*2.2,r:14,col:'#4030c0'});
@@ -5512,7 +5499,7 @@ function updateNarrator(){
   if(nStage>=1&&nStage<=3){
     nAttackT--;
     if(nAttackT<=0&&!nSpot1){
-      nAttackT=Math.floor((nStage===1?D(160,130):nStage===2?D(145,118):D(130,105))*0.833);
+      nAttackT=nStage===1?D(160,130):nStage===2?D(145,118):D(130,105);
       let nc=getNBossC();let cx=nc.x,cy=nc.y;
       const hs=1.1;
       if(nStage===1){
@@ -5608,29 +5595,15 @@ function updateNarrator(){
     if(!nSpot1&&nInvT<=0){
       nAttackT--;
       if(nAttackT<=0){
-        // ── HARD MODE: 2 attacks simultaneously; 3 when below 1/3 HP ──
-        let numAtks=(hpPct<=0.333)?3:2;
-        // Pick attacks — avoid duplicating move/gloveClap which have global effects
-        let usedAtks=[];
-        for(let ai=0;ai<numAtks;ai++){
-          let atk,tries=0;
-          do{atk=NA_POOL[Math.floor(Math.random()*NA_POOL.length)];tries++;}
-          while(tries<10&&usedAtks.includes(atk)&&(atk==='n_gloveClap'||atk==='n_move'));
-          usedAtks.push(atk);
-          // Stagger secondary/tertiary attacks slightly so they don't overlap spawn positions
-          if(ai===0) doNarratorAtk(atk);
-          else setTimeout(()=>{if(gameState!=='playing')return;doNarratorAtk(atk);},ai*180);
-        }
-        let firstAtk=usedAtks[0];
-        // Attack timing based on primary attack
-        nAttackT=Math.floor((firstAtk==='n_gloveClap'?240:firstAtk==='n_move'?80:firstAtk==='n_summon'?120:
-                 firstAtk==='n_k_pendulum'?220:firstAtk==='n_k_clockSweep'?180:
-                 firstAtk==='n_t_lightning'?180:firstAtk==='n_crossfire'?200:D(100,80))*0.833);
-        // Faster attack cadence when < 1/3 HP
-        if(hpPct<=0.333) nAttackT=Math.floor(nAttackT*0.7);
+        let atk=NA_POOL[Math.floor(Math.random()*NA_POOL.length)];
+        // Attack timing — fast, like hard mode of other bosses
+        nAttackT=atk==='n_gloveClap'?240:atk==='n_move'?80:atk==='n_summon'?120:
+                 atk==='n_k_pendulum'?220:atk==='n_k_clockSweep'?180:
+                 atk==='n_t_lightning'?180:atk==='n_crossfire'?200:D(100,80);
+        doNarratorAtk(atk);
         // Also auto-move occasionally to keep boss dynamic
         nBoss._atkCount=(nBoss._atkCount||0)+1;
-        if(nBoss._atkCount%4===0&&!usedAtks.includes('n_move'))doNarratorAtk('n_move');
+        if(nBoss._atkCount%4===0&&atk!=='n_move')doNarratorAtk('n_move');
       }
     }
 
@@ -5673,9 +5646,9 @@ function advanceNarratorStage(){
   startNarratorCurtain(()=>{
     nStage=next;
     nInvT=120;
-    // Curar jugadores al derrotar cada jefe sombra (+25% que antes: era 1, ahora 2)
-    const healAmt=2;
-    const healP=(p)=>{if(!p.dead){p.hp=Math.min(p.maxHp,p.hp+healAmt);spawnParts(p.x+p.w/2,p.y-p.h/2,'#40ff80',12,5,28);}};
+    // Curar jugadores al derrotar cada jefe sombra
+    const healAmt=1;
+    const healP=(p)=>{if(!p.dead){p.hp=Math.min(p.maxHp,p.hp+healAmt);spawnParts(p.x+p.w/2,p.y-p.h/2,'#40ff80',8,4,20);}};
     healP(player);if(p2Active)healP(player2);
     if(mpMode&&mpIsHost) for(let cp of mpPlayers){if(cp)healP(cp);}
     playSFX('heal');
@@ -5691,7 +5664,7 @@ function advanceNarratorStage(){
       let el=document.getElementById('phaseAnnounce');el.style.color='#cc40ff';el.textContent='¡NARRATOR REVELADO!';el.style.display='block';setTimeout(()=>el.style.display='none',3000);
       triggerShake(14,40);
     }
-    nAttackT=166;nCurrentAtk=null;
+    nAttackT=200;nCurrentAtk=null;
   });
 }
 
@@ -6276,37 +6249,19 @@ loadSave(); // run immediately on script start
 // ══ END SAVE SYSTEM ══
 
 
-// ── OVERWORLD WORLD SIZE (isla grande, cámara sigue al jugador) ──
-const OW_W=2000, OW_H=1200; // tamaño total del mundo overworld
-const OW_ISLAND_CX=1000, OW_ISLAND_CY=600, OW_ISLAND_RX=700, OW_ISLAND_RY=480;
-// Cámara overworld
-let owCamX=0, owCamY=0; // esquina superior izquierda del viewport en coordenadas mundo
+const OW_ISLAND_CX=500, OW_ISLAND_CY=290, OW_ISLAND_RX=325, OW_ISLAND_RY=195;
 const OW_BOSSES=[
-  {id:'inkboss',   x:340, y:540,  label:'INKBOSS',    battleName:'¡EL CABALLERO DE TINTA!', col:'#0a0830', acol:'#c8a028', icon:'🎩', phases:'3 FASES'},
-  {id:'tempestina',x:1660,y:540,  label:'TEMPESTINA', battleName:'¡FURIA DE LA TORMENTA!',  col:'#081828', acol:'#60d8ff', icon:'⚡', phases:'3 FASES'},
-  {id:'kronos',    x:1000,y:240,  label:'KRONOS',     battleName:'¡EL RELOJERO SOBERANO!',  col:'#120c08', acol:'#c8a028', icon:'⚙',  phases:'3 FASES'},
-  {id:'narrator',  x:1000,y:860,  label:'NARRATOR',   battleName:'¡EL OSCURO PRESENTADOR!', col:'#08000a', acol:'#cc40ff', icon:'🎭', phases:'SOL0 DIFÍCIL · 4 FASES'},
+  {id:'inkboss',  x:228,y:265, label:'INKBOSS',    battleName:'¡EL CABALLERO DE TINTA!', col:'#0a0830', acol:'#c8a028', icon:'🎩', phases:'3 FASES'},
+  {id:'tempestina',x:772,y:265,label:'TEMPESTINA', battleName:'¡FURIA DE LA TORMENTA!',  col:'#081828', acol:'#60d8ff', icon:'⚡', phases:'3 FASES'},
+  {id:'kronos',   x:500,y:165, label:'KRONOS',     battleName:'¡EL RELOJERO SOBERANO!',  col:'#120c08', acol:'#c8a028', icon:'⚙',  phases:'3 FASES'},
+  {id:'narrator', x:500,y:380, label:'NARRATOR',   battleName:'¡EL OSCURO PRESENTADOR!', col:'#08000a', acol:'#cc40ff', icon:'🎭', phases:'SOL0 DIFÍCIL · 4 FASES'},
 ];
 const OW_TREES=[
-  // Grupo norte
-  {x:820,y:310},{x:920,y:270},{x:1000,y:255},{x:1080,y:270},{x:1180,y:310},
-  {x:860,y:355},{x:1140,y:355},
-  // Grupo oeste
-  {x:450,y:440},{x:430,y:560},{x:450,y:680},
-  {x:530,y:380},{x:520,y:750},
-  // Grupo este
-  {x:1550,y:440},{x:1570,y:560},{x:1550,y:680},
-  {x:1470,y:380},{x:1480,y:750},
-  // Grupo sur
-  {x:820,y:870},{x:920,y:910},{x:1000,y:925},{x:1080,y:910},{x:1180,y:870},
-  {x:860,y:820},{x:1140,y:820},
-  // Centro
-  {x:750,y:580},{x:1250,y:580},{x:1000,y:480},{x:1000,y:720},
-  // Extra dispersos
-  {x:650,y:480},{x:650,y:700},{x:1350,y:480},{x:1350,y:700},
-  {x:700,y:620},{x:1300,y:620},
+  {x:370,y:155},{x:458,y:138},{x:542,y:138},{x:630,y:155},
+  {x:318,y:195},{x:682,y:195},{x:290,y:345},{x:710,y:345},
+  {x:358,y:408},{x:500,y:448},{x:642,y:408},{x:440,y:145},{x:560,y:145},
 ];
-let owPlayer={x:1000,y:820,facing:1,walkT:0,bobT:0};
+let owPlayer={x:500,y:418,facing:1,walkT:0,bobT:0};
 let owInteract=null;  // {bossId, menu, diff}
 let owMenuDiff='normal';
 
@@ -6323,13 +6278,12 @@ function startOverworld(){
     _mpTallying=false;
     mpVoteUI={active:false,votes:{},timer:0,myVote:null,myDiff:null,result:null,counts:null};
   }
-  owPlayer={x:1000,y:820,facing:1,walkT:0,bobT:0};
+  owPlayer={x:500,y:418,facing:1,walkT:0,bobT:0};
   owPlayer2={x:owPlayer.x+20,y:owPlayer.y+8,facing:-1,walkT:0,bobT:1.5};
-  owCamX=owPlayer.x-W/2; owCamY=owPlayer.y-H/2;
   owInteract=null; owMenuDiff='normal'; owPauseMenu=false;
 }
 let owPauseMenu=false; // separate from battle menu
-let owPlayer2={x:1020,y:820,facing:-1,walkT:0,bobT:1.5}; // P2 overworld position
+let owPlayer2={x:520,y:418,facing:-1,walkT:0,bobT:1.5}; // P2 overworld position
 
 function owHandleE(){
   if(mpMode&&!mpIsHost)return; // only host can open boss menu in MP
@@ -6359,7 +6313,7 @@ function updateOverworld(){
   if(owPauseMenu)return;
   if(owWeaponMenu)return;
   if(owInteract&&owInteract.menu)return;
-  let spd=3.5;
+  let spd=3;
   let nx=owPlayer.x, ny=owPlayer.y;
   let moving=false;
   if(keys['KeyA']) {nx-=spd;owPlayer.facing=-1;moving=true;}
@@ -6371,15 +6325,6 @@ function updateOverworld(){
   if(moving)owPlayer.walkT++;
   owPlayer.bobT+=0.07;
   if(mpMode){mpOwBroadcastPos();}
-
-  // ── CÁMARA: sigue suavemente al J1 / host ──
-  let targetCamX=owPlayer.x-W/2;
-  let targetCamY=owPlayer.y-H/2;
-  // Clamp para no salir del mundo
-  targetCamX=Math.max(0,Math.min(OW_W-W,targetCamX));
-  targetCamY=Math.max(0,Math.min(OW_H-H,targetCamY));
-  owCamX+=(targetCamX-owCamX)*0.12;
-  owCamY+=(targetCamY-owCamY)*0.12;
 
   // P2 movement on island — uses P2CFG keys, can't interact
   if(p2Active){
@@ -6406,11 +6351,11 @@ function updateOverworld(){
 }
 
 function drawOverworld(){
-  // ─── WATER (fondo, siempre cubre la pantalla completa) ───
+  // ─── WATER ───
   let waterGrad=ctx.createLinearGradient(0,0,0,H);
   waterGrad.addColorStop(0,'#0e2d5a');waterGrad.addColorStop(1,'#1a4a8a');
   ctx.fillStyle=waterGrad;ctx.fillRect(0,0,W,H);
-  // Animated wave rings (en coordenadas de pantalla)
+  // Animated wave rings
   ctx.save();
   for(let i=0;i<28;i++){
     let wx=(i*137+frameCount*0.6)%W, wy=(i*83+frameCount*0.3)%H;
@@ -6418,68 +6363,55 @@ function drawOverworld(){
     ctx.strokeStyle=`rgba(80,150,220,${alpha})`;ctx.lineWidth=1.5;
     ctx.beginPath();ctx.arc(wx,wy,18+Math.sin(frameCount*0.06+i)*5,0,Math.PI);ctx.stroke();
   }
-  ctx.restore();
-
-  // ── Aplicar transformación de cámara a todo el mundo ──
-  ctx.save();
-  ctx.translate(-Math.round(owCamX),-Math.round(owCamY));
-
   // Foam dots near island edge
-  for(let a=0;a<48;a++){
-    let ang=a/48*Math.PI*2;
-    let foam=OW_ISLAND_CX+Math.cos(ang)*(OW_ISLAND_RX+28+Math.sin(frameCount*0.05+a)*8);
-    let foamy=OW_ISLAND_CY+Math.sin(ang)*(OW_ISLAND_RY+20+Math.sin(frameCount*0.07+a)*6);
+  for(let a=0;a<32;a++){
+    let ang=a/32*Math.PI*2;
+    let foam=OW_ISLAND_CX+Math.cos(ang)*(OW_ISLAND_RX+18+Math.sin(frameCount*0.05+a)*6);
+    let foamy=OW_ISLAND_CY+Math.sin(ang)*(OW_ISLAND_RY+14+Math.sin(frameCount*0.07+a)*4);
     let fa=0.2+0.3*Math.abs(Math.sin(frameCount*0.08+a));
     ctx.fillStyle=`rgba(180,210,255,${fa})`;
     ctx.beginPath();ctx.arc(foam,foamy,3+Math.sin(frameCount*0.1+a),0,Math.PI*2);ctx.fill();
   }
+  ctx.restore();
 
   // ─── SAND BORDER ───
-  ctx.fillStyle='#d4a85a';ctx.strokeStyle='#b8902a';ctx.lineWidth=5;
-  ctx.beginPath();ctx.ellipse(OW_ISLAND_CX,OW_ISLAND_CY,OW_ISLAND_RX+28,OW_ISLAND_RY+20,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#d4a85a';ctx.strokeStyle='#b8902a';ctx.lineWidth=3;
+  ctx.beginPath();ctx.ellipse(OW_ISLAND_CX,OW_ISLAND_CY,OW_ISLAND_RX+18,OW_ISLAND_RY+14,0,0,Math.PI*2);ctx.fill();ctx.stroke();
 
   // ─── GRASS ───
-  let gGrad=ctx.createRadialGradient(OW_ISLAND_CX,OW_ISLAND_CY-60,20,OW_ISLAND_CX,OW_ISLAND_CY,OW_ISLAND_RX);
+  let gGrad=ctx.createRadialGradient(OW_ISLAND_CX,OW_ISLAND_CY-40,10,OW_ISLAND_CX,OW_ISLAND_CY,OW_ISLAND_RX);
   gGrad.addColorStop(0,'#5faa2e');gGrad.addColorStop(0.55,'#4d9222');gGrad.addColorStop(1,'#3a7515');
   ctx.fillStyle=gGrad;
   ctx.beginPath();ctx.ellipse(OW_ISLAND_CX,OW_ISLAND_CY,OW_ISLAND_RX,OW_ISLAND_RY,0,0,Math.PI*2);ctx.fill();
 
   // Grass texture tufts
   ctx.fillStyle='rgba(60,100,20,0.18)';
-  for(let g=0;g<120;g++){
-    let gx=OW_ISLAND_CX+Math.cos(g*2.4)*(g%7)*80, gy=OW_ISLAND_CY+Math.sin(g*1.7)*(g%6)*70;
-    if(isOnIsland(gx,gy)){ctx.beginPath();ctx.arc(gx,gy,4+g%5,0,Math.PI*2);ctx.fill();}
+  for(let g=0;g<60;g++){
+    let gx=OW_ISLAND_CX+Math.cos(g*2.4)*(g%5)*55, gy=OW_ISLAND_CY+Math.sin(g*1.7)*(g%4)*44;
+    if(isOnIsland(gx,gy)){ctx.beginPath();ctx.arc(gx,gy,4+g%4,0,Math.PI*2);ctx.fill();}
   }
 
-  // ─── DIRT PATHS — cruces entre los 4 jefes ───
+  // ─── DIRT PATH ───
   ctx.save();
-  ctx.strokeStyle='#7a5828';ctx.lineWidth=32;ctx.lineCap='round';
-  // Horizontal: inkboss ↔ tempestina
-  ctx.beginPath();ctx.moveTo(340,540);ctx.bezierCurveTo(600,620,1400,620,1660,540);ctx.stroke();
-  // Vertical: kronos ↔ narrator
-  ctx.beginPath();ctx.moveTo(1000,240);ctx.bezierCurveTo(940,500,1060,700,1000,860);ctx.stroke();
-  ctx.strokeStyle='#9a7240';ctx.lineWidth=22;
-  ctx.beginPath();ctx.moveTo(340,540);ctx.bezierCurveTo(600,620,1400,620,1660,540);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(1000,240);ctx.bezierCurveTo(940,500,1060,700,1000,860);ctx.stroke();
-  // Pebbles
+  ctx.strokeStyle='#7a5828';ctx.lineWidth=26;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(228,265);ctx.bezierCurveTo(340,355,660,355,772,265);ctx.stroke();
+  ctx.strokeStyle='#9a7240';ctx.lineWidth=18;
+  ctx.beginPath();ctx.moveTo(228,265);ctx.bezierCurveTo(340,355,660,355,772,265);ctx.stroke();
+  // Pebbles on path
   ctx.fillStyle='#b89060';
-  for(let p=0;p<30;p++){
-    let t=p/29;
-    let px=340+t*(1660-340), py=540+Math.sin(t*Math.PI)*80;
-    ctx.beginPath();ctx.arc(px+(p%3-1)*6,py+4+(p%2)*3,2+p%3,0,Math.PI*2);ctx.fill();
+  for(let p=0;p<16;p++){
+    let t=p/15;
+    let px=228+t*(772-228), py=265+Math.sin(t*Math.PI)*90;
+    ctx.beginPath();ctx.arc(px+(p%3-1)*5,py+3+(p%2)*2,2+p%2,0,Math.PI*2);ctx.fill();
   }
   ctx.restore();
 
   // ─── DECORATIVE FLOWERS ───
-  let flowers=[
-    {x:800,y:580},{x:1000,y:680},{x:1200,y:580},
-    {x:900,y:530},{x:1100,y:530},{x:1000,y:500},
-    {x:850,y:650},{x:1150,y:650},{x:1000,y:760},
-  ];
+  let flowers=[{x:420,y:310},{x:500,y:385},{x:580,y:310},{x:460,y:355},{x:540,y:355}];
   for(let fl of flowers){
-    ctx.fillStyle='#f5d020';ctx.beginPath();ctx.arc(fl.x,fl.y,5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#f5d020';ctx.beginPath();ctx.arc(fl.x,fl.y,4,0,Math.PI*2);ctx.fill();
     ctx.fillStyle='#ff6080';
-    for(let p=0;p<5;p++){let pa=p/5*Math.PI*2;ctx.beginPath();ctx.arc(fl.x+Math.cos(pa)*8,fl.y+Math.sin(pa)*8,4,0,Math.PI*2);ctx.fill();}
+    for(let p=0;p<5;p++){let pa=p/5*Math.PI*2;ctx.beginPath();ctx.arc(fl.x+Math.cos(pa)*6,fl.y+Math.sin(pa)*6,3,0,Math.PI*2);ctx.fill();}
   }
 
   // ─── TREES ───
@@ -6488,7 +6420,7 @@ function drawOverworld(){
   // ─── BOSS NODES ───
   for(let b of OW_BOSSES)drawOwBossNode(b);
 
-  // ─── PLAYER (en coordenadas mundo) ───
+  // ─── PLAYER ───
   drawOwPlayer();
 
   // ─── E PROMPT ───
@@ -6504,12 +6436,7 @@ function drawOverworld(){
     ctx.restore();
   }
 
-  ctx.restore(); // fin transformación cámara
-
-  // ─── MINIMAPA ───
-  drawOwMinimap();
-
-  // ─── BATTLE MENU (en pantalla, sin cámara) ───
+  // ─── BATTLE MENU ───
   if(owInteract&&owInteract.menu)drawOwMenu();
 
   // ─── WEAPON MENU ───
@@ -6522,47 +6449,6 @@ function drawOverworld(){
   ctx.fillStyle='#a09050';ctx.font='bold 10px Impact';ctx.textAlign='center';
   if(mpMode) ctx.fillText('WASD · Mover   |   E · Interactuar (solo host)   |   ESC · Menú sala',W/2,H-9);
   else ctx.fillText('WASD · Mover   |   E · Interactuar   |   ESC · Opciones',W/2,H-9);
-}
-
-function drawOwMinimap(){
-  // Minimapa en esquina inferior derecha
-  const MM_W=140, MM_H=90, MM_X=W-MM_W-10, MM_Y=H-MM_H-34;
-  const scaleX=MM_W/OW_W, scaleY=MM_H/OW_H;
-  ctx.save();
-  // Fondo
-  ctx.fillStyle='rgba(0,0,0,0.65)';ctx.strokeStyle='#c8a028';ctx.lineWidth=1.5;
-  ctx.beginPath();ctx.roundRect(MM_X,MM_Y,MM_W,MM_H,4);ctx.fill();ctx.stroke();
-  // Isla
-  ctx.fillStyle='#3a7515';
-  ctx.beginPath();ctx.ellipse(MM_X+OW_ISLAND_CX*scaleX,MM_Y+OW_ISLAND_CY*scaleY,OW_ISLAND_RX*scaleX,OW_ISLAND_RY*scaleY,0,0,Math.PI*2);ctx.fill();
-  // Jefes
-  for(let b of OW_BOSSES){
-    ctx.fillStyle=b.acol;
-    ctx.beginPath();ctx.arc(MM_X+b.x*scaleX,MM_Y+b.y*scaleY,4,0,Math.PI*2);ctx.fill();
-  }
-  // Jugador J1
-  ctx.fillStyle='#fff';ctx.strokeStyle='#000';ctx.lineWidth=1;
-  ctx.beginPath();ctx.arc(MM_X+owPlayer.x*scaleX,MM_Y+owPlayer.y*scaleY,3.5,0,Math.PI*2);ctx.fill();ctx.stroke();
-  // Jugadores remotos MP
-  if(mpMode){
-    for(let [idStr,pos] of Object.entries(mpOwPositions)){
-      if(parseInt(idStr)===mpMyIndex)continue;
-      let sk=ALL_SKINS[pos.sk||0]||ALL_SKINS[0];
-      ctx.fillStyle=sk.bullet||'#40c8ff';
-      ctx.beginPath();ctx.arc(MM_X+pos.x*scaleX,MM_Y+pos.y*scaleY,3,0,Math.PI*2);ctx.fill();
-    }
-  }
-  if(p2Active){
-    ctx.fillStyle='#40c8ff';
-    ctx.beginPath();ctx.arc(MM_X+owPlayer2.x*scaleX,MM_Y+owPlayer2.y*scaleY,3,0,Math.PI*2);ctx.fill();
-  }
-  // Viewport rect
-  ctx.strokeStyle='rgba(255,255,255,0.4)';ctx.lineWidth=1;
-  ctx.strokeRect(MM_X+owCamX*scaleX,MM_Y+owCamY*scaleY,W*scaleX,H*scaleY);
-  // Label
-  ctx.fillStyle='#c8a028';ctx.font='bold 7px Impact';ctx.textAlign='left';
-  ctx.fillText('MAPA',MM_X+3,MM_Y+8);
-  ctx.restore();
 }
 
 function drawOwTree(x,y){
