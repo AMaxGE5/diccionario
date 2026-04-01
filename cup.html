@@ -132,7 +132,7 @@ canvas { display:block;image-rendering:pixelated;cursor:crosshair; }
 #skinSelectScreen{position:absolute;top:0;left:0;width:100%;height:100%;display:none;flex-direction:column;align-items:center;justify-content:center;background:#1a0a00;z-index:10;}
 #skinSelectTitle{font-size:30px;font-weight:900;color:#e8c070;letter-spacing:5px;font-family:Impact,sans-serif;text-shadow:3px 3px 0 #000;margin-bottom:6px;}
 #skinSelectSub{color:#806030;font-size:11px;letter-spacing:4px;margin-bottom:22px;}
-#skinCards{display:flex;gap:24px;margin-bottom:22px;}
+#skinCards{display:flex;gap:14px;margin-bottom:22px;flex-wrap:wrap;justify-content:center;max-width:760px;}
 .skinCard{width:140px;background:rgba(0,0,0,0.7);border:4px solid #444;padding:14px 12px;cursor:pointer;pointer-events:all;font-family:Impact,sans-serif;text-align:center;transition:transform 0.1s,border-color 0.1s;}
 .skinCard:hover{transform:translate(-2px,-4px);box-shadow:4px 4px 0 #000;}
 .skinCard.selected{border-color:#f5d020;box-shadow:0 0 0 2px #f5d020,4px 4px 0 #000;}
@@ -155,7 +155,8 @@ canvas { display:block;image-rendering:pixelated;cursor:crosshair; }
   <canvas id="gameCanvas" width="1000" height="600"></canvas>
   <div id="scanlines"></div>
   <div id="cursorDot"></div>
-  <button id="pauseMenuBtn" onclick="goToMenu()">⬅ MENÚ</button>
+  <button id="pauseRetryBtn" onclick="startGame()" style="position:absolute;bottom:36%;left:50%;transform:translateX(-50%);background:#1a8a1a;color:#fff;border:3px solid #000;padding:9px 30px;font-size:15px;font-weight:900;cursor:pointer;font-family:Impact,sans-serif;letter-spacing:3px;text-shadow:1px 1px 0 #000;box-shadow:3px 3px 0 #000;pointer-events:all;display:none;z-index:20;transition:transform 0.1s;" onmouseover="this.style.transform='translateX(-50%) translate(-2px,-2px)'" onmouseout="this.style.transform='translateX(-50%)'">🔄 REINTENTAR</button>
+  <button id="pauseMenuBtn" onclick="goToMenu()">⬅ VOLVER A LA ISLA</button>
   <button id="kickP2Btn" onclick="kickP2()" style="position:absolute;bottom:24%;left:50%;transform:translateX(-50%);background:#802010;color:#fff;border:3px solid #e04020;padding:8px 26px;font-size:14px;font-weight:900;cursor:pointer;font-family:Impact,sans-serif;letter-spacing:2px;text-shadow:1px 1px 0 #000;box-shadow:3px 3px 0 #000;pointer-events:all;display:none;z-index:20;">🚫 EXPULSAR J2</button>
   <div id="ui">
     <!-- MAIN MENU: title + go to skin select -->
@@ -236,13 +237,33 @@ canvas { display:block;image-rendering:pixelated;cursor:crosshair; }
       <div id="skinCards">
         <div class="skinCard selected" id="skin0Card" onclick="selectSkin(0)">
           <canvas class="skinCardCanvas" id="skin0Preview" width="60" height="90"></canvas>
-          <div class="skinCardName" style="color:#e84040">CLÁSICO</div>
-          <div class="skinCardTag">JUGADOR 1</div>
+          <div class="skinCardName" style="color:#e84040">ROJO</div>
+          <div class="skinCardTag">CLÁSICO</div>
         </div>
         <div class="skinCard" id="skin1Card" onclick="selectSkin(1)">
           <canvas class="skinCardCanvas" id="skin1Preview" width="60" height="90"></canvas>
           <div class="skinCardName" style="color:#40c8ff">AZUL</div>
           <div class="skinCardTag">ALTERNATIVO</div>
+        </div>
+        <div class="skinCard" id="skin4Card" onclick="selectSkin(4)">
+          <canvas class="skinCardCanvas" id="skin4Preview" width="60" height="90"></canvas>
+          <div class="skinCardName" style="color:#f5c840">DORADO</div>
+          <div class="skinCardTag">RECOLOR</div>
+        </div>
+        <div class="skinCard" id="skin5Card" onclick="selectSkin(5)">
+          <canvas class="skinCardCanvas" id="skin5Preview" width="60" height="90"></canvas>
+          <div class="skinCardName" style="color:#ff80c0">ROSA</div>
+          <div class="skinCardTag">RECOLOR</div>
+        </div>
+        <div class="skinCard" id="skin6Card" onclick="selectSkin(6)">
+          <canvas class="skinCardCanvas" id="skin6Preview" width="60" height="90"></canvas>
+          <div class="skinCardName" style="color:#40e0e8">CIAN</div>
+          <div class="skinCardTag">RECOLOR</div>
+        </div>
+        <div class="skinCard" id="skin7Card" onclick="selectSkin(7)" style="opacity:0.5;cursor:default;" title="Habla con el Lanzaguisantes en la isla">
+          <canvas class="skinCardCanvas" id="skin7Preview" width="60" height="90"></canvas>
+          <div class="skinCardName" style="color:#90ff40">LANZAGUISANTES</div>
+          <div class="skinCardTag">🔒 ESPECIAL</div>
         </div>
       </div>
       <button id="playBtn" onclick="startOverworld()" style="margin-top:4px;">▶ EXPLORAR LA ISLA</button>
@@ -261,8 +282,9 @@ canvas { display:block;image-rendering:pixelated;cursor:crosshair; }
         <div class="stat-row"><span class="stat-label">TUS DISPAROS</span><span class="stat-val sv-white" id="ds-shots">—</span></div>
         <div class="stat-row"><span class="stat-label">ESBIRROS ELIMINADOS</span><span class="stat-val sv-white" id="ds-kills">—</span></div>
       </div>
-      <button class="retryBtn" onclick="startGame()">INTENTAR DE NUEVO</button>
-      <button class="retryBtn" id="gameOverSecBtn" style="background:#555;font-size:14px;padding:8px 24px;" onclick="mpMode?startOverworld():showScreen('menuScreen')">MENÚ PRINCIPAL</button>
+      <button class="retryBtn" id="gameOverRetryBtn" onclick="startGame()">INTENTAR DE NUEVO</button>
+      <button class="retryBtn" style="background:#1a5a2a;font-size:15px;padding:9px 28px;" onclick="startOverworld()">🗺️ VOLVER A LA ISLA</button>
+      <button class="retryBtn" id="gameOverMenuBtn" style="background:#555;font-size:14px;padding:8px 24px;" onclick="showScreen('menuScreen')">MENÚ PRINCIPAL</button>
     </div>
 
     <!-- WIN -->
@@ -271,9 +293,9 @@ canvas { display:block;image-rendering:pixelated;cursor:crosshair; }
       <div class="endSub">¡EL INKBOSS FUE DESTRUIDO!</div>
       <div class="decorLine"></div>
       <div id="winStars" style="font-size:28px;margin:6px 0;letter-spacing:10px;"></div>
-      <button class="retryBtn" onclick="startGame()">JUGAR DE NUEVO</button>
+      <button class="retryBtn" id="winRetryBtn" onclick="startGame()">JUGAR DE NUEVO</button>
       <button class="retryBtn" style="background:#1a5a2a;font-size:15px;padding:9px 28px;" onclick="startOverworld()">🗺️ VOLVER A LA ISLA</button>
-      <button class="retryBtn" style="background:#555;font-size:13px;padding:7px 22px;" onclick="showScreen('menuScreen')">MENÚ PRINCIPAL</button>
+      <button class="retryBtn" id="winMenuBtn" style="background:#555;font-size:13px;padding:7px 22px;" onclick="showScreen('menuScreen')">MENÚ PRINCIPAL</button>
     </div>
 
     <div id="phaseAnnounce"></div>
@@ -328,6 +350,7 @@ document.addEventListener('keydown',e=>{
   if(e.code==='KeyE'&&gameState==='overworld'){owHandleE();}
   if(e.code==='Escape'&&gameState==='overworld'){
     if(owWeaponMenu){owWeaponMenu=false;return;}
+    if(owSkinMenu){owSkinMenu=false;return;}
     if(owInteract&&owInteract.menu){owInteract.menu=false;return;}
     if(mpMode){owPauseMenu=!owPauseMenu;return;} // MP: toggle pause menu (has leave+weapons only)
     owPauseMenu=!owPauseMenu;
@@ -403,50 +426,96 @@ function toggleChangelog(){
 }
 
 function selectSkin(id){
+  if(id===7&&!owPeashooterUnlocked)return; // bloqueada hasta hablar con el NPC
   p1SkinId=id;
-  document.getElementById('skin0Card').classList.toggle('selected',id===0);
-  document.getElementById('skin1Card').classList.toggle('selected',id===1);
+  [0,1,4,5,6,7].forEach(i=>{
+    let el=document.getElementById(`skin${i}Card`);
+    if(el) el.classList.toggle('selected',id===i);
+  });
 }
 function getP2SkinId(){
-  // If P1 chose skin 1 (blue), P2 gets skin 0 (red). Otherwise P2 gets skin 1.
   return p1SkinId===1?0:1;
 }
 
-// Render skin previews on mini canvases
 function renderSkinPreviews(){
-  SKINS.forEach((sk,i)=>{
-    let cv=document.getElementById(`skin${i}Preview`);
-    if(!cv)return;
-    let c=cv.getContext('2d');
-    c.clearRect(0,0,60,90);
-    c.save();c.translate(30,82);
+  [0,1,4,5,6].forEach((skinIdx)=>{
+    let sk=ALL_SKINS[skinIdx];if(!sk)return;
+    let cv=document.getElementById(`skin${skinIdx}Preview`);if(!cv)return;
+    let c=cv.getContext('2d');c.clearRect(0,0,60,90);c.save();c.translate(30,82);
     let sc2=0.7;c.scale(sc2,sc2);
-    // Legs
     c.strokeStyle='#1a1a1a';c.lineWidth=6;c.lineCap='round';
     c.beginPath();c.moveTo(-5,-2);c.lineTo(-7,-14);c.stroke();
     c.beginPath();c.moveTo(5,-2);c.lineTo(7,-14);c.stroke();
     c.fillStyle='#111';c.strokeStyle='#000';c.lineWidth=1.5;
     c.beginPath();c.ellipse(-8,-16,8,5,0.15,0,Math.PI*2);c.fill();c.stroke();
     c.beginPath();c.ellipse(8,-16,8,5,-0.15,0,Math.PI*2);c.fill();c.stroke();
-    // Body
     c.fillStyle=sk.coat;c.beginPath();c.ellipse(0,-26,11,12,0,0,Math.PI*2);c.fill();c.strokeStyle='#000';c.lineWidth=2.5;c.stroke();
     c.fillStyle=sk.coatDark;c.beginPath();c.moveTo(-11,-18);c.lineTo(-14,-8);c.lineTo(0,-6);c.lineTo(14,-8);c.lineTo(11,-18);c.closePath();c.fill();c.strokeStyle='#000';c.lineWidth=1.5;c.stroke();
     c.fillStyle='#f0c020';c.strokeStyle='#000';c.lineWidth=1.5;c.beginPath();c.roundRect(-5,-21,10,7,2);c.fill();c.stroke();
-    // Arms
     c.strokeStyle=sk.coat;c.lineWidth=6;c.lineCap='round';c.beginPath();c.moveTo(8,-30);c.lineTo(20,-33);c.stroke();
     c.fillStyle='#333';c.strokeStyle='#000';c.lineWidth=1.5;c.beginPath();c.roundRect(18,-37,12,7,2);c.fill();c.stroke();
     c.strokeStyle=sk.coatShadow;c.lineWidth=5;c.beginPath();c.moveTo(-8,-30);c.lineTo(-13,-26);c.stroke();
-    // Head
     c.fillStyle='#f8c840';c.beginPath();c.ellipse(0,-50,15,14,0,0,Math.PI*2);c.fill();c.strokeStyle='#000';c.lineWidth=3;c.stroke();
-    // Hat
     c.fillStyle='#1a1a1a';c.beginPath();c.ellipse(0,-63,17,4,0,0,Math.PI*2);c.fill();c.stroke();
     c.beginPath();c.roundRect(-11,-82,22,20,3);c.fill();c.stroke();
     c.fillStyle=sk.hatBand;c.fillRect(-11,-69,22,5);
-    // Eyes
-    c.fillStyle='#fff';c.strokeStyle='#000';c.lineWidth=2;c.beginPath();c.ellipse(-5,-51,5.5,6,0,0,Math.PI*2);c.fill();c.stroke();c.beginPath();c.ellipse(5,-51,5.5,6,0,0,Math.PI*2);c.fill();c.stroke();
+    c.fillStyle='#fff';c.strokeStyle='#000';c.lineWidth=2;
+    c.beginPath();c.ellipse(-5,-51,5.5,6,0,0,Math.PI*2);c.fill();c.stroke();
+    c.beginPath();c.ellipse(5,-51,5.5,6,0,0,Math.PI*2);c.fill();c.stroke();
     c.fillStyle='#111';c.beginPath();c.arc(-4,-51,3.2,0,Math.PI*2);c.fill();c.beginPath();c.arc(6,-51,3.2,0,Math.PI*2);c.fill();
     c.restore();
   });
+  // Skin 7: Lanzaguisantes — PvZ-style side profile preview
+  (()=>{
+    let cv=document.getElementById('skin7Preview');if(!cv)return;
+    let c=cv.getContext('2d');c.clearRect(0,0,60,90);
+    if(!owPeashooterUnlocked){
+      c.fillStyle='#2a1040';c.fillRect(0,0,60,90);
+      c.font='28px Arial';c.textAlign='center';c.fillText('🔒',30,54);
+      return;
+    }
+    // Side-profile, origin at (18,80), scale 0.5 — facing right
+    c.save();c.translate(18,80);c.scale(0.5,0.5);
+    let hx=0,hy=-54,hr=22;
+    // BASE LEAF TUFT
+    c.strokeStyle='#000';c.lineWidth=2;
+    c.fillStyle='#2a8010';c.beginPath();c.moveTo(0,-2);c.bezierCurveTo(-18,-4,-24,-16,-14,-18);c.bezierCurveTo(-6,-14,-2,-6,0,-2);c.closePath();c.fill();c.stroke();
+    c.fillStyle='#338c14';c.beginPath();c.moveTo(0,-2);c.bezierCurveTo(14,-3,18,-13,10,-15);c.bezierCurveTo(4,-11,0,-5,0,-2);c.closePath();c.fill();c.stroke();
+    c.fillStyle='#3ca018';c.beginPath();c.moveTo(-3,-1);c.bezierCurveTo(-8,-8,-6,-16,0,-14);c.bezierCurveTo(4,-12,2,-5,-3,-1);c.closePath();c.fill();c.stroke();
+    c.fillStyle='#236a10';c.beginPath();c.moveTo(-2,-3);c.bezierCurveTo(-26,-2,-28,-18,-16,-20);c.bezierCurveTo(-8,-16,-4,-8,-2,-3);c.closePath();c.fill();c.stroke();
+    // STEM
+    let stG=c.createLinearGradient(-4,-2,4,-2);stG.addColorStop(0,'#1d6a0c');stG.addColorStop(0.5,'#3cb818');stG.addColorStop(1,'#155008');
+    c.fillStyle=stG;c.strokeStyle='#000';c.lineWidth=2;
+    c.beginPath();c.roundRect(-3.5,-2,7,hy+2+hr+2,3);c.fill();c.stroke();
+    // BIG BACK LEAF
+    c.fillStyle='#2e9014';c.strokeStyle='#000';c.lineWidth=2.5;
+    c.beginPath();c.moveTo(hx-hr+4,hy-4);c.bezierCurveTo(hx-hr-10,hy-22,hx-hr-14,hy-50,hx-6,hy-50);c.bezierCurveTo(hx+4,hy-48,hx-hr+6,hy-20,hx-hr+4,hy-4);c.closePath();c.fill();c.stroke();
+    c.strokeStyle='#1a6008';c.lineWidth=1.5;c.lineCap='round';
+    c.beginPath();c.moveTo(hx-hr+4,hy-4);c.quadraticCurveTo(hx-hr-8,hy-30,hx-6,hy-50);c.stroke();
+    // HEAD
+    let hG=c.createRadialGradient(hx-7,hy-10,2,hx,hy,hr);hG.addColorStop(0,'#92e840');hG.addColorStop(0.45,'#58c020');hG.addColorStop(1,'#267010');
+    c.fillStyle=hG;c.strokeStyle='#000';c.lineWidth=3;
+    c.beginPath();c.arc(hx,hy,hr,0,Math.PI*2);c.fill();c.stroke();
+    c.fillStyle='rgba(210,255,140,0.45)';c.beginPath();c.ellipse(hx-8,hy-10,9,6,0.5,0,Math.PI*2);c.fill();
+    // EYE
+    let ex=hx+10,ey=hy-5;
+    c.fillStyle='#fff';c.strokeStyle='#000';c.lineWidth=2.5;
+    c.beginPath();c.ellipse(ex,ey,10,11,0,0,Math.PI*2);c.fill();c.stroke();
+    c.fillStyle='#0d0d0d';c.beginPath();c.ellipse(ex+1,ey+1,7,8,0,0,Math.PI*2);c.fill();
+    c.fillStyle='#fff';c.beginPath();c.ellipse(ex-2,ey-3,4,4.5,0,0,Math.PI*2);c.fill();
+    c.beginPath();c.arc(ex+3,ey+2,1.5,0,Math.PI*2);c.fill();
+    // CANNON
+    c.fillStyle='#236010';c.strokeStyle='#000';c.lineWidth=2.5;
+    c.beginPath();c.roundRect(hx+hr-3,hy-7,22,14,6);c.fill();c.stroke();
+    c.fillStyle='#3a9820';c.beginPath();c.roundRect(hx+hr-1,hy-6,18,5,3);c.fill();
+    c.fillStyle='#1a4808';c.strokeStyle='#000';c.lineWidth=2;
+    c.beginPath();c.ellipse(hx+hr+19,hy,5,7,0,0,Math.PI*2);c.fill();c.stroke();
+    c.fillStyle='#040c02';c.beginPath();c.ellipse(hx+hr+19,hy,3.5,5.5,0,0,Math.PI*2);c.fill();
+    // PEA
+    c.fillStyle='#6cd828';c.strokeStyle='#2a7010';c.lineWidth=1.5;
+    c.beginPath();c.arc(hx+hr+10,hy,4.5,0,Math.PI*2);c.fill();c.stroke();
+    c.restore();
+  })();
 }
 // Render after DOM ready (slight delay for canvas to init)
 setTimeout(renderSkinPreviews,100);
@@ -515,6 +584,7 @@ let p2ActiveSlot=0;
 let mpPlayerSlots=[['basic','homing'],['basic','shotgun'],['basic','homing'],['basic','shotgun']];
 let mpPlayerActiveSlot=[0,0,0,0];
 let owWeaponMenu=false; // weapon inventory open on island
+let owSkinMenu=false;   // skin selector open on island
 
 function getWeapon(isP2,mpIdx){
   // En MP el host llama con mpIdx del cliente; fuera de MP usa P1/P2
@@ -780,8 +850,8 @@ function drawSpecials(){
     }
     return;
   }
-  let col1=SKINS[player.skinId||0].bullet||'#f8e840';
-  let col2=p2Active?SKINS[player2.skinId||0].bullet||'#80ffff':'#80ffff';
+  let col1=(ALL_SKINS[player.skinId||0]||ALL_SKINS[0]).bullet||'#f8e840';
+  let col2=p2Active?(ALL_SKINS[player2.skinId||0]||ALL_SKINS[0]).bullet||'#80ffff':'#80ffff';
   drawBeam(p1SpecialAnim,player,col1);
   if(p2Active) drawBeam(p2SpecialAnim,player2,col2);
 }
@@ -946,6 +1016,147 @@ function drawOwWeaponMenu(){
   ctx.restore();
 }
 let owWpnClicks=null;
+
+// ===== SKIN MENU EN LA ISLA =====
+// Solo los recolores (índices 4-6) son seleccionables aquí;
+// los índices 0-3 están reservados para identificadores de jugador en MP.
+const OW_SKIN_CHOICES=[
+  {idx:0,name:'ROJO',tag:'CLÁSICO'},
+  {idx:1,name:'AZUL',tag:'ALTERNATIVO'},
+  {idx:4,name:'DORADO',tag:'RECOLOR'},
+  {idx:5,name:'ROSA',tag:'RECOLOR'},
+  {idx:6,name:'CIAN',tag:'RECOLOR'},
+  {idx:7,name:'LANZAGUISANTES',tag:'ESPECIAL 🔒',locked:true},
+];
+let owSkinClicks=null;
+
+function drawOwSkinMenu(){
+  let mx=W/2, my=H/2;
+  let cols=OW_SKIN_CHOICES.length;
+  let cardW=118, cardH=168, gap=12;
+  let totalW=cols*(cardW+gap)-gap;
+  let bw=Math.max(totalW+48,420), bh=256;
+  let bx=mx-bw/2, by=my-bh/2;
+
+  ctx.save();
+  ctx.fillStyle='rgba(0,0,0,0.82)';ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#0a050c';ctx.strokeStyle='#c8a028';ctx.lineWidth=3;
+  ctx.beginPath();ctx.roundRect(bx,by,bw,bh,12);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#f5d020';ctx.font='bold italic 20px Impact';ctx.textAlign='center';
+  ctx.fillText('🎨  EQUIPAR SKIN',mx,by+28);
+  ctx.strokeStyle='rgba(200,160,40,0.3)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(bx+20,by+38);ctx.lineTo(bx+bw-20,by+38);ctx.stroke();
+
+  owSkinClicks=[];
+  let startX=mx-totalW/2;
+
+  OW_SKIN_CHOICES.forEach((sc,i)=>{
+    let sk=ALL_SKINS[sc.idx];if(!sk)return;
+    let cx2=startX+i*(cardW+gap);
+    let cy2=by+46;
+    let selected=(p1SkinId===sc.idx);
+    let isLocked=sc.locked&&!owPeashooterUnlocked;
+
+    // Card bg
+    ctx.fillStyle=isLocked?'rgba(8,4,12,0.95)':selected?'rgba(200,160,40,0.18)':'rgba(14,14,24,0.9)';
+    ctx.strokeStyle=isLocked?'#332244':selected?'#f5d020':sc.idx===7?'#60e030':'#333';
+    ctx.lineWidth=selected?2.5:1.5;
+    ctx.beginPath();ctx.roundRect(cx2,cy2,cardW,cardH,8);ctx.fill();ctx.stroke();
+
+    // Tag arriba
+    ctx.font='9px Impact';ctx.textAlign='center';
+    ctx.fillStyle=isLocked?'#554466':sc.idx===7?'#90ff40':'#666';
+    ctx.fillText(isLocked?'ESPECIAL 🔒':sc.tag,cx2+cardW/2,cy2+13);
+
+    if(isLocked){
+      // Candado
+      ctx.fillStyle='rgba(80,40,100,0.6)';
+      ctx.beginPath();ctx.roundRect(cx2+8,cy2+20,cardW-16,cardH-36,6);ctx.fill();
+      ctx.fillStyle='#7755aa';ctx.font='36px Arial';ctx.textAlign='center';
+      ctx.fillText('🔒',cx2+cardW/2,cy2+cardH/2+8);
+      ctx.fillStyle='#aa88cc';ctx.font='bold 9px Impact';
+      ctx.fillText('Habla con el',cx2+cardW/2,cy2+cardH-28);
+      ctx.fillStyle='#90ff40';ctx.font='bold 9px Impact';
+      ctx.fillText('Lanzaguisantes',cx2+cardW/2,cy2+cardH-16);
+    } else if(sc.idx===7){
+      // Preview especial: mini lanzaguisantes animado
+      ctx.save();
+      ctx.translate(cx2+cardW/2, cy2+cardH-24);
+      let bob2=Math.sin(frameCount*0.06)*2;
+      ctx.translate(0,bob2);
+      let sc3=0.38;ctx.scale(sc3,sc3);
+      // Tallo
+      let sg=ctx.createLinearGradient(-6,0,6,0);sg.addColorStop(0,'#2a8a12');sg.addColorStop(0.5,'#40c020');sg.addColorStop(1,'#1a6a0c');
+      ctx.fillStyle=sg;ctx.strokeStyle='#0e3805';ctx.lineWidth=2;
+      ctx.beginPath();ctx.roundRect(-6,0,12,28,3);ctx.fill();ctx.stroke();
+      // Hojita
+      ctx.fillStyle='#30a018';ctx.strokeStyle='#1a6010';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.moveTo(-6,10);ctx.bezierCurveTo(-20,6,-18,18,-8,15);ctx.closePath();ctx.fill();ctx.stroke();
+      // Cabeza
+      let hg2=ctx.createRadialGradient(-3,-36,3,0,-34,20);
+      hg2.addColorStop(0,'#5ae030');hg2.addColorStop(1,'#1a7010');
+      ctx.fillStyle=hg2;ctx.strokeStyle='#0e4808';ctx.lineWidth=2.5;
+      ctx.beginPath();ctx.arc(0,-34,20,0,Math.PI*2);ctx.fill();ctx.stroke();
+      // Pétalos
+      for(let pi2=0;pi2<6;pi2++){
+        let ang=pi2/6*Math.PI*2+frameCount*0.01;
+        ctx.fillStyle=pi2%2===0?'#f5e020':'#ffc030';ctx.strokeStyle='#c89010';ctx.lineWidth=1;
+        ctx.beginPath();ctx.ellipse(Math.cos(ang)*24,Math.sin(ang)*24-34,5,8,ang,0,Math.PI*2);ctx.fill();ctx.stroke();
+      }
+      ctx.fillStyle='#f5c020';ctx.strokeStyle='#c89010';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.arc(0,-34,8,0,Math.PI*2);ctx.fill();ctx.stroke();
+      // Cañón
+      ctx.fillStyle='#2a9018';ctx.strokeStyle='#0e3808';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.roundRect(-8,-26,16,18,5);ctx.fill();ctx.stroke();
+      ctx.fillStyle='#061a02';ctx.beginPath();ctx.ellipse(0,-13,5,6,0,0,Math.PI*2);ctx.fill();
+      // Ojos
+      ctx.fillStyle='#fff';ctx.strokeStyle='#1a4008';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.ellipse(-8,-40,4,5,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.beginPath();ctx.ellipse(8,-40,4,5,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.fillStyle='#111';ctx.beginPath();ctx.arc(-8,-40,2,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(8,-40,2,0,Math.PI*2);ctx.fill();
+      ctx.restore();
+      // Nombre verde
+      ctx.fillStyle=selected?'#f5d020':'#90ff40';ctx.font='bold 10px Impact';ctx.textAlign='center';
+      ctx.fillText('LANZAGUISANTES',cx2+cardW/2,cy2+cardH-4);
+      if(selected){ctx.fillStyle='#c8a028';ctx.font='bold 8px Impact';ctx.fillText('✓ EQUIPADO',cx2+cardW/2,cy2+cardH-16);}
+    } else {
+      // Preview normal del personaje recoloreado
+      ctx.save();
+      ctx.translate(cx2+cardW/2, cy2+cardH-22);
+      let sc4=0.50;ctx.scale(sc4,sc4);
+      ctx.strokeStyle='#1a1a1a';ctx.lineWidth=6;ctx.lineCap='round';
+      ctx.beginPath();ctx.moveTo(-5,-2);ctx.lineTo(-7,-14);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(5,-2);ctx.lineTo(7,-14);ctx.stroke();
+      ctx.fillStyle='#111';ctx.strokeStyle='#000';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.ellipse(-8,-16,8,5,0.15,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.beginPath();ctx.ellipse(8,-16,8,5,-0.15,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.fillStyle=sk.coat;ctx.beginPath();ctx.ellipse(0,-26,11,12,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#000';ctx.lineWidth=2.5;ctx.stroke();
+      ctx.fillStyle=sk.coatDark;ctx.beginPath();ctx.moveTo(-11,-18);ctx.lineTo(-14,-8);ctx.lineTo(0,-6);ctx.lineTo(14,-8);ctx.lineTo(11,-18);ctx.closePath();ctx.fill();ctx.strokeStyle='#000';ctx.lineWidth=1.5;ctx.stroke();
+      ctx.fillStyle='#f0c020';ctx.strokeStyle='#000';ctx.lineWidth=1.5;ctx.beginPath();ctx.roundRect(-5,-21,10,7,2);ctx.fill();ctx.stroke();
+      ctx.strokeStyle=sk.coat;ctx.lineWidth=6;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(8,-30);ctx.lineTo(20,-33);ctx.stroke();
+      ctx.fillStyle='#333';ctx.strokeStyle='#000';ctx.lineWidth=1.5;ctx.beginPath();ctx.roundRect(18,-37,12,7,2);ctx.fill();ctx.stroke();
+      ctx.strokeStyle=sk.coatShadow;ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-8,-30);ctx.lineTo(-13,-26);ctx.stroke();
+      ctx.fillStyle='#f8c840';ctx.beginPath();ctx.ellipse(0,-50,15,14,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#000';ctx.lineWidth=3;ctx.stroke();
+      ctx.fillStyle='#1a1a1a';ctx.beginPath();ctx.ellipse(0,-63,17,4,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.beginPath();ctx.roundRect(-11,-82,22,20,3);ctx.fill();ctx.stroke();
+      ctx.fillStyle=sk.hatBand;ctx.fillRect(-11,-69,22,5);
+      ctx.fillStyle='#fff';ctx.strokeStyle='#000';ctx.lineWidth=2;
+      ctx.beginPath();ctx.ellipse(-5,-51,5.5,6,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.beginPath();ctx.ellipse(5,-51,5.5,6,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.fillStyle='#111';ctx.beginPath();ctx.arc(-4,-51,3.2,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(6,-51,3.2,0,Math.PI*2);ctx.fill();
+      ctx.restore();
+      ctx.fillStyle=selected?'#f5d020':sk.coat;ctx.font='bold 11px Impact';ctx.textAlign='center';
+      ctx.fillText(sk.name,cx2+cardW/2,cy2+cardH-4);
+      if(selected){ctx.fillStyle='#c8a028';ctx.font='bold 8px Impact';ctx.fillText('✓ EQUIPADO',cx2+cardW/2,cy2+cardH-16);}
+    }
+
+    owSkinClicks.push({x:cx2,y:cy2,w:cardW,h:cardH,skinIdx:sc.idx,locked:isLocked});
+  });
+
+  ctx.fillStyle='#555';ctx.font='10px Impact';ctx.textAlign='center';
+  ctx.fillText('Clic para equipar  ·  ESC · Cerrar',mx,by+bh-8);
+  ctx.restore();
+}
 
 // Handle weapon menu clicks
 
@@ -1137,6 +1348,95 @@ function drawPlayerObj(p,isMine){
   if(dashing){sx=1.35;sy=0.72;}
   ctx.translate(px+w/2,py);
   ctx.scale(f*sx,sy*sc);
+
+  // === PEASHOOTER SKIN — SIDE PROFILE (PvZ style) ===
+  if(sk.isPeashooter){
+    let bob=(onGround&&af>0)?Math.sin(af*Math.PI/2)*3:0;
+    let shootOff=ownShootCD>0?2:0;
+    let eyeB=(frameCount%90<5);
+    // HEAD center / dimensions
+    let hx=0, hy=-54+bob, hr=22;
+
+    // ── BASE LEAF TUFT (drawn first, behind stem) ──
+    ctx.strokeStyle='#000';ctx.lineWidth=2;
+    // Left-back leaf
+    ctx.fillStyle='#2a8010';
+    ctx.beginPath();ctx.moveTo(0,-2);ctx.bezierCurveTo(-18,-4,-24,-16,-14,-18);ctx.bezierCurveTo(-6,-14,-2,-6,0,-2);ctx.closePath();ctx.fill();ctx.stroke();
+    // Right-front leaf
+    ctx.fillStyle='#338c14';
+    ctx.beginPath();ctx.moveTo(0,-2);ctx.bezierCurveTo(14,-3,18,-13,10,-15);ctx.bezierCurveTo(4,-11,0,-5,0,-2);ctx.closePath();ctx.fill();ctx.stroke();
+    // Small center tuft
+    ctx.fillStyle='#3ca018';
+    ctx.beginPath();ctx.moveTo(-3,-1);ctx.bezierCurveTo(-8,-8,-6,-16,0,-14);ctx.bezierCurveTo(4,-12,2,-5,-3,-1);ctx.closePath();ctx.fill();ctx.stroke();
+    // Far-back ground leaf
+    ctx.fillStyle='#236a10';
+    ctx.beginPath();ctx.moveTo(-2,-3);ctx.bezierCurveTo(-26,-2,-28,-18,-16,-20);ctx.bezierCurveTo(-8,-16,-4,-8,-2,-3);ctx.closePath();ctx.fill();ctx.stroke();
+
+    // ── STEM ──
+    let stG=ctx.createLinearGradient(-4,-2,4,-2);stG.addColorStop(0,'#1d6a0c');stG.addColorStop(0.5,'#3cb818');stG.addColorStop(1,'#155008');
+    ctx.fillStyle=stG;ctx.strokeStyle='#000';ctx.lineWidth=2;
+    ctx.beginPath();ctx.roundRect(-3.5,-2,7,hy+2+hr+2,3);ctx.fill();ctx.stroke();
+
+    // ── BIG BACK LEAF (on back-top of head) ──
+    ctx.fillStyle='#2e9014';ctx.strokeStyle='#000';ctx.lineWidth=2.5;
+    ctx.beginPath();
+    ctx.moveTo(hx-hr+4,hy-4);
+    ctx.bezierCurveTo(hx-hr-10,hy-22,hx-hr-14,hy-50,hx-6,hy-50);
+    ctx.bezierCurveTo(hx+4,hy-48,hx-hr+6,hy-20,hx-hr+4,hy-4);
+    ctx.closePath();ctx.fill();ctx.stroke();
+    // Leaf vein
+    ctx.strokeStyle='#1a6008';ctx.lineWidth=1.5;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(hx-hr+4,hy-4);ctx.quadraticCurveTo(hx-hr-8,hy-30,hx-6,hy-50);ctx.stroke();
+
+    // ── HEAD ──
+    let hG=ctx.createRadialGradient(hx-7,hy-10,2,hx,hy,hr);
+    hG.addColorStop(0,'#92e840');hG.addColorStop(0.45,'#58c020');hG.addColorStop(1,'#267010');
+    ctx.fillStyle=hG;ctx.strokeStyle='#000';ctx.lineWidth=3;
+    ctx.beginPath();ctx.arc(hx,hy,hr,0,Math.PI*2);ctx.fill();ctx.stroke();
+    // Specular highlight
+    ctx.fillStyle='rgba(210,255,140,0.45)';
+    ctx.beginPath();ctx.ellipse(hx-8,hy-10,9,6,0.5,0,Math.PI*2);ctx.fill();
+
+    // ── EYE (large PvZ-style, on front face) ──
+    let ex=hx+10, ey=hy-5;
+    // Eye socket (white sclera ring)
+    ctx.fillStyle='#fff';ctx.strokeStyle='#000';ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.ellipse(ex,ey,10,11,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+    // Iris (dark, large)
+    ctx.fillStyle='#0d0d0d';
+    ctx.beginPath();ctx.ellipse(ex+1,ey+1,eyeB?10:7,eyeB?2:8,0,0,Math.PI*2);ctx.fill();
+    if(!eyeB){
+      // Main white highlight (large, like the image)
+      ctx.fillStyle='#fff';
+      ctx.beginPath();ctx.ellipse(ex-2,ey-3,4,4.5,0,0,Math.PI*2);ctx.fill();
+      // Small second highlight
+      ctx.beginPath();ctx.arc(ex+3,ey+2,1.5,0,Math.PI*2);ctx.fill();
+    }
+
+    // ── CANNON MOUTH (pointing forward) ──
+    // Cannon body (rounded rectangle, darker green)
+    ctx.fillStyle='#236010';ctx.strokeStyle='#000';ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.roundRect(hx+hr-3+shootOff,hy-7,22,14,6);ctx.fill();ctx.stroke();
+    // Cannon highlight stripe on top
+    ctx.fillStyle='#3a9820';
+    ctx.beginPath();ctx.roundRect(hx+hr-1+shootOff,hy-6,18,5,3);ctx.fill();
+    // Cannon opening (dark circle at tip)
+    ctx.fillStyle='#1a4808';ctx.strokeStyle='#000';ctx.lineWidth=2;
+    ctx.beginPath();ctx.ellipse(hx+hr+19+shootOff,hy,5,7,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+    // Inner dark hole
+    ctx.fillStyle='#040c02';
+    ctx.beginPath();ctx.ellipse(hx+hr+19+shootOff,hy,3.5,5.5,0,0,Math.PI*2);ctx.fill();
+    // Pea (animated, peeking from cannon)
+    let peaX=hx+hr+10+Math.sin(frameCount*0.14)*1.5;
+    ctx.fillStyle='#6cd828';ctx.strokeStyle='#2a7010';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.arc(peaX+shootOff,hy,4.5,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.fillStyle='rgba(200,255,130,0.7)';
+    ctx.beginPath();ctx.arc(peaX-1.5+shootOff,hy-2,1.8,0,Math.PI*2);ctx.fill();
+
+    ctx.restore();
+    if(dashing)ctx.restore();
+    return;
+  }
 
   // Legs
   let lb=Math.sin(af*Math.PI/2)*(onGround?6:0);
@@ -3863,26 +4163,22 @@ function showScreen(id){
     if(el) el.style.display=s===id?'flex':'none';
   });
   document.getElementById('pauseMenuBtn').style.display='none';
+  document.getElementById('pauseRetryBtn').style.display='none';
   if(id==='menuScreen') cursorDot.style.display='none';
   if(id==='gameOver'){
     populateDeathStats();
-    let btn=document.getElementById('gameOverSecBtn');
-    if(btn){
-      if(mpMode){btn.textContent='🗺️ VOLVER A LA ISLA';btn.onclick=startOverworld;}
-      else{btn.textContent='MENÚ PRINCIPAL';btn.onclick=()=>showScreen('menuScreen');}
-    }
+    // En MP: ocultar "Intentar de nuevo" y "Menú principal", solo mostrar "Volver a la isla"
+    let retryBtn=document.getElementById('gameOverRetryBtn');
+    let menuBtn=document.getElementById('gameOverMenuBtn');
+    if(retryBtn) retryBtn.style.display=mpMode?'none':'';
+    if(menuBtn) menuBtn.style.display=mpMode?'none':'';
   }
   if(id==='winScreen'){
-    // Ocultar botones que no aplican en MP
-    let winBtns=document.querySelectorAll('#winScreen .retryBtn');
-    winBtns.forEach(b=>{
-      // Botón "JUGAR DE NUEVO" y "MENÚ PRINCIPAL" se ocultan en MP
-      if(mpMode&&(b.textContent.includes('JUGAR DE NUEVO')||b.textContent.includes('MENÚ PRINCIPAL'))){
-        b.style.display='none';
-      } else {
-        b.style.display='';
-      }
-    });
+    // En MP: ocultar "Jugar de nuevo" y "Menú principal"
+    let winRetryBtn=document.getElementById('winRetryBtn');
+    let winMenuBtn=document.getElementById('winMenuBtn');
+    if(winRetryBtn) winRetryBtn.style.display=mpMode?'none':'';
+    if(winMenuBtn) winMenuBtn.style.display=mpMode?'none':'';
     // Update subtitle
     let sub=document.getElementById('winScreen').querySelector('.endSub');
     if(sub) sub.textContent=selectedBoss==='tempestina'?'¡TEMPESTINA FUE DERROTADA!':selectedBoss==='kronos'?'¡KRONOS FUE DETENIDO!':selectedBoss==='narrator'?'¡NARRATOR FUE REVELADO!':'¡EL INKBOSS FUE DESTRUIDO!';
@@ -3899,8 +4195,9 @@ function showScreen(id){
 }
 function goToMenu(){
   stopMusic();
-  gameState='menu';
-  showScreen('menuScreen');
+  document.getElementById('pauseMenuBtn').style.display='none';
+  document.getElementById('pauseRetryBtn').style.display='none';
+  startOverworld();
 }
 
 // ╔══════════════════════════════════════════════════════╗
@@ -4303,7 +4600,7 @@ function updateGhosts(){
 
 function drawGhosts(){
   for(let g of ghosts){
-    let sk=ALL_SKINS[g.skinId]||SKINS[g.skinId]||SKINS[0];
+    let sk=ALL_SKINS[g.skinId]||ALL_SKINS[0];
     let float=Math.sin(frameCount*0.08)*4;
     ctx.save();ctx.globalAlpha=g.alpha*0.85;
     ctx.translate(g.x,g.y+float);
@@ -5158,7 +5455,7 @@ let nGloveLeft=null,nGloveRight=null; // {x,y,vy,phase:'enter'|'squeeze'|'exit',
 let nBossMoving=null; // {targetX,targetY} or null
 let nShadowType='ink'; // which shadow is currently shown
 const N_SHADOW_HP=280; // 233 * 1.20 (+20% vida)
-const N_FINAL_HP=1350;  // 1125 * 1.20 (+20% vida)
+const N_FINAL_HP=878;  // 1350 * 0.65 (-35% vida del Narrator final)
 const N_SPOT_TIME=960; // ~16s
 const N_SPOT_R=48; // bigger spotlights
 
@@ -6397,6 +6694,11 @@ const OW_TREES=[
   {x:650,y:480},{x:650,y:700},{x:1350,y:480},{x:1350,y:700},
   {x:700,y:620},{x:1300,y:620},
 ];
+
+// ── Lanzaguisantes NPC ──
+const OW_PEASHOOTER={x:560,y:330};
+let owPeashooterUnlocked=false; // true cuando el jugador ya habló con él y desbloqueó la skin
+let owPeashooterDialog=null;    // null o {timer,phase} — fase: 'talk'|'unlock'
 let owPlayer={x:1000,y:820,facing:1,walkT:0,bobT:0};
 let owInteract=null;  // {bossId, menu, diff}
 let owMenuDiff='normal';
@@ -6417,13 +6719,15 @@ function startOverworld(){
   owPlayer={x:1000,y:820,facing:1,walkT:0,bobT:0};
   owPlayer2={x:owPlayer.x+20,y:owPlayer.y+8,facing:-1,walkT:0,bobT:1.5};
   owCamX=owPlayer.x-W/2; owCamY=owPlayer.y-H/2;
-  owInteract=null; owMenuDiff='normal'; owPauseMenu=false;
+  owInteract=null; owMenuDiff='normal'; owPauseMenu=false; owSkinMenu=false; owWeaponMenu=false;
 }
 let owPauseMenu=false; // separate from battle menu
 let owPlayer2={x:1020,y:820,facing:-1,walkT:0,bobT:1.5}; // P2 overworld position
 
 function owHandleE(){
   if(mpMode&&!mpIsHost)return; // only host can open boss menu in MP
+  // Primero revisar si hay un Lanzaguisantes cerca
+  if(owHandlePeashooter())return;
   if(!owInteract)return;
   if(owInteract.menu){return;}
   owInteract.menu=true;
@@ -6449,6 +6753,7 @@ function owStartBattle(){
 function updateOverworld(){
   if(owPauseMenu)return;
   if(owWeaponMenu)return;
+  if(owSkinMenu)return;
   if(owInteract&&owInteract.menu)return;
   let spd=3.5;
   let nx=owPlayer.x, ny=owPlayer.y;
@@ -6579,10 +6884,13 @@ function drawOverworld(){
   // ─── BOSS NODES ───
   for(let b of OW_BOSSES)drawOwBossNode(b);
 
+  // ─── LANZAGUISANTES NPC ───
+  drawOwPeashooter();
+
   // ─── PLAYER (en coordenadas mundo) ───
   drawOwPlayer();
 
-  // ─── E PROMPT ───
+  // ─── E PROMPT (boss) ───
   if(owInteract&&!owInteract.menu){
     let boss=OW_BOSSES.find(b=>b.id===owInteract.bossId);
     let pulse=0.65+0.35*Math.abs(Math.sin(frameCount*0.12));
@@ -6595,6 +6903,9 @@ function drawOverworld(){
     ctx.restore();
   }
 
+  // ─── E PROMPT (peashooter) ───
+  drawOwPeashooterPrompt();
+
   ctx.restore(); // fin transformación cámara
 
   // ─── MINIMAPA ───
@@ -6605,8 +6916,12 @@ function drawOverworld(){
 
   // ─── WEAPON MENU ───
   if(owWeaponMenu)drawOwWeaponMenu();
+  if(owSkinMenu)drawOwSkinMenu();
   // ─── OW PAUSE MENU ───
   if(owPauseMenu)drawOwPauseMenu();
+
+  // ─── PEASHOOTER DIALOG ───
+  drawOwPeashooterDialog();
 
   // ─── FOOTER BAR ───
   ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(0,H-26,W,26);
@@ -6615,6 +6930,202 @@ function drawOverworld(){
   else ctx.fillText('WASD · Mover   |   E · Interactuar   |   ESC · Opciones',W/2,H-9);
 }
 
+function drawOwPeashooter(){
+  let px=OW_PEASHOOTER.x, py=OW_PEASHOOTER.y;
+  let bob=Math.sin(frameCount*0.06)*3;
+  let eyeBlink=(frameCount%90<5);
+  ctx.save();
+  ctx.translate(px, py+bob);
+  ctx.scale(0.62,0.62);
+
+  // ── Tallo principal ──
+  // Sombra del tallo
+  ctx.fillStyle='#1a5c08';ctx.strokeStyle='#0e3805';ctx.lineWidth=2;
+  ctx.beginPath();ctx.roundRect(-7,0,14,32,4);ctx.fill();ctx.stroke();
+  // Tallo verde brillante
+  let stemGrad=ctx.createLinearGradient(-7,0,7,0);
+  stemGrad.addColorStop(0,'#2a8a12');stemGrad.addColorStop(0.5,'#40c020');stemGrad.addColorStop(1,'#1a6a0c');
+  ctx.fillStyle=stemGrad;ctx.beginPath();ctx.roundRect(-6,0,12,30,3);ctx.fill();
+  // Hojitas laterales del tallo
+  ctx.fillStyle='#30a018';ctx.strokeStyle='#1a6010';ctx.lineWidth=1.5;
+  // Hoja izquierda
+  ctx.beginPath();ctx.moveTo(-6,8);ctx.bezierCurveTo(-22,4,-20,18,-8,14);ctx.closePath();ctx.fill();ctx.stroke();
+  // Hoja derecha
+  ctx.beginPath();ctx.moveTo(6,16);ctx.bezierCurveTo(22,12,20,26,8,22);ctx.closePath();ctx.fill();ctx.stroke();
+  // Vena de hoja izquierda
+  ctx.strokeStyle='#1a7010';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(-6,8);ctx.quadraticCurveTo(-14,11,-8,14);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(6,16);ctx.quadraticCurveTo(14,19,8,22);ctx.stroke();
+
+  // ── Cabeza (flor / boca cañón) ──
+  // Base de la cabeza — cuerpo redondo verde oscuro
+  let headGrad=ctx.createRadialGradient(-4,-38,3,0,-36,22);
+  headGrad.addColorStop(0,'#5ae030');headGrad.addColorStop(0.5,'#30b018');headGrad.addColorStop(1,'#1a7010');
+  ctx.fillStyle=headGrad;ctx.strokeStyle='#0e4808';ctx.lineWidth=2.5;
+  ctx.beginPath();ctx.arc(0,-36,22,0,Math.PI*2);ctx.fill();ctx.stroke();
+  // Brillo superior de la cabeza
+  ctx.fillStyle='rgba(140,255,80,0.35)';
+  ctx.beginPath();ctx.ellipse(-6,-46,10,6,0.3,0,Math.PI*2);ctx.fill();
+  // Anillo exterior más claro (textura de hoja)
+  ctx.strokeStyle='rgba(80,220,30,0.4)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.arc(0,-36,19,0,Math.PI*2);ctx.stroke();
+
+  // ── Cañón / boca ──
+  // Tubo cañón
+  let cannonGrad=ctx.createLinearGradient(-10,-28,-10,-10);
+  cannonGrad.addColorStop(0,'#2a9018');cannonGrad.addColorStop(1,'#1a6010');
+  ctx.fillStyle=cannonGrad;ctx.strokeStyle='#0e3808';ctx.lineWidth=2;
+  ctx.beginPath();ctx.roundRect(-10,-28,20,20,6);ctx.fill();ctx.stroke();
+  // Interior oscuro del cañón (profundidad)
+  ctx.fillStyle='#061a02';ctx.strokeStyle='#0a2806';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.ellipse(0,-14,7,8,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+  // Brillo interior del cañón
+  ctx.fillStyle='rgba(60,180,20,0.25)';
+  ctx.beginPath();ctx.ellipse(-2,-16,3,4,0,0,Math.PI*2);ctx.fill();
+  // Borde del cañón
+  ctx.fillStyle='#38b820';ctx.strokeStyle='#1a7010';ctx.lineWidth=2;
+  ctx.beginPath();ctx.ellipse(0,-28,11,5,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+
+  // ── Ojos ──
+  // Ojo izquierdo — esclerótica
+  ctx.fillStyle='#fff';ctx.strokeStyle='#1a4008';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.ellipse(-9,-42,6,eyeBlink?1:7,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+  // Ojo derecho
+  ctx.beginPath();ctx.ellipse(9,-42,6,eyeBlink?1:7,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+  if(!eyeBlink){
+    // Pupilas
+    ctx.fillStyle='#111';
+    ctx.beginPath();ctx.arc(-8,-42,3.5,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(10,-42,3.5,0,Math.PI*2);ctx.fill();
+    // Reflejos de ojo
+    ctx.fillStyle='#fff';
+    ctx.beginPath();ctx.arc(-7,-43.5,1.2,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(11,-43.5,1.2,0,Math.PI*2);ctx.fill();
+  }
+
+  // ── Cejas (expresión determinada) ──
+  ctx.strokeStyle='#1a5008';ctx.lineWidth=2.5;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(-14,-50);ctx.lineTo(-5,-47);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(14,-50);ctx.lineTo(5,-47);ctx.stroke();
+
+  // ── Guisante flotando en el cañón (animado) ──
+  let peaFloat=Math.sin(frameCount*0.12)*2;
+  ctx.fillStyle='#7ae838';ctx.strokeStyle='#3a8818';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.arc(0,-20+peaFloat,5,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.fillStyle='rgba(180,255,120,0.6)';
+  ctx.beginPath();ctx.arc(-1.5,-21.5+peaFloat,1.8,0,Math.PI*2);ctx.fill();
+
+  // ── Petalo / corona floral ──
+  let petalCount=6;
+  for(let pi2=0;pi2<petalCount;pi2++){
+    let ang=pi2/petalCount*Math.PI*2+frameCount*0.008;
+    let px2=Math.cos(ang)*26, py2=Math.sin(ang)*26-36;
+    let petalCol=pi2%2===0?'#f5e020':'#ffc030';
+    ctx.fillStyle=petalCol;ctx.strokeStyle='#c89010';ctx.lineWidth=1;
+    ctx.beginPath();ctx.ellipse(px2,py2,6,9,ang,0,Math.PI*2);ctx.fill();ctx.stroke();
+  }
+  // Centro de la flor (detrás del cañón, encima de los pétalos)
+  ctx.fillStyle='#f5c020';ctx.strokeStyle='#c89010';ctx.lineWidth=2;
+  ctx.beginPath();ctx.arc(0,-36,9,0,Math.PI*2);ctx.fill();ctx.stroke();
+
+  // Si ya está desbloqueado: estrella dorada encima
+  if(owPeashooterUnlocked){
+    ctx.fillStyle='#f5d020';ctx.font='bold 14px Arial';ctx.textAlign='center';
+    ctx.fillText('★',0,-65);
+  }
+
+  ctx.restore();
+}
+
+function drawOwPeashooterPrompt(){
+  let px=OW_PEASHOOTER.x, py=OW_PEASHOOTER.y;
+  let dx=owPlayer.x-px, dy=owPlayer.y-py;
+  let dist=Math.sqrt(dx*dx+dy*dy);
+  if(dist>80)return;
+  if(owPauseMenu||owWeaponMenu||owSkinMenu||owInteract)return;
+
+  let pulse=0.65+0.35*Math.abs(Math.sin(frameCount*0.12));
+  ctx.save();
+  ctx.translate(-Math.round(owCamX),-Math.round(owCamY));
+  ctx.globalAlpha=pulse;
+  let label=owPeashooterUnlocked?'[ E ]  ¡HOLA!':'[ E ]  ¡HABLAR!';
+  ctx.fillStyle='rgba(0,0,0,0.78)';ctx.strokeStyle='#60e030';ctx.lineWidth=2.5;
+  ctx.beginPath();ctx.roundRect(px-64,py-118,128,28,6);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#90ff40';ctx.font='bold 13px Impact,sans-serif';ctx.textAlign='center';
+  ctx.fillText(label,px,py-98);
+  ctx.restore();
+}
+
+function owHandlePeashooter(){
+  // Llamado desde owHandleE cuando el jugador presiona E cerca del NPC
+  let px=OW_PEASHOOTER.x, py=OW_PEASHOOTER.y;
+  let dx=owPlayer.x-px, dy=owPlayer.y-py;
+  if(Math.sqrt(dx*dx+dy*dy)>80)return false;
+  if(owPauseMenu||owWeaponMenu||owSkinMenu||owInteract)return false;
+
+  // Mostrar diálogo / desbloquear skin
+  owPeashooterDialog={timer:0,phase:owPeashooterUnlocked?'already':'unlock'};
+  if(!owPeashooterUnlocked){
+    owPeashooterUnlocked=true;
+    p1SkinId=7;
+    player.skinId=7;
+    spawnParts(px,py-40,'#80ff30',20,5,50);
+    spawnParts(px,py-40,'#f5d020',12,4,40);
+    // Actualizar la carta del menú inicial y desbloquearla
+    let card7=document.getElementById('skin7Card');
+    if(card7){card7.style.opacity='1';card7.style.cursor='pointer';card7.onclick=()=>selectSkin(7);}
+    setTimeout(renderSkinPreviews,50);
+  }
+  return true;
+}
+
+function drawOwPeashooterDialog(){
+  if(!owPeashooterDialog)return;
+  owPeashooterDialog.timer++;
+  if(owPeashooterDialog.timer>240){owPeashooterDialog=null;return;}
+
+  let alpha=Math.min(1,owPeashooterDialog.timer/12)*Math.min(1,(240-owPeashooterDialog.timer)/20);
+  ctx.save();
+  ctx.globalAlpha=alpha;
+
+  let bw=420,bh=100,bx=W/2-bw/2,by=60;
+  ctx.fillStyle='rgba(4,16,2,0.92)';ctx.strokeStyle='#60e030';ctx.lineWidth=3;
+  ctx.beginPath();ctx.roundRect(bx,by,bw,bh,12);ctx.fill();ctx.stroke();
+
+  // Mini lanzaguisantes en el cuadro
+  ctx.save();ctx.translate(bx+44,by+bh/2+4);ctx.scale(0.45,0.45);
+  // Cuerpo simplificado
+  let hg=ctx.createRadialGradient(-3,-12,2,0,-10,16);
+  hg.addColorStop(0,'#5ae030');hg.addColorStop(1,'#1a7010');
+  ctx.fillStyle=hg;ctx.strokeStyle='#0e4808';ctx.lineWidth=2;
+  ctx.beginPath();ctx.arc(0,-12,16,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#fff';ctx.strokeStyle='#1a4008';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.ellipse(-6,-16,4,5,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.beginPath();ctx.ellipse(6,-16,4,5,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#111';ctx.beginPath();ctx.arc(-6,-16,2,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(6,-16,2,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#38b820';ctx.strokeStyle='#1a7010';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.roundRect(-7,-8,14,16,4);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#7ae838';ctx.beginPath();ctx.arc(0,-1,4,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+
+  ctx.fillStyle='#a0ff50';ctx.font='bold 12px Impact';ctx.textAlign='left';
+  let title=owPeashooterDialog.phase==='already'?'¡Lanzaguisantes!':'¡Lanzaguisantes dice:';
+  ctx.fillText(title,bx+78,by+28);
+  ctx.strokeStyle='rgba(96,224,48,0.3)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(bx+78,by+34);ctx.lineTo(bx+bw-18,by+34);ctx.stroke();
+
+  ctx.fillStyle='#e8ffe0';ctx.font='13px Impact';
+  if(owPeashooterDialog.phase==='unlock'){
+    ctx.fillText('¡Bienvenido, guerrero! Toma mi poder...',bx+78,by+54);
+    ctx.fillStyle='#f5d020';ctx.font='bold 13px Impact';
+    ctx.fillText('★  SKIN "LANZAGUISANTES" DESBLOQUEADA  ★',bx+78,by+74);
+  } else {
+    ctx.fillText('¡Sigue luchando! Ya llevas mi poder contigo.',bx+78,by+54);
+    ctx.fillStyle='#90ff40';ctx.font='11px Impact';
+    ctx.fillText('Equipa la skin en ESC → Equipar Skin',bx+78,by+74);
+  }
+  ctx.restore();
+}
 function drawOwMinimap(){
   // Minimapa en esquina inferior derecha
   const MM_W=140, MM_H=90, MM_X=W-MM_W-10, MM_Y=H-MM_H-34;
@@ -6773,7 +7284,7 @@ function drawOwPlayer(){
 function drawOwCharacterLabeled(x,y,walkT,bobT,facing,skinId,label,highlight){
   drawOwCharacter(x,y,walkT,bobT,facing,skinId,label==='J2'||label.startsWith('J')&&label!=='J1');
   if(label){
-    let sk=ALL_SKINS[skinId]||SKINS[skinId]||SKINS[0];
+    let sk=ALL_SKINS[skinId]||ALL_SKINS[0];
     let col=highlight?'#fff':(sk?sk.hatBand:'#f5d020');
     ctx.fillStyle=col;ctx.font='bold 9px Impact';ctx.textAlign='center';
     ctx.fillText(label,x,y-20);
@@ -6849,9 +7360,9 @@ function drawOwMenu(){
 
 function drawOwPauseMenu(){
   let mx=W/2,my=H/2;
-  // MP: only weapons + leave
+  // MP: only weapons + skins + leave
   if(mpMode){
-    let bw=280,bh=160,bx=mx-bw/2,by=my-bh/2;
+    let bw=280,bh=200,bx=mx-bw/2,by=my-bh/2;
     ctx.save();
     ctx.fillStyle='rgba(0,0,0,0.72)';ctx.fillRect(0,0,W,H);
     ctx.fillStyle='#080818';ctx.strokeStyle='#40c8ff';ctx.lineWidth=2;
@@ -6860,7 +7371,8 @@ function drawOwPauseMenu(){
     ctx.fillText('MENÚ SALA',mx,by+28);
     let btns=[
       {label:'⚔  CAMBIAR ARMAS',col:'#204060',y:by+44,action:'weapons'},
-      {label:'🚪  ABANDONAR SALA',col:'#802010',y:by+88,action:'leave'},
+      {label:'🎨  CAMBIAR SKIN',col:'#402060',y:by+88,action:'skins'},
+      {label:'🚪  ABANDONAR SALA',col:'#802010',y:by+132,action:'leave'},
     ];
     for(let btn of btns){
       ctx.fillStyle=btn.col;ctx.strokeStyle='#40c8ff';ctx.lineWidth=1.5;
@@ -6874,7 +7386,7 @@ function drawOwPauseMenu(){
     return;
   }
   // Solo menu
-  let bw=280,bh=p2Active?314:268,bx=mx-bw/2,by=my-bh/2;
+  let bw=280,bh=p2Active?360:314,bx=mx-bw/2,by=my-bh/2;
   ctx.save();
   ctx.fillStyle='rgba(0,0,0,0.65)';ctx.fillRect(0,0,W,H);
   ctx.fillStyle='#0a0a14';ctx.strokeStyle='#c8a028';ctx.lineWidth=3;
@@ -6884,11 +7396,12 @@ function drawOwPauseMenu(){
   ctx.strokeStyle='#c8a02840';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(bx+16,by+44);ctx.lineTo(bx+bw-16,by+44);ctx.stroke();
   let btns2=[
     {label:'⚔  EQUIPAR ARMAS',col:'#204060',y:by+60,action:'weapons'},
-    {label:`🤖  DISPARO AUTO: ${autoShoot?'ON ✓':'OFF'}`,col:autoShoot?'#205020':'#3a2020',y:by+106,action:'autoshoot'},
-    {label:'🗺️  SEGUIR EXPLORANDO',col:'#206020',y:by+152,action:'close'},
-    {label:'🏠  MENÚ PRINCIPAL',col:'#333',y:by+198,action:'menu'},
+    {label:'🎨  EQUIPAR SKIN',col:'#402060',y:by+106,action:'skins'},
+    {label:`🤖  DISPARO AUTO: ${autoShoot?'ON ✓':'OFF'}`,col:autoShoot?'#205020':'#3a2020',y:by+152,action:'autoshoot'},
+    {label:'🗺️  SEGUIR EXPLORANDO',col:'#206020',y:by+198,action:'close'},
+    {label:'🏠  MENÚ PRINCIPAL',col:'#333',y:by+244,action:'menu'},
   ];
-  if(p2Active) btns2.push({label:'🚫  EXPULSAR J2',col:'#802010',y:by+244,action:'kickp2'});
+  if(p2Active) btns2.push({label:'🚫  EXPULSAR J2',col:'#802010',y:by+290,action:'kickp2'});
   for(let btn of btns2){
     ctx.fillStyle=btn.col;ctx.strokeStyle='#c8a028';ctx.lineWidth=2;
     ctx.beginPath();ctx.roundRect(bx+20,btn.y,bw-40,36,7);ctx.fill();ctx.stroke();
@@ -6908,6 +7421,24 @@ canvas.addEventListener('click',e=>{
   let cx=(e.clientX-rect.left)*(W/rect.width);
   let cy=(e.clientY-rect.top)*(H/rect.height);
   if(gameState!=='overworld')return;
+
+  // ── Skin menu ──
+  if(owSkinMenu&&owSkinClicks){
+    for(let btn of owSkinClicks){
+      if(cx>=btn.x&&cx<=btn.x+btn.w&&cy>=btn.y&&cy<=btn.y+btn.h){
+        if(btn.locked)return; // skin bloqueada
+        p1SkinId=btn.skinIdx;
+        player.skinId=p1SkinId;
+        if(mpMode){
+          let msg=JSON.stringify({type:'skinChange',id:mpMyIndex,skinId:p1SkinId});
+          if(mpIsHost){for(let c of mpClients)try{c.conn.send(msg);}catch(e2){}}
+          else if(mpHostConn)try{mpHostConn.send(msg);}catch(e2){}
+        }
+        return;
+      }
+    }
+    return;
+  }
 
   // ── Weapon menu ──
   if(owWeaponMenu&&owWpnClicks){
@@ -6943,6 +7474,7 @@ canvas.addEventListener('click',e=>{
       if(cx>=btn.x&&cx<=btn.x+btn.w&&cy>=btn.y&&cy<=btn.y+btn.h){
         owPauseMenu=false;
         if(btn.action==='weapons')owWeaponMenu=true;
+        else if(btn.action==='skins')owSkinMenu=true;
         else if(btn.action==='menu'){gameState='menu';showScreen('menuScreen');}
         else if(btn.action==='kickp2')kickP2();
         else if(btn.action==='autoshoot')autoShoot=!autoShoot;
@@ -7094,6 +7626,12 @@ const ALL_SKINS=[
   {coat:'#1840a0',coatDark:'#102880',coatShadow:'#0c2060',hatBand:'#40c8ff',bullet:'#80ffff',shadow:'#1030a0',name:'AZUL'},
   {coat:'#1a8020',coatDark:'#106010',coatShadow:'#084008',hatBand:'#40e060',bullet:'#a0ff60',shadow:'#104018',name:'VERDE'},
   {coat:'#6010a0',coatDark:'#400870',coatShadow:'#280050',hatBand:'#c040ff',bullet:'#e080ff',shadow:'#400880',name:'MORADO'},
+  // Recolores seleccionables en la isla
+  {coat:'#c8820a',coatDark:'#a06008',coatShadow:'#804006',hatBand:'#f5c840',bullet:'#ffe060',shadow:'#a06010',name:'DORADO'},
+  {coat:'#c81840',coatDark:'#a01030',coatShadow:'#800820',hatBand:'#ff60a0',bullet:'#ff80c0',shadow:'#a01030',name:'ROSA'},
+  {coat:'#108898',coatDark:'#087080',coatShadow:'#045060',hatBand:'#40e0e8',bullet:'#80ffff',shadow:'#086878',name:'CIAN'},
+  // Skin especial: Lanzaguisantes (desbloqueada hablando con el NPC)
+  {coat:'#2a9a18',coatDark:'#1a7010',coatShadow:'#0e4a08',hatBand:'#60e030',bullet:'#90ff40',shadow:'#1a7010',name:'LANZAGUISANTES',isPeashooter:true},
 ];
 
 // ── Network constants ──
@@ -7399,6 +7937,14 @@ function mpHandleIncoming(conn){
       if(d.type==='input'){cl.keys=d.keys||{};if(d.mx!==undefined)cl.mx=d.mx;if(d.my!==undefined)cl.my=d.my;}
       else if(d.type==='switchWeapon'){mpPlayerActiveSlot[cl.id]=d.slot%2;}
       else if(d.type==='setWeaponSlot'){if(mpPlayerSlots[cl.id]&&d.weaponId&&d.slot>=0&&d.slot<2){let opp=1-d.slot;if(mpPlayerSlots[cl.id][opp]!==d.weaponId)mpPlayerSlots[cl.id][d.slot]=d.weaponId;}}
+      else if(d.type==='skinChange'){
+        // Cliente cambia su skin — actualizar en el servidor y relay a todos
+        if(cl.id<mpPlayers.length&&mpPlayers[cl.id]){mpPlayers[cl.id].skinId=d.skinId;}
+        cl.skinId=d.skinId;
+        // Relay a los demás clientes para que vean el cambio
+        let relay=JSON.stringify({type:'skinChangeRelay',id:d.id,skinId:d.skinId});
+        for(let c2 of mpClients){if(c2.id!==cl.id)try{c2.conn.send(relay);}catch(e2){}}
+      }
       else if(d.type==='reviveRequest'){
         // Cliente pide revivir a otro jugador
         let pid=d.pid;
@@ -7658,6 +8204,11 @@ function mpHandleVoteMsg(d){
       invTimer=90;shieldT=120;
       spawnParts(player.x+player.w/2,player.y-player.h/2,'#f8e840',18,6,40);
       triggerShake(4,8);playSFX('heal');
+    }
+  } else if(d.type==='skinChangeRelay'){
+    // Otro jugador cambió su skin — actualizar localmente para el overworld
+    if(d.id!==undefined&&d.id!==mpMyIndex){
+      if(mpOwPositions[d.id])mpOwPositions[d.id].sk=d.skinId;
     }
   } else if(d.type==='gameOverMP'){
     stopMusic();showScreen('gameOver');gameState='end';
@@ -7949,9 +8500,11 @@ function gameLoop(){
         ctx.fillText('↑ + → + Enter  ·  Unirse como J2',W/2,H/2+32);
       }
       document.getElementById('pauseMenuBtn').style.display='block';
+      document.getElementById('pauseRetryBtn').style.display='block';
       document.getElementById('kickP2Btn').style.display='none';
     } else {
       document.getElementById('pauseMenuBtn').style.display='none';
+      document.getElementById('pauseRetryBtn').style.display='none';
       document.getElementById('kickP2Btn').style.display='none';
     }
   }
