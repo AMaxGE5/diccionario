@@ -2,70 +2,46 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PvZ: Extreme Speed - Curva de Dificultad</title>
+    <title>PvZ: Extreme Speed - Miner Update</title>
     <style>
         body { background: #121212; color: white; font-family: 'Arial Black', sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; overflow: hidden; user-select: none; }
-        
         #menu-container { position: absolute; width: 100%; height: 100%; background: #2e7d32; z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 10px solid #1b5e20; box-sizing: border-box; }
         .level-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 30px; }
         .level-btn { width: 160px; height: 110px; background: #795548; border: 5px solid #3e2723; color: white; font-size: 22px; cursor: pointer; border-radius: 12px; font-family: 'Arial Black'; }
-        .level-btn.locked { background: #333; border-color: #000; cursor: not-allowed; opacity: 0.6; }
-        .level-btn:not(.locked):hover { background: #a1887f; transform: scale(1.05); }
-
         #seed-selection-screen { position: absolute; width: 100%; height: 100%; background: #241a12; z-index: 150; display: none; flex-direction: column; align-items: center; justify-content: center; border: 10px solid #3e2723; box-sizing: border-box; text-align: center; }
-        #seed-selection-screen h1 { font-size: 40px; text-shadow: 3px 3px #000; margin-top: 0; margin-bottom: 10px; color: #ffeb3b; }
-        #level-warning { font-size: 20px; color: #4fc3f7; margin-bottom: 15px; text-shadow: 2px 2px #000; height: 25px;}
         .slot-container { display: flex; gap: 8px; background: #3e2723; padding: 15px; border-radius: 10px; border: 4px solid #795548; margin-bottom: 20px; min-height: 100px; min-width: 615px; justify-content: center; }
         .pool-container { display: flex; gap: 10px; flex-wrap: wrap; background: #4d3a29; padding: 20px; border-radius: 10px; border: 4px solid #3e2723; width: 800px; justify-content: center; margin-bottom: 20px; }
         .seed-empty-slot { width: 75px; height: 95px; background: #1a120c; border: 3px dashed #5d4037; border-radius: 5px; box-sizing: border-box; }
-        
-        #ui-panel { width: 1000px; height: 110px; background: #4d3a29; display: none; align-items: center; padding: 0 15px; box-sizing: border-box; border-bottom: 5px solid #241a12; gap: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        #ui-panel { width: 1000px; height: 110px; background: #4d3a29; display: none; align-items: center; padding: 0 15px; box-sizing: border-box; border-bottom: 5px solid #241a12; gap: 8px; }
         #sun-counter { background: #ffd54f; color: #332; padding: 8px; border-radius: 10px; font-weight: bold; font-size: 22px; border: 4px solid #f57f17; min-width: 85px; text-align: center; }
         .seed-packets { display: flex; gap: 5px; }
         .seed { width: 75px; height: 95px; background: #795548; border: 3px solid #3e2723; cursor: pointer; display: flex; flex-direction: column; align-items: center; position: relative; border-radius: 5px; overflow: hidden; box-sizing: border-box; }
-        .seed.selected { border-color: #fff; background: #a1887f; box-shadow: 0 0 15px #fff; transform: translateY(-3px); }
+        .seed.selected { border-color: #fff; background: #a1887f; box-shadow: 0 0 15px #fff; }
         .seed.disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(1); }
-        .seed .cooldown-overlay { position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; background: rgba(0,0,0,0.75); pointer-events: none; }
+        .seed .cooldown-overlay { position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; background: rgba(0,0,0,0.7); pointer-events: none; }
         .seed span { font-size: 11px; z-index: 2; font-weight: bold; text-shadow: 1px 1px #000; margin-top: 2px; }
-        
         .control-btn { padding: 10px; border-radius: 8px; cursor: pointer; border: 3px solid #37474f; font-size: 20px; display: flex; align-items: center; justify-content: center; min-width: 55px; }
-        .action-btn { padding: 15px 40px; font-size: 24px; cursor: pointer; background: #4caf50; color: white; border: 4px solid #1b5e20; border-radius: 10px; font-family: 'Arial Black'; transition: transform 0.1s; margin-top: 10px; }
-        .action-btn:hover:not(:disabled) { transform: scale(1.05); }
-        .action-btn:disabled { background: #555; border-color: #333; cursor: not-allowed; color: #888; }
-        
-        #shovel { background: #607d8b; }
-        #shovel.selected { background: #cfd8dc; border-color: white; }
-        #speed-btn { background: #ff5722; color: white; font-weight: bold; }
-        #pause-btn { background: #0288d1; color: white; }
-
+        .action-btn { padding: 15px 40px; font-size: 24px; cursor: pointer; background: #4caf50; color: white; border: 4px solid #1b5e20; border-radius: 10px; font-family: 'Arial Black'; }
         #game-container { position: relative; width: 900px; height: 600px; margin-top: 15px; border: 8px solid #3e2723; border-radius: 15px; display: none; }
-        canvas { display: block; transition: background-color 2s; }
-        
-        #announcement { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); color: #ffeb3b; font-size: 40px; text-shadow: 4px 4px #000; display: none; pointer-events: none; z-index: 50; text-align: center; width: 100%; }
-        #wave-panel { position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.85); padding: 10px; border-radius: 10px; width: 200px; text-align: center; border: 2px solid #ffeb3b; pointer-events: none; }
-        #wave-text { font-size: 14px; color: #ffeb3b; font-weight: bold; margin-bottom: 5px; }
-        .wave-bar-bg { background: #222; border-radius: 6px; overflow: hidden; height: 12px; }
-        #wave-bar { height: 100%; background: #f44336; width: 0%; border-radius: 5px; transition: width 0.3s; }
-        
-        #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; }
-        #pause-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 90; }
+        canvas { display: block; }
+        #announcement { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); color: #ffeb3b; font-size: 40px; text-shadow: 4px 4px #000; display: none; z-index: 50; text-align: center; width: 100%; }
+        #wave-panel { position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 10px; width: 200px; border: 2px solid #ffeb3b; }
+        #wave-bar { height: 12px; background: #f44336; width: 0%; border-radius: 5px; transition: width 0.3s; }
+        #overlay, #pause-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; }
     </style>
 </head>
 <body>
 
 <div id="menu-container">
-    <h1 style="font-size: 60px; text-shadow: 5px 5px #000; margin-bottom: 20px;">SELECCIONAR NIVEL</h1>
-    <div class="level-grid" id="level-grid">
+    <h1>SELECCIONAR NIVEL</h1>
+    <div class="level-grid">
         <button class="level-btn" onclick="prepareLevel(1)">NIVEL 1<br>☀️</button>
-        <button class="level-btn" onclick="prepareLevel(2)" id="btn-lvl-2">NIVEL 2<br>🌙</button>
-        <button class="level-btn locked">NIVEL 3<br>🔒</button>
-        <button class="level-btn locked">NIVEL 4<br>🔒</button>
+        <button class="level-btn" onclick="prepareLevel(2)">NIVEL 2<br>🌙</button>
     </div>
 </div>
 
 <div id="seed-selection-screen">
-    <h1>ELIGE TUS PLANTAS (MÁX 7)</h1>
-    <div id="level-warning"></div>
+    <h1>ELIGE TUS PLANTAS</h1>
     <div class="slot-container" id="chosen-seeds-container"></div>
     <div class="pool-container" id="available-seeds-container"></div>
     <button class="action-btn" id="start-level-btn" onclick="startLevel()" disabled>LISTO</button>
@@ -74,26 +50,20 @@
 <div id="ui-panel">
     <div id="sun-counter">☀️ 150</div>
     <div class="seed-packets" id="seeds"></div>
-    <div id="shovel" class="control-btn" title="Pala">🧹</div>
-    <div id="speed-btn" class="control-btn" title="Velocidad">x1</div>
-    <div id="pause-btn" class="control-btn" title="Pausar">⏸️</div>
+    <div id="shovel" class="control-btn">🧹</div>
+    <div id="speed-btn" class="control-btn">x1</div>
+    <div id="pause-btn" class="control-btn">⏸️</div>
 </div>
 
 <div id="game-container">
     <canvas id="gameCanvas" width="900" height="600"></canvas>
-    <div id="announcement">¡UNA GRAN HORDA SE APROXIMA!</div>
+    <div id="announcement"></div>
     <div id="wave-panel">
-        <div id="wave-text">OLEADA 1 / 10</div>
-        <div class="wave-bar-bg"><div id="wave-bar"></div></div>
+        <div style="font-size: 12px; color: #ffeb3b; margin-bottom: 5px;" id="wave-text">OLEADA 1</div>
+        <div style="background: #222; border-radius: 6px;"><div id="wave-bar"></div></div>
     </div>
-    <div id="pause-overlay">
-        <h1 style="font-size: 50px; color: #fff; text-shadow: 4px 4px #000; margin-bottom: 30px;">JUEGO PAUSADO</h1>
-        <button class="action-btn" onclick="togglePause()">CONTINUAR</button>
-    </div>
-    <div id="overlay">
-        <h1 id="status-text" style="font-size: 45px; color: #f44336; margin-bottom: 20px;"></h1>
-        <button class="action-btn" onclick="returnToMenu()">VOLVER AL SELECTOR</button>
-    </div>
+    <div id="pause-overlay"><h1>PAUSA</h1><button class="action-btn" onclick="togglePause()">VOLVER</button></div>
+    <div id="overlay"><h1 id="status-text"></h1><button class="action-btn" onclick="location.reload()">REINTENTAR</button></div>
 </div>
 
 <script>
@@ -101,540 +71,275 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const cellSize = 100;
 
-let currentLevel = 1;
-let isNight = false;
-let resources = 150, frame = 0, gameSpeed = 1, wave = 1, waveProgress = 0;
-const maxWaves = 10;
-let gameOver = false, gameWon = false, isPaused = false;
-let selectedPlant = null, shovelActive = false, mouse = { x: 0, y: 0 };
-let gameLoopId;
-
+let currentLevel = 1, isNight = false, resources = 150, frame = 0, gameSpeed = 1, wave = 1, waveProgress = 0;
+let gameOver = false, isPaused = false, selectedPlant = null, shovelActive = false;
 let plants = [], zombies = [], projectiles = [], suns = [], mowers = [], explosions = [];
 
 const plantTypes = {
     'lanzaguisantes': { cost: 100, hp: 100, color: '#4caf50', cooldown: 300, time: 'diurna' },
     'girasol': { cost: 50, hp: 80, color: '#ffeb3b', cooldown: 300, time: 'diurna' },
     'nuez': { cost: 50, hp: 2000, color: '#a1887f', cooldown: 900, time: 'diurna' },
-    'repetidora': { cost: 250, hp: 100, color: '#1b5e20', cooldown: 400, time: 'diurna' },
-    'papapum': { cost: 25, hp: 100, color: '#795548', cooldown: 800, time: 'diurna' },
-    'hielaguisantes': { cost: 175, hp: 100, color: '#4fc3f7', cooldown: 500, time: 'diurna' },
-    'plantorcha': { cost: 175, hp: 150, color: '#ff9800', cooldown: 400, time: 'diurna' },
-    'petacereza': { cost: 150, hp: 100, color: '#f44336', cooldown: 1800, time: 'instant' },
-    'carnivora': { cost: 175, hp: 300, color: '#9c27b0', cooldown: 600, time: 'diurna' },
-    'jalapeno': { cost: 125, hp: 100, color: '#e53935', cooldown: 1800, time: 'instant' },
+    'bipetidora': { cost: 175, hp: 120, color: '#8bc34a', cooldown: 350, time: 'diurna' },
     'setasolar': { cost: 25, hp: 80, color: '#fff59d', cooldown: 300, time: 'nocturna' },
     'setadesesporada': { cost: 0, hp: 50, color: '#9c27b0', cooldown: 150, time: 'nocturna' },
-    'humoseta': { cost: 75, hp: 100, color: '#7b1fa2', cooldown: 300, time: 'nocturna' },
-    'granodecafe': { cost: 75, hp: 50, color: '#5d4037', cooldown: 300, time: 'instant' }
+    'papapum': { cost: 25, hp: 100, color: '#795548', cooldown: 800, time: 'diurna' }
 };
 
 let cooldowns = {};
-Object.keys(plantTypes).forEach(k => cooldowns[k] = 0);
 let playerDeck = [];
 const MAX_DECK_SIZE = 7;
 
-function drawStrokeCircle(c, x, y, r) {
-    c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill(); c.stroke();
-}
-
-function drawPlant(c, type, x, y, size, angle = 0, scale = 1, ready = true, grown = false, sleeping = false) {
+function drawPlant(c, type, x, y, size, angle = 0, sleeping = false) {
     c.save();
-    
-    if (sleeping && type !== 'granodecafe') {
-        angle += 0.2; 
-        scale *= 0.9; 
-    }
-    
     c.translate(x + size/2, y + size/2);
-    if (sleeping && type !== 'granodecafe') c.translate(0, 8); 
-    
     c.rotate(angle);
-    c.scale(scale, scale);
     c.strokeStyle = '#000'; c.lineWidth = 3;
-
-    const drawFace = (ex, ey) => {
-        if (sleeping) {
-            c.strokeStyle = '#000'; c.lineWidth = 2.5;
-            c.beginPath(); c.moveTo(ex-8, ey); c.quadraticCurveTo(ex-4, ey+4, ex, ey); c.stroke();
-            c.beginPath(); c.moveTo(ex+2, ey); c.quadraticCurveTo(ex+6, ey+4, ex+10, ey); c.stroke();
-            c.fillStyle = '#fff'; c.font = 'bold 12px Arial'; c.fillText('Z', ex+10, ey-10);
-        } else {
-            c.fillStyle = '#000';
-            drawStrokeCircle(c, ex-4, ey, 2.5);
-            drawStrokeCircle(c, ex+4, ey, 2.5);
-        }
-    };
-
-    if (['lanzaguisantes', 'hielaguisantes', 'repetidora'].includes(type)) {
-        c.fillStyle = '#2e7d32'; c.fillRect(-4, 0, 8, 35); c.strokeRect(-4, 0, 8, 35);
+    
+    if (type === 'lanzaguisantes' || type === 'bipetidora') {
         c.fillStyle = plantTypes[type].color;
-        if (type === 'repetidora') { c.beginPath(); c.ellipse(-20, -10, 10, 15, -0.5, 0, Math.PI*2); c.fill(); c.stroke(); c.beginPath(); c.ellipse(-15, -25, 12, 18, -0.8, 0, Math.PI*2); c.fill(); c.stroke(); }
-        drawStrokeCircle(c, 2, -18, 22); drawStrokeCircle(c, 24, -18, 12); 
-        c.fillStyle = '#000'; drawStrokeCircle(c, 8, -24, 4); 
-        drawFace(2, -20);
+        // Cabeza principal
+        c.beginPath(); c.arc(10, -10, 20, 0, Math.PI*2); c.fill(); c.stroke();
+        c.beginPath(); c.arc(30, -10, 10, 0, Math.PI*2); c.fill(); c.stroke();
+        if (type === 'bipetidora') {
+            // Cabeza trasera
+            c.fillStyle = '#689f38';
+            c.beginPath(); c.arc(-15, -5, 18, 0, Math.PI*2); c.fill(); c.stroke();
+            c.beginPath(); c.arc(-35, -5, 9, 0, Math.PI*2); c.fill(); c.stroke();
+        }
     } else if (type === 'girasol') {
-        c.fillStyle = '#2e7d32'; c.fillRect(-3, 0, 6, 35); c.strokeRect(-3, 0, 6, 35);
         c.fillStyle = '#fbc02d';
         for(let i=0; i<8; i++){ c.rotate(Math.PI/4); c.beginPath(); c.ellipse(0, -20, 8, 15, 0, 0, Math.PI*2); c.fill(); c.stroke(); }
-        c.fillStyle = '#5d4037'; drawStrokeCircle(c, 0, 0, 16);
-        drawFace(0, -2);
+        c.fillStyle = '#5d4037'; c.beginPath(); c.arc(0,0,15,0,Math.PI*2); c.fill(); c.stroke();
     } else if (type === 'nuez') {
-        c.fillStyle = '#8d6e63'; c.beginPath(); c.ellipse(0, 5, 32, 42, 0, 0, Math.PI*2); c.fill(); c.stroke();
-        drawFace(0, -8);
+        c.fillStyle = '#8d6e63'; c.beginPath(); c.ellipse(0, 5, 30, 40, 0, 0, Math.PI*2); c.fill(); c.stroke();
     } else if (type === 'papapum') {
-        if (!ready) { c.fillStyle = '#4e342e'; drawStrokeCircle(c, 0, 35, 12); }
-        else { c.fillStyle = '#8d6e63'; c.beginPath(); c.ellipse(0, 25, 26, 20, 0, 0, Math.PI*2); c.fill(); c.stroke(); c.fillStyle = (frame % 20 < 10 && !sleeping) ? '#ff1744' : '#000'; drawStrokeCircle(c, 0, 0, 6); drawFace(0, 22); }
-    } else if (type === 'plantorcha') {
-        c.fillStyle = '#5d4037'; c.fillRect(-20, -10, 40, 50); c.strokeRect(-20, -10, 40, 50);
-        c.fillStyle = '#ff5722'; c.beginPath(); c.moveTo(-15, -10); c.lineTo(0, -45); c.lineTo(15, -10); c.fill();
-        drawFace(0, 0);
-    } else if (type === 'petacereza') {
-        c.fillStyle = '#d32f2f'; drawStrokeCircle(c, -20, 15, 24); drawStrokeCircle(c, 20, 15, 24); c.strokeStyle = '#2e7d32'; c.lineWidth = 5; c.beginPath(); c.moveTo(-15, -5); c.quadraticCurveTo(0, -30, 15, -5); c.stroke();
-        drawFace(-20, 15); drawFace(20, 15);
-    } else if (type === 'carnivora') {
-        c.fillStyle = '#2e7d32'; c.fillRect(-5, 0, 10, 30); c.strokeRect(-5, 0, 10, 30);
-        c.fillStyle = plantTypes[type].color;
-        if (ready && !sleeping) { c.beginPath(); c.arc(5, -10, 25, Math.PI + 0.5, Math.PI * 2 - 0.5); c.lineTo(5, 10); c.fill(); c.stroke(); c.fillStyle = '#fff'; c.beginPath(); c.moveTo(-10, -15); c.lineTo(-5, -5); c.lineTo(0, -15); c.fill(); c.beginPath(); c.moveTo(0, -15); c.lineTo(5, -5); c.lineTo(10, -15); c.fill(); }
-        else { c.beginPath(); c.ellipse(0, -5, 28, 20, 0, 0, Math.PI*2); c.fill(); c.stroke(); c.fillStyle = '#7b1fa2'; c.beginPath(); c.ellipse(0, -5, 15, 8, 0, 0, Math.PI*2); c.fill(); if(sleeping) drawFace(0,-15); }
-    } else if (type === 'jalapeno') {
-        c.fillStyle = '#4caf50'; c.fillRect(-4, -25, 8, 15); c.fillStyle = plantTypes[type].color; c.beginPath(); c.ellipse(0, 5, 15, 30, 0, 0, Math.PI*2); c.fill(); c.stroke();
-        drawFace(0, 0);
-    } else if (type === 'setasolar') {
-        let sc = grown ? 1.2 : 0.8; c.scale(sc, sc);
-        c.fillStyle = '#4e342e'; c.fillRect(-5, 10, 10, 25); c.strokeRect(-5, 10, 10, 25);
+        c.fillStyle = '#8d6e63'; c.beginPath(); c.ellipse(0, 25, 25, 15, 0, 0, Math.PI*2); c.fill(); c.stroke();
+        c.fillStyle = '#f44336'; c.beginPath(); c.arc(0, 5, 5, 0, Math.PI*2); c.fill();
+    } else if (type.includes('seta')) {
+        c.fillStyle = '#4e342e'; c.fillRect(-5, 10, 10, 25);
         c.fillStyle = plantTypes[type].color; c.beginPath(); c.ellipse(0, 10, 20, 15, 0, Math.PI, 0); c.fill(); c.stroke();
-        drawFace(0, 5);
-    } else if (type === 'setadesesporada') {
-        c.fillStyle = '#4e342e'; c.fillRect(-4, 15, 8, 20); c.strokeRect(-4, 15, 8, 20);
-        c.fillStyle = plantTypes[type].color; c.beginPath(); c.ellipse(0, 15, 18, 12, 0, Math.PI, 0); c.fill(); c.stroke();
-        drawFace(0, 10);
-    } else if (type === 'humoseta') {
-        c.fillStyle = '#4e342e'; c.fillRect(-8, 5, 16, 30); c.strokeRect(-8, 5, 16, 30);
-        c.fillStyle = plantTypes[type].color; c.beginPath(); c.ellipse(0, 5, 28, 18, 0, Math.PI, 0); c.fill(); c.stroke();
-        drawStrokeCircle(c, 25, 2, 6); 
-        drawFace(0, -2);
-    } else if (type === 'granodecafe') {
-        c.fillStyle = plantTypes[type].color; c.beginPath(); c.ellipse(0, 10, 20, 15, -0.2, 0, Math.PI*2); c.fill(); c.stroke();
-        c.strokeStyle = '#3e2723'; c.beginPath(); c.moveTo(-10, 15); c.quadraticCurveTo(0, 0, 10, 5); c.stroke();
-        c.fillStyle = '#fff'; drawStrokeCircle(c, -8, 8, 4); drawStrokeCircle(c, 8, 8, 4);
-        c.fillStyle = '#000'; drawStrokeCircle(c, -8, 8, 1.5); drawStrokeCircle(c, 8, 8, 1.5);
+    }
+    
+    if (sleeping) {
+        c.fillStyle = "white"; c.font = "12px Arial"; c.fillText("Zzz", 10, -20);
     }
     c.restore();
 }
 
 function drawZombie(z) {
     ctx.save(); ctx.translate(z.x + 50, z.y + 50);
-    const walkCycle = Math.sin(frame * 0.15); const headBob = Math.abs(Math.cos(frame * 0.15)) * 4;
-    ctx.rotate(walkCycle * 0.05); ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
-    ctx.fillStyle = z.freeze > 0 ? '#4fc3f7' : '#7cb342'; ctx.fillRect(walkCycle * 3 - 35, -5, 30, 8); ctx.strokeRect(walkCycle * 3 - 35, -5, 30, 8);
-    ctx.fillStyle = z.type === 'bandera' ? '#1a237e' : '#5d4037'; ctx.fillRect(-20, -15, 40, 50); ctx.strokeRect(-20, -15, 40, 50);
-    ctx.save(); ctx.translate(0, -32 - headBob);
-    ctx.fillStyle = z.freeze > 0 ? '#4fc3f7' : '#7cb342'; drawStrokeCircle(ctx, 0, 0, 22); ctx.fillStyle = '#fff'; drawStrokeCircle(ctx, 8, -6, 6); ctx.fillStyle = '#000'; drawStrokeCircle(ctx, 10, -6, 2.5);
-    ctx.restore();
-    if (z.type === 'bandera') { ctx.strokeStyle = '#795548'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(15, 10); ctx.lineTo(15, -60); ctx.stroke(); ctx.fillStyle = '#f44336'; ctx.fillRect(15, -60, 30, 20); ctx.strokeRect(15, -60, 30, 20); }
-    ctx.restore();
-}
-
-function returnToMenu() {
-    cancelAnimationFrame(gameLoopId);
-    document.getElementById('overlay').style.display = 'none';
-    document.getElementById('game-container').style.display = 'none';
-    document.getElementById('ui-panel').style.display = 'none';
-    document.getElementById('menu-container').style.display = 'flex';
-}
-
-function prepareLevel(level) {
-    currentLevel = level;
-    document.getElementById('menu-container').style.display = 'none';
-    document.getElementById('seed-selection-screen').style.display = 'flex';
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
     
-    const warningText = document.getElementById('level-warning');
-    if (level === 2) {
-        warningText.innerText = "NIVEL 2: ¡La noche caerá a mitad de la partida! Lleva setas.";
+    if (z.type === 'miner' && z.digging) {
+        ctx.fillStyle = '#5d4037'; ctx.beginPath(); ctx.arc(0, 40, 30, Math.PI, 0); ctx.fill(); // Montículo de tierra
+        ctx.fillStyle = '#7cb342'; ctx.beginPath(); ctx.arc(0, 25, 15, 0, Math.PI*2); ctx.fill(); ctx.stroke(); // Cabeza asomando
     } else {
-        warningText.innerText = "";
+        ctx.fillStyle = (z.type === 'invocador') ? '#4a148c' : '#5d4037';
+        ctx.fillRect(-20, -15, 40, 50); ctx.strokeRect(-20, -15, 40, 50);
+        ctx.fillStyle = '#7cb342'; ctx.beginPath(); ctx.arc(0, -30, 20, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+        if (z.type === 'miner') { ctx.fillStyle = '#fdd835'; ctx.fillRect(-15, -50, 30, 10); } // Casco
     }
-    
-    playerDeck = []; renderSeedSelection();
+    ctx.restore();
 }
 
-function renderSeedSelection() {
-    const chosenContainer = document.getElementById('chosen-seeds-container');
-    const poolContainer = document.getElementById('available-seeds-container');
-    chosenContainer.innerHTML = ''; poolContainer.innerHTML = '';
+function prepareLevel(l) {
+    currentLevel = l; document.getElementById('menu-container').style.display = 'none';
+    document.getElementById('seed-selection-screen').style.display = 'flex';
+    playerDeck = []; renderSelection();
+}
 
-    for (let i = 0; i < MAX_DECK_SIZE; i++) {
-        const div = document.createElement('div');
-        if (playerDeck[i]) {
-            const key = playerDeck[i]; div.className = 'seed';
-            div.innerHTML = `<canvas id="cs-${i}" width="65" height="65"></canvas><span>${plantTypes[key].cost}</span>`;
-            div.onclick = () => { playerDeck.splice(i, 1); renderSeedSelection(); };
-            chosenContainer.appendChild(div);
-            drawPlant(document.getElementById(`cs-${i}`).getContext('2d'), key, 0, 0, 65, 0, 0.7, true, true, false);
-        } else {
-            div.className = 'seed-empty-slot'; chosenContainer.appendChild(div);
+function renderSelection() {
+    const chosen = document.getElementById('chosen-seeds-container');
+    const pool = document.getElementById('available-seeds-container');
+    chosen.innerHTML = ''; pool.innerHTML = '';
+    
+    for(let i=0; i<MAX_DECK_SIZE; i++) {
+        const div = document.createElement('div'); div.className = playerDeck[i] ? 'seed' : 'seed-empty-slot';
+        if(playerDeck[i]) {
+            div.innerHTML = `<span>${plantTypes[playerDeck[i]].cost}</span>`;
+            div.onclick = () => { playerDeck.splice(i, 1); renderSelection(); };
         }
+        chosen.appendChild(div);
     }
-
-    Object.keys(plantTypes).forEach(key => {
-        const p = plantTypes[key]; const isChosen = playerDeck.includes(key);
-        const div = document.createElement('div'); div.className = `seed ${isChosen ? 'disabled' : ''}`;
-        let extraIcon = p.time === 'nocturna' ? '🌙' : (p.time === 'diurna' ? '☀️' : '⚡');
-        div.innerHTML = `<canvas id="pool-${key}" width="65" height="65"></canvas><span>${p.cost} ${extraIcon}</span>`;
-        if (!isChosen) {
-            div.onclick = () => { if (playerDeck.length < MAX_DECK_SIZE) { playerDeck.push(key); renderSeedSelection(); } };
+    
+    Object.keys(plantTypes).forEach(k => {
+        if (!playerDeck.includes(k)) {
+            const div = document.createElement('div'); div.className = 'seed';
+            div.innerHTML = `<span>${plantTypes[k].cost}</span>`;
+            div.onclick = () => { if(playerDeck.length < MAX_DECK_SIZE) { playerDeck.push(k); renderSelection(); } };
+            pool.appendChild(div);
         }
-        poolContainer.appendChild(div);
-        drawPlant(document.getElementById(`pool-${key}`).getContext('2d'), key, 0, 0, 65, 0, 0.7, true, true, false);
     });
-
     document.getElementById('start-level-btn').disabled = playerDeck.length === 0;
 }
 
-function startLevel() {
-    resources = 150; frame = 0; wave = 1; waveProgress = 0;
-    gameOver = false; gameWon = false; isPaused = false;
-    plants = []; zombies = []; projectiles = []; suns = []; mowers = []; explosions = [];
-    isNight = false; 
+function spawnZombie(count, fixedY = null) {
+    // Incremento de vida del 10% según pedido
+    let baseHp = (100 + (wave * 25)) * 1.1;
     
-    Object.keys(cooldowns).forEach(k => cooldowns[k] = 0);
-    for (let i = 0; i < 6; i++) mowers.push({x: 10, y: i * cellSize, active: false});
+    for (let i = 0; i < count; i++) {
+        let type = 'normal';
+        if (wave >= 4 && Math.random() < 0.2) type = 'miner';
+        if (wave >= 6 && Math.random() < 0.15) type = 'invocador';
+        
+        let y = (fixedY !== null) ? fixedY : Math.floor(Math.random()*6)*cellSize;
+        zombies.push({
+            x: 950 + (i * 30), y: y, 
+            hp: baseHp * (type === 'invocador' ? 1.5 : 1), 
+            speed: 0.35, type: type, 
+            digging: (type === 'miner'), 
+            summonT: 0
+        });
+    }
+}
 
+function startLevel() {
     document.getElementById('seed-selection-screen').style.display = 'none';
     document.getElementById('ui-panel').style.display = 'flex';
     document.getElementById('game-container').style.display = 'block';
-    updateUI();
+    for(let i=0; i<6; i++) mowers.push({x: 10, y: i*cellSize, active: false});
+    playerDeck.forEach(k => cooldowns[k] = 0);
     loop();
 }
 
-function togglePause() {
-    if (gameOver || gameWon) return;
-    isPaused = !isPaused;
-    document.getElementById('pause-btn').innerText = isPaused ? "▶️" : "⏸️";
-    document.getElementById('pause-overlay').style.display = isPaused ? 'flex' : 'none';
+function loop() {
+    if (!isPaused && !gameOver) {
+        for (let s = 0; s < gameSpeed; s++) {
+            frame++;
+            // Lógica de Oleadas con incrementos de spawneo 30%, 60% y Final
+            if (frame % 300 === 0 && waveProgress < 100) {
+                waveProgress += 4;
+                let multiplier = 1;
+                if (wave >= 10) multiplier = 3; // Final: Muchos más
+                else if (wave >= 8) multiplier = 1.6; // +60%
+                else if (wave >= 3) multiplier = 1.3; // +30%
+                
+                if (Math.random() < 0.3 * multiplier) spawnZombie(1);
+            }
+
+            if (waveProgress >= 100 && zombies.length === 0 && wave < 10) {
+                wave++; waveProgress = 0;
+                if (currentLevel === 2 && wave === 6) isNight = true;
+                spawnZombie(wave);
+            }
+
+            // Girasol 25% más lento (600 -> 800)
+            plants.forEach(p => {
+                p.t++;
+                let sunInterval = (p.type === 'girasol' || p.type === 'setasolar') ? 800 : 0;
+                if (sunInterval > 0 && p.t % sunInterval === 0 && !p.sleeping) {
+                    suns.push({x: p.x+20, y: p.y+20, targetY: p.y+20, t: 500});
+                }
+                
+                // Solo disparan si hay zombies en pantalla
+                let zombiesInGarden = zombies.some(z => z.x < 900);
+                if (zombiesInGarden && !p.sleeping) {
+                    if (p.type === 'lanzaguisantes' && p.t % 100 === 0) {
+                        projectiles.push({x: p.x+70, y: p.y+35, vx: 7});
+                    }
+                    if (p.type === 'bipetidora' && p.t % 100 === 0) {
+                        projectiles.push({x: p.x+70, y: p.y+35, vx: 7}); // Adelante
+                        projectiles.push({x: p.x+10, y: p.y+45, vx: -7}); // Atrás 1
+                        projectiles.push({x: p.x+10, y: p.y+25, vx: -7}); // Atrás 2
+                    }
+                }
+            });
+
+            zombies.forEach((z, idx) => {
+                if (z.type === 'invocador') {
+                    z.summonT++;
+                    if (z.summonT % 400 === 0) spawnZombie(1, z.y);
+                }
+
+                if (z.type === 'miner' && z.digging) {
+                    z.x -= z.speed * 3;
+                    if (z.x < 20) z.digging = false;
+                } else {
+                    let eating = false;
+                    let direction = (z.type === 'miner' && !z.digging) ? 1 : -1;
+                    
+                    plants.forEach(p => {
+                        if (z.y === p.y && Math.abs(z.x - p.x) < 30) {
+                            eating = true; p.hp -= 1;
+                        }
+                    });
+                    
+                    if (!eating) z.x += z.speed * direction;
+                    if (z.x < -50 || z.x > 950) gameOver = true;
+                }
+            });
+
+            projectiles.forEach((pr, pi) => {
+                pr.x += pr.vx;
+                zombies.forEach(z => {
+                    if (!z.digging && z.y === (pr.y - 35) && Math.abs(pr.x - (z.x+50)) < 30) {
+                        z.hp -= 20; projectiles.splice(pi, 1);
+                    }
+                });
+            });
+
+            plants = plants.filter(p => p.hp > 0);
+            zombies = zombies.filter(z => z.hp > 0);
+            Object.keys(cooldowns).forEach(k => { if(cooldowns[k] > 0) cooldowns[k]--; });
+        }
+    }
+
+    draw();
+    requestAnimationFrame(loop);
 }
 
-document.getElementById('pause-btn').onclick = togglePause;
-window.addEventListener('keydown', (e) => { if (e.key === 'Escape') togglePause(); });
-document.getElementById('speed-btn').onclick = () => { gameSpeed = (gameSpeed % 3) + 1; updateUI(); };
-document.getElementById('shovel').onclick = () => { shovelActive = !shovelActive; selectedPlant = null; updateUI(); };
-
-function updateUI() {
-    const container = document.getElementById('seeds');
-    container.innerHTML = '';
+function draw() {
+    ctx.clearRect(0,0,900,600);
+    ctx.fillStyle = isNight ? '#1a237e' : '#4caf50'; ctx.fillRect(0,0,900,600);
+    for(let i=0; i<9; i++) for(let j=0; j<6; j++) {
+        ctx.strokeStyle = 'rgba(0,0,0,0.1)'; ctx.strokeRect(i*100, j*100, 100, 100);
+    }
     
-    playerDeck.forEach(key => {
-        const p = plantTypes[key];
-        const div = document.createElement('div');
-        div.className = `seed ${resources < p.cost || cooldowns[key] > 0 ? 'disabled' : ''} ${selectedPlant === key ? 'selected' : ''}`;
-        div.innerHTML = `<canvas id="c-${key}" width="65" height="65"></canvas><span>${p.cost}</span><div class="cooldown-overlay" style="height: ${(cooldowns[key]/p.cooldown)*100}%"></div>`;
-        div.onclick = (e) => { 
-            e.stopPropagation();
-            if (resources >= p.cost && cooldowns[key] <= 0 && !isPaused) { selectedPlant = key; shovelActive = false; updateUI(); } 
-        };
-        container.appendChild(div);
-        drawPlant(document.getElementById(`c-${key}`).getContext('2d'), key, 0, 0, 65, 0, 0.7, true, true, false);
-    });
+    plants.forEach(p => drawPlant(ctx, p.type, p.x, p.y, 100, 0, p.sleeping));
+    zombies.forEach(z => drawZombie(z));
+    projectiles.forEach(pr => { ctx.fillStyle = '#76ff03'; ctx.beginPath(); ctx.arc(pr.x, pr.y, 8, 0, Math.PI*2); ctx.fill(); });
+    suns.forEach(s => { ctx.fillStyle = '#ffeb3b'; ctx.beginPath(); ctx.arc(s.x, s.y, 15, 0, Math.PI*2); ctx.fill(); });
     
     document.getElementById('sun-counter').innerText = `☀️ ${resources}`;
-    document.getElementById('speed-btn').innerText = `x${gameSpeed}`;
-    document.getElementById('shovel').className = `control-btn ${shovelActive ? 'selected' : ''}`;
-    
-    document.getElementById('wave-text').innerText = `OLEADA ${wave} / ${maxWaves}`;
     document.getElementById('wave-bar').style.width = `${waveProgress}%`;
+    document.getElementById('wave-text').innerText = `OLEADA ${wave}`;
 }
 
 canvas.addEventListener('mousedown', (e) => {
-    if (isPaused || gameOver || gameWon) return;
-    const rect = canvas.getBoundingClientRect(); const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    
+    // Recoger soles
+    suns.forEach((s, i) => {
+        if(Math.hypot(mx-s.x, my-s.y) < 40) { resources += 25; suns.splice(i, 1); }
+    });
 
-    for (let i = suns.length - 1; i >= 0; i--) {
-        if (Math.hypot(mx - suns[i].x, my - suns[i].y) < 50) {
-            resources += suns[i].amount; suns.splice(i, 1); updateUI(); return;
-        }
-    }
-
-    const gx = Math.floor(mx/100)*100; const gy = Math.floor(my/100)*100;
-
-    if (shovelActive) {
-        const idx = plants.findIndex(p => p.x === gx && p.y === gy);
-        if (idx !== -1) plants.splice(idx, 1);
-        shovelActive = false; updateUI(); return;
-    }
-
-    if (selectedPlant && gx < 900) {
-        if (selectedPlant === 'granodecafe') {
-            let targetPlant = plants.find(p => p.x === gx && p.y === gy && p.sleeping);
-            if (targetPlant && resources >= plantTypes['granodecafe'].cost) {
-                targetPlant.sleeping = false; 
-                resources -= plantTypes['granodecafe'].cost;
-                cooldowns['granodecafe'] = plantTypes['granodecafe'].cooldown;
-                selectedPlant = null; updateUI();
-            }
-            return;
-        }
-
-        if (resources >= plantTypes[selectedPlant].cost && !plants.some(p => p.x === gx && p.y === gy)) {
-            if (selectedPlant === 'petacereza') {
-                explosions.push({x: gx+50, y: gy+50, r: 160, t: 15});
-                zombies.forEach(z => { if (Math.abs(z.x - gx) < 180 && Math.abs(z.y - gy) < 180) z.hp = 0; });
-            } else if (selectedPlant === 'jalapeno') {
-                for (let i = 0; i < 9; i++) explosions.push({x: i*100 + 50, y: gy + 50, r: 50, t: 20});
-                zombies.forEach(z => { if (z.y === gy) z.hp = 0; });
-            } else {
-                let pTypeInfo = plantTypes[selectedPlant];
-                let isSleeping = false;
-                if (pTypeInfo.time === 'diurna' && isNight) isSleeping = true;
-                if (pTypeInfo.time === 'nocturna' && !isNight) isSleeping = true;
-
-                plants.push({ x: gx, y: gy, type: selectedPlant, hp: pTypeInfo.hp, t: 0, ready: (selectedPlant !== 'papapum'), ráfaga: 0, digestTimer: 0, sleeping: isSleeping, lifeSpan: (selectedPlant === 'setadesesporada' ? 600 : null), grown: false });
-            }
-            resources -= plantTypes[selectedPlant].cost;
-            cooldowns[selectedPlant] = plantTypes[selectedPlant].cooldown;
-            selectedPlant = null; updateUI();
-        }
+    const gx = Math.floor(mx/100)*100, gy = Math.floor(my/100)*100;
+    if (selectedPlant && resources >= plantTypes[selectedPlant].cost && !plants.some(p => p.x === gx && p.y === gy)) {
+        let sleeping = (isNight && plantTypes[selectedPlant].time === 'diurna') || (!isNight && plantTypes[selectedPlant].time === 'nocturna');
+        plants.push({x: gx, y: gy, type: selectedPlant, hp: plantTypes[selectedPlant].hp, t: 0, sleeping: sleeping});
+        resources -= plantTypes[selectedPlant].cost;
+        selectedPlant = null;
     }
 });
 
-function spawnZombie(count) {
-    for (let i = 0; i < count; i++) {
-        let hpEscalada = 100 + (wave * 25); 
-        let offsetX = i * 40 + (Math.random() * 20); 
-        zombies.push({x: 1000 + offsetX, y: Math.floor(Math.random()*6)*cellSize, hp: hpEscalada, speed: 0.33, freeze: 0, mode: 1});
-    }
-}
+function togglePause() { isPaused = !isPaused; document.getElementById('pause-overlay').style.display = isPaused ? 'flex' : 'none'; }
+document.getElementById('speed-btn').onclick = () => { gameSpeed = gameSpeed === 1 ? 2 : 1; document.getElementById('speed-btn').innerText = `x${gameSpeed}`; };
+document.getElementById('pause-btn').onclick = togglePause;
 
-function loop() {
-    if (!isPaused && !gameOver && !gameWon) {
-        for (let s = 0; s < gameSpeed; s++) {
-            frame++;
-            Object.keys(cooldowns).forEach(k => { if (cooldowns[k] > 0) cooldowns[k]--; });
-            
-            if (frame % 250 === 0 && waveProgress < 100) {
-                waveProgress += 5;
-                
-                // SISTEMA DE APARICIÓN ESCALONADO
-                let zombiesToSpawn = 0;
-
-                if (wave === 1) {
-                    // Oleada 1: Muy lenta. 1 zombie al 30%, 1 al 65% y 2 al 95%
-                    if (waveProgress === 30 || waveProgress === 65) zombiesToSpawn = 1;
-                    if (waveProgress === 95) zombiesToSpawn = 2;
-                } else if (wave === 2) {
-                    // Oleada 2: Acelera un poco pero sigue tranquilo
-                    if (waveProgress === 20 || waveProgress === 50 || waveProgress === 75) zombiesToSpawn = 1;
-                    if (waveProgress === 95) zombiesToSpawn = 2;
-                } else {
-                    // Oleadas 3 en adelante: Dificultad progresiva matemática
-                    if (waveProgress % 20 === 0) zombiesToSpawn = Math.floor(wave / 2);
-                    if (waveProgress % 35 === 0) zombiesToSpawn = Math.floor(wave / 1.5) || 1;
-                }
-
-                if (zombiesToSpawn > 0) {
-                    spawnZombie(zombiesToSpawn);
-                }
-                
-                // Cierre y avance de oleada
-                if (waveProgress >= 100 && wave < maxWaves) {
-                    wave++; waveProgress = 0;
-                    
-                    if (currentLevel === 2 && wave === 6 && !isNight) {
-                        isNight = true;
-                        document.getElementById('announcement').innerText = "¡LA NOCHE HA CAÍDO!";
-                        document.getElementById('announcement').style.display = 'block';
-                        setTimeout(() => document.getElementById('announcement').style.display = 'none', 3000);
-                        
-                        plants.forEach(p => {
-                            let timeType = plantTypes[p.type].time;
-                            if (timeType === 'diurna') p.sleeping = true; 
-                            if (timeType === 'nocturna') p.sleeping = false; 
-                        });
-                    }
-
-                    if (wave % 3 === 0) {
-                        if (wave !== 6) document.getElementById('announcement').innerText = "¡UNA GRAN HORDA SE APROXIMA!";
-                        document.getElementById('announcement').style.display = 'block';
-                        setTimeout(() => document.getElementById('announcement').style.display = 'none', 3000);
-                        spawnZombie(wave * 2); 
-                    }
-                }
-                updateUI();
-            }
-
-            let sunInterval = isNight ? 1200 : 400;
-            if (frame % sunInterval === 0) {
-                suns.push({x: Math.random()*800+50, y: 0, targetY: Math.random()*400+100, t: 500, amount: 25});
-            }
-
-            for (let i = plants.length - 1; i >= 0; i--) {
-                let p = plants[i];
-                p.t++;
-                
-                if (!p.sleeping) {
-                    if (p.type === 'girasol' && p.t % 600 === 0) suns.push({x: p.x+20, y: p.y+20, targetY: p.y+20, t: 500, amount: 25});
-                    if (p.type === 'setasolar') {
-                        if (p.t === 1800) p.grown = true; 
-                        if (p.t % 600 === 0) suns.push({x: p.x+20, y: p.y+20, targetY: p.y+20, t: 500, amount: p.grown ? 25 : 15});
-                    }
-
-                    if (['lanzaguisantes', 'hielaguisantes', 'repetidora'].includes(p.type) && p.t % 100 === 0) {
-                        if (zombies.some(z => z.y === p.y && z.x > p.x)) {
-                            projectiles.push({x: p.x+80, y: p.y+35, type: 'pea', ice: p.type === 'hielaguisantes', fire: false});
-                            if (p.type === 'repetidora') p.ráfaga = 15;
-                        }
-                    }
-                    if (p.type === 'setadesesporada' && p.t % 50 === 0) { 
-                        if (zombies.some(z => z.y === p.y && z.x > p.x && z.x < p.x + 400)) {
-                            projectiles.push({x: p.x+60, y: p.y+40, type: 'spore'});
-                        }
-                    }
-                    if (p.type === 'humoseta' && p.t % 150 === 0) {
-                        if (zombies.some(z => z.y === p.y && z.x > p.x && z.x <= p.x + 400)) {
-                            projectiles.push({x: p.x+80, y: p.y+35, type: 'fume', startX: p.x, hitZombies: []});
-                        }
-                    }
-
-                    if (p.ráfaga > 0) { 
-                        p.ráfaga--; 
-                        if (p.ráfaga === 0) projectiles.push({x: p.x+80, y: p.y+35, type: 'pea', ice: false, fire: false}); 
-                    }
-                    
-                    if (p.type === 'papapum' && !p.ready && p.t > 400) p.ready = true;
-
-                    if (p.type === 'carnivora') {
-                        if (p.digestTimer > 0) p.digestTimer--;
-                        else {
-                            let zToEat = zombies.find(z => z.y === p.y && z.x >= p.x && z.x <= p.x + 80 && z.mode <= 1);
-                            if (zToEat) { zToEat.hp = 0; p.digestTimer = 1000; }
-                        }
-                    }
-                    
-                    if (p.type === 'setadesesporada') {
-                        p.lifeSpan--;
-                        if (p.lifeSpan <= 0) p.hp = 0;
-                    }
-                }
-
-                if (p.hp <= 0) plants.splice(i, 1);
-            }
-
-            for (let i = zombies.length - 1; i >= 0; i--) {
-                let z = zombies[i];
-                let eating = false;
-                plants.forEach(p => {
-                    if (z.y === p.y && z.x < p.x + 60 && z.x > p.x - 20) {
-                        if (p.type === 'papapum' && p.ready && !p.sleeping) { 
-                            p.hp = 0; 
-                            explosions.push({x: p.x + 50, y: p.y + 50, r: 60, t: 15}); 
-                            zombies.forEach(z2 => { if (Math.abs(z2.x - p.x) < 80 && Math.abs(z2.y - p.y) < 80) z2.hp = 0; });
-                        } else {
-                            eating = true; 
-                            p.hp -= 1;
-                        }
-                    }
-                });
-                
-                if (!eating) z.x -= (z.freeze > 0 ? z.speed * 0.5 : z.speed);
-                if (z.x < -60) gameOver = true;
-                if (z.hp <= 0) zombies.splice(i, 1);
-            }
-
-            for (let i = projectiles.length - 1; i >= 0; i--) {
-                let pr = projectiles[i];
-                pr.x += 8;
-                
-                if (pr.type === 'pea' || pr.type === 'spore') {
-                    if (pr.type === 'pea') {
-                        plants.forEach(p => {
-                            if (p.type === 'plantorcha' && !p.sleeping && pr.y === p.y && pr.x > p.x && pr.x < p.x + 60) {
-                                pr.fire = true; pr.ice = false; 
-                            }
-                        });
-                    }
-
-                    for (let j = zombies.length - 1; j >= 0; j--) {
-                        let z = zombies[j];
-                        if (pr.x > z.x && pr.x < z.x+70 && pr.y > z.y && pr.y < z.y+100) {
-                            z.hp -= (pr.fire ? 40 : 20); 
-                            if(pr.ice) z.freeze = 200; 
-                            projectiles.splice(i, 1); 
-                            break; 
-                        }
-                    }
-                } else if (pr.type === 'fume') {
-                    for (let j = zombies.length - 1; j >= 0; j--) {
-                        let z = zombies[j];
-                        if (pr.x > z.x && pr.x < z.x+70 && pr.y > z.y && pr.y < z.y+100 && !pr.hitZombies.includes(z)) {
-                            z.hp -= 20; 
-                            pr.hitZombies.push(z); 
-                        }
-                    }
-                    if (pr.x > pr.startX + 400) projectiles.splice(i, 1); 
-                }
-            }
-
-            mowers.forEach(m => { 
-                if (m.active) { 
-                    m.x += 10; zombies.forEach(z => { if(z.y === m.y && z.x < m.x + 40) z.hp = 0; }); 
-                } else if (zombies.some(z => z.y === m.y && z.x < 50)) { m.active = true; }
-            });
-
-            for (let i = suns.length - 1; i >= 0; i--) {
-                let s = suns[i];
-                if (s.y < s.targetY) s.y += 2; 
-                s.t--; if (s.t <= 0) suns.splice(i, 1);
-            }
-
-            for (let i = explosions.length - 1; i >= 0; i--) { explosions[i].t--; if (explosions[i].t <= 0) explosions.splice(i, 1); }
-            
-            if (wave === maxWaves && waveProgress >= 100 && zombies.length === 0) gameWon = true;
-        }
-    }
-
-    ctx.clearRect(0,0,900,600);
-    
-    let c1 = isNight ? '#0b2611' : '#4caf50';
-    let c2 = isNight ? '#07170a' : '#43a047';
-    for(let i=0; i<9; i++) for(let j=0; j<6; j++) { ctx.fillStyle = (i+j)%2==0 ? c1 : c2; ctx.fillRect(i*100, j*100, 100, 100); }
-    mowers.forEach(m => { ctx.fillStyle = '#c62828'; ctx.fillRect(m.x, m.y+35, 55, 35); });
-    
-    plants.forEach(p => {
-        let skipDraw = false;
-        if (p.type === 'setadesesporada' && p.lifeSpan < 150 && Math.floor(frame / 5) % 2 === 0) skipDraw = true;
-
-        if (!skipDraw) {
-            let isReady = true;
-            if (p.type === 'papapum') isReady = p.ready;
-            if (p.type === 'carnivora') isReady = (p.digestTimer <= 0);
-            
-            drawPlant(ctx, p.type, p.x, p.y, 100, Math.sin(frame*0.05)*0.04, 1, isReady, p.grown, p.sleeping);
-        }
+// Inicializar botones de semillas dinámicamente
+function updateUI() {
+    const container = document.getElementById('seeds');
+    container.innerHTML = '';
+    playerDeck.forEach(k => {
+        const div = document.createElement('div');
+        div.className = 'seed';
+        div.innerHTML = `<span>${plantTypes[k].cost}</span>`;
+        div.onclick = () => { selectedPlant = k; };
+        container.appendChild(div);
     });
-
-    zombies.forEach(z => drawZombie(z));
-    
-    projectiles.forEach(pr => { 
-        if (pr.type === 'pea') {
-            ctx.fillStyle = pr.ice ? '#4fc3f7' : (pr.fire ? '#ff3d00' : '#76ff03'); drawStrokeCircle(ctx, pr.x, pr.y, pr.fire ? 12 : 10); 
-        } else if (pr.type === 'spore') {
-            ctx.fillStyle = '#9c27b0'; drawStrokeCircle(ctx, pr.x, pr.y, 8); 
-        } else if (pr.type === 'fume') {
-            ctx.fillStyle = 'rgba(156, 39, 176, 0.7)';
-            ctx.beginPath(); ctx.ellipse(pr.x, pr.y, 20, 10, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-        }
-    });
-    
-    suns.forEach(s => { ctx.fillStyle = s.amount === 15 ? '#fff59d' : '#fff176'; drawStrokeCircle(ctx, s.x, s.y, s.amount === 15 ? 15 : 20); });
-    explosions.forEach(ex => { ctx.fillStyle = 'rgba(255, 100, 0, 0.7)'; drawStrokeCircle(ctx, ex.x, ex.y, ex.r); });
-
-    if (gameOver || gameWon) {
-        document.getElementById('status-text').innerText = gameOver ? "¡PERDISTE!" : "¡GANASTE!";
-        document.getElementById('overlay').style.display = 'flex';
-    }
-    
-    if (!isPaused && frame % 30 === 0) updateUI();
-    gameLoopId = requestAnimationFrame(loop);
 }
+window.onload = updateUI;
 </script>
 </body>
 </html>
